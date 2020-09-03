@@ -1,0 +1,12 @@
+# Ignore cpp wrappers
+/cpp_wrappers
+
+# Ignore code outputs
+/kernels/dispositions
+/*/__pycache__
+/results
+/test
+
+#Ignore IDE settings
+/.idea
+
