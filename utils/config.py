@@ -87,7 +87,7 @@ class Config:
     ###################
 
     # Number of kernel points
-    num_kernel_points = 15
+    num_kernel_points = 15 #kuramin
 
     # Size of the first subsampling grid in meter
     first_subsampling_dl = 0.02
@@ -168,7 +168,7 @@ class Config:
     repulse_extent = 1.0                    # Distance of repulsion for deformed kernel points
 
     # Number of batch
-    batch_num = 10
+    batch_num = 10 #kuramin
     val_batch_num = 10
 
     # Maximal number of epochs

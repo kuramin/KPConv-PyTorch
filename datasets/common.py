@@ -41,7 +41,7 @@ import cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
 #       \***********************/
 #
 
-def grid_subsampling(points, features=None, labels=None, sampleDl=0.1, verbose=0):
+def grid_subsampling(points, features=None, labels=None, sampleDl=0.1, verbose=1):
     """
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
     :param points: (N, 3) matrix of input points

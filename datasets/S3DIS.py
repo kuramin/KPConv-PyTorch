@@ -85,7 +85,7 @@ class S3DISDataset(PointCloudDataset):
         self.ignored_labels = np.array([])
 
         # Dataset folder
-        self.path = '../../Data/S3DIS'
+        self.path = '../datasets/Stanford3dDataset_v1.2'
 
         # Type of task conducted on this dataset
         self.dataset_task = 'cloud_segmentation'
@@ -110,9 +110,13 @@ class S3DISDataset(PointCloudDataset):
         ply_path = join(self.path, self.train_path)
 
         # Proportion of validation scenes
-        self.cloud_names = ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6']
-        self.all_splits = [0, 1, 2, 3, 4, 5]
-        self.validation_split = 4
+        #self.cloud_names = ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6']
+        #self.all_splits = [0, 1, 2, 3, 4, 5]
+        #self.validation_split = 4     kuramin changed
+
+        self.cloud_names = ['Area_1', 'Area_3']
+        self.all_splits = [0, 1]
+        self.validation_split = 1
 
         # Number of models used per epoch
         if self.set == 'training':
@@ -848,6 +852,8 @@ class S3DISDataset(PointCloudDataset):
                 else:
                     data = read_ply(file_path)
                     points = np.vstack((data['x'], data['y'], data['z'])).T
+                    print(data.shape)
+                    print(data['class'].shape)
                     labels = data['class']
 
                     # Compute projection inds

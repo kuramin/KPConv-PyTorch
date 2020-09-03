@@ -232,6 +232,7 @@ class ModelTrainer:
 
 
                 self.step += 1
+                torch.cuda.empty_cache()
 
             ##############
             # End of epoch

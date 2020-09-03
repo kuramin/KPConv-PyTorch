@@ -242,7 +242,7 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
     >>> write_ply('example2.ply', [points, values], ['x', 'y', 'z', 'values'])
 
     >>> colors = np.random.randint(255, size=(10,3), dtype=np.uint8)
-    >>> field_names = ['x', 'y', 'z', 'red', 'green', 'blue', values']
+    >>> field_names = ['x', 'y', 'z', 'red', 'green', 'blue', 'values']
     >>> write_ply('example3.ply', [points, colors, values], field_names)
 
     """
@@ -307,6 +307,7 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
                 type_list += [(field_names[i], field.dtype.str)]
                 i += 1
         data = np.empty(field_list[0].shape[0], dtype=type_list)
+        #data = np.empty(47315372, dtype=type_list)
         i = 0
         for fields in field_list:
             for field in fields.T:

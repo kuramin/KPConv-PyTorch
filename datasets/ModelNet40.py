@@ -110,7 +110,7 @@ class ModelNet40Dataset(PointCloudDataset):
         self.ignored_labels = np.array([])
 
         # Dataset folder
-        self.path = '../../Data/ModelNet40'
+        self.path = '../datasets/modelnet/'
 
         # Type of task conducted on this dataset
         self.dataset_task = 'classification'
@@ -270,7 +270,8 @@ class ModelNet40Dataset(PointCloudDataset):
 
                 # Read points
                 class_folder = '_'.join(cloud_name.split('_')[:-1])
-                txt_file = join(self.path, class_folder, cloud_name) + '.txt'
+                #txt_file = join(self.path, class_folder, cloud_name) + '.txt'
+                txt_file = '/home/kuramin/Diploma/repos/KPConv-pytorch/datasets/modelnet/ply_data_train_0_id2file.json'
                 data = np.loadtxt(txt_file, delimiter=',', dtype=np.float32)
 
                 # Subsample them
