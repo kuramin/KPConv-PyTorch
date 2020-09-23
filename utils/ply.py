@@ -306,6 +306,7 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
             for field in fields.T:
                 type_list += [(field_names[i], field.dtype.str)]
                 i += 1
+        print('field_list[0].shape[0] is', field_list[0].shape[0])
         data = np.empty(field_list[0].shape[0], dtype=type_list)
         #data = np.empty(47315372, dtype=type_list)
         i = 0

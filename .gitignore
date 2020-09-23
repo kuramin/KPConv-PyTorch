@@ -1,0 +1,7 @@
+/test
+/results
+/cpp_wrappers
+/.idea
+*.pyc
+*.ply
+

@@ -26,7 +26,7 @@ import signal
 import os
 
 # Dataset
-from datasets.S3DIS import *
+from datasets.Vaihingen import *
 from torch.utils.data import DataLoader
 
 from utils.config import Config

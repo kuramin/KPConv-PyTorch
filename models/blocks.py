@@ -451,7 +451,6 @@ class BatchNormBlock(nn.Module):
 
     def forward(self, x):
         if self.use_bn:
-
             x = x.unsqueeze(2)
             x = x.transpose(0, 2)
             x = self.batch_norm(x)

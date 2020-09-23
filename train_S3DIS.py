@@ -97,7 +97,7 @@ class S3DISConfig(Config):
     in_radius = 1.5
 
     # Number of kernel points
-    num_kernel_points = 12 #15 kuramin changed
+    num_kernel_points = 9 #15 kuramin changed
 
     # Size of the first subsampling grid in meter
     first_subsampling_dl = 0.03
