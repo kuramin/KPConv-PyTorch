@@ -138,8 +138,13 @@ class S3DISDataset(PointCloudDataset):
         # Prepare ply files
         ###################
 
-        self.prepare_S3DIS_ply()
-
+        #ply_path = join(self.path, self.train_path)
+        if not exists(ply_path):
+            print("No ply-files were found, let's create them from txt-files")
+            makedirs(ply_path)
+            self.prepare_S3DIS_ply(ply_path)
+        else:
+            print("Ply-files are already created based on txt-files")
         ################
         # Load ply files
         ################
@@ -625,15 +630,13 @@ class S3DISDataset(PointCloudDataset):
 
         return input_list
 
-    def prepare_S3DIS_ply(self):
+    def prepare_S3DIS_ply(self, ply_path):
 
         print('\nPreparing ply files')
         t0 = time.time()
 
         # Folder for the ply files
-        ply_path = join(self.path, self.train_path)
-        if not exists(ply_path):
-            makedirs(ply_path)
+        #ply_path = join(self.path, self.train_path)
 
         for cloud_name in self.cloud_names:
 

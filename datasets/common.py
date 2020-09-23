@@ -44,6 +44,10 @@ import cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
 def grid_subsampling(points, features=None, labels=None, sampleDl=0.1, verbose=1):
     """
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
+    Creates a grid with a specified cellsize, distributes points of cloud to these cells
+    and finds barycenter of points (and features) in each cell.
+    Returns a cloud where each non-empty cell is represented by one point
+
     :param points: (N, 3) matrix of input points
     :param features: optional (N, d) matrix of features (floating number)
     :param labels: optional (N,) matrix of integer labels
@@ -77,8 +81,13 @@ def grid_subsampling(points, features=None, labels=None, sampleDl=0.1, verbose=1
 def batch_grid_subsampling(points, batches_len, features=None, labels=None,
                            sampleDl=0.1, max_p=0, verbose=0, random_grid_orient=True):
     """
-    CPP wrapper for a grid subsampling (method = barycenter for points and features)
+    CPP wrapper for a batch grid subsampling (method = barycenter for points and features)
+    If random_grid_orient=True, then every batch is rotated for a random angle around random axis,
+    grid sampling of every batch is done and then every batch is rotated back.
+    Returns batches which were subsampled by grids in different rotational positions
+
     :param points: (N, 3) matrix of input points
+    :param batches_len (b,) list of lengths of batches which points were divided to
     :param features: optional (N, d) matrix of features (floating number)
     :param labels: optional (N,) matrix of integer labels
     :param sampleDl: parameter defining the size of grid voxels
@@ -88,6 +97,9 @@ def batch_grid_subsampling(points, batches_len, features=None, labels=None,
 
     R = None
     B = len(batches_len)
+
+    # batch_len contains amounts of points
+    # for every member of batches_len define random direction of rotation axis and random rotation angle,
     if random_grid_orient:
 
         ########################################################
@@ -119,7 +131,7 @@ def batch_grid_subsampling(points, batches_len, features=None, labels=None,
             i0 += length
 
     #######################
-    # Sunsample and realign
+    # Subsample and realign
     #######################
 
     if (features is None) and (labels is None):
@@ -185,12 +197,16 @@ def batch_grid_subsampling(points, batches_len, features=None, labels=None,
 def batch_neighbors(queries, supports, q_batches, s_batches, radius):
     """
     Computes neighbors for a batch of queries and supports
-    :param queries: (N1, 3) the query points
-    :param supports: (N2, 3) the support points
+    :param queries: (N1, 3) the query points (which are centers of neighborhoods)
+    :param supports: (N2, 3) the support points (which are initial point cloud)
     :param q_batches: (B) the list of lengths of batch elements in queries
-    :param s_batches: (B)the list of lengths of batch elements in supports
+    :param s_batches: (B) the list of lengths of batch elements in supports
     :param radius: float32
-    :return: neighbors indices
+    :return: neighbors indices - a list which is a flattened matrix of neighbors for each query point
+    indexes are calculated ad (i0 * max_count + j),
+    where i0 is index of some query point
+    and j is index of some neighbor of this query point
+    If some query point does not have max_count neighbors, all redundant indexes are set to -1
     """
 
     return cpp_neighbors.batch_query(queries, supports, q_batches, s_batches, radius=radius)
@@ -237,7 +253,6 @@ class PointCloudDataset(Dataset):
         return 0
 
     def init_labels(self):
-
         # Initialize all label parameters given the label_to_names dict
         self.num_classes = len(self.label_to_names)
         self.label_values = np.sort([k for k, v in self.label_to_names.items()])
@@ -341,119 +356,119 @@ class PointCloudDataset(Dataset):
         else:
             return neighbors
 
-    def classification_inputs(self,
-                              stacked_points,
-                              stacked_features,
-                              labels,
-                              stack_lengths):
-
-        # Starting radius of convolutions
-        r_normal = self.config.first_subsampling_dl * self.config.conv_radius
-
-        # Starting layer
-        layer_blocks = []
-
-        # Lists of inputs
-        input_points = []
-        input_neighbors = []
-        input_pools = []
-        input_stack_lengths = []
-        deform_layers = []
-
-        ######################
-        # Loop over the blocks
-        ######################
-
-        arch = self.config.architecture
-
-        for block_i, block in enumerate(arch):
-
-            # Get all blocks of the layer
-            if not ('pool' in block or 'strided' in block or 'global' in block or 'upsample' in block):
-                layer_blocks += [block]
-                continue
-
-            # Convolution neighbors indices
-            # *****************************
-
-            deform_layer = False
-            if layer_blocks:
-                # Convolutions are done in this layer, compute the neighbors with the good radius
-                if np.any(['deformable' in blck for blck in layer_blocks]):
-                    r = r_normal * self.config.deform_radius / self.config.conv_radius
-                    deform_layer = True
-                else:
-                    r = r_normal
-                conv_i = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
-
-            else:
-                # This layer only perform pooling, no neighbors required
-                conv_i = np.zeros((0, 1), dtype=np.int32)
-
-            # Pooling neighbors indices
-            # *************************
-
-            # If end of layer is a pooling operation
-            if 'pool' in block or 'strided' in block:
-
-                # New subsampling length
-                dl = 2 * r_normal / self.config.conv_radius
-
-                # Subsampled points
-                pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
-
-                # Radius of pooled neighbors
-                if 'deformable' in block:
-                    r = r_normal * self.config.deform_radius / self.config.conv_radius
-                    deform_layer = True
-                else:
-                    r = r_normal
-
-                # Subsample indices
-                pool_i = batch_neighbors(pool_p, stacked_points, pool_b, stack_lengths, r)
-
-            else:
-                # No pooling in the end of this layer, no pooling indices required
-                pool_i = np.zeros((0, 1), dtype=np.int32)
-                pool_p = np.zeros((0, 1), dtype=np.float32)
-                pool_b = np.zeros((0,), dtype=np.int32)
-
-            # Reduce size of neighbors matrices by eliminating furthest point
-            conv_i = self.big_neighborhood_filter(conv_i, len(input_points))
-            pool_i = self.big_neighborhood_filter(pool_i, len(input_points))
-
-            # Updating input lists
-            input_points += [stacked_points]
-            input_neighbors += [conv_i.astype(np.int64)]
-            input_pools += [pool_i.astype(np.int64)]
-            input_stack_lengths += [stack_lengths]
-            deform_layers += [deform_layer]
-
-            # New points for next layer
-            stacked_points = pool_p
-            stack_lengths = pool_b
-
-            # Update radius and reset blocks
-            r_normal *= 2
-            layer_blocks = []
-
-            # Stop when meeting a global pooling or upsampling
-            if 'global' in block or 'upsample' in block:
-                break
-
-        ###############
-        # Return inputs
-        ###############
-
-        # Save deform layers
-
-        # list of network inputs
-        li = input_points + input_neighbors + input_pools + input_stack_lengths
-        li += [stacked_features, labels]
-
-        return li
-
-
+    # def classification_inputs(self,
+    #                           stacked_points,
+    #                           stacked_features,
+    #                           labels,
+    #                           stack_lengths):
+    #
+    #     # Starting radius of convolutions
+    #     r_normal = self.config.first_subsampling_dl * self.config.conv_radius
+    #
+    #     # Starting layer
+    #     layer_blocks = []
+    #
+    #     # Lists of inputs
+    #     input_points = []
+    #     input_neighbors = []
+    #     input_pools = []
+    #     input_stack_lengths = []
+    #     deform_layers = []
+    #
+    #     ######################
+    #     # Loop over the blocks
+    #     ######################
+    #
+    #     arch = self.config.architecture
+    #
+    #     for block_i, block in enumerate(arch):
+    #
+    #         # Get all blocks of the layer
+    #         if not ('pool' in block or 'strided' in block or 'global' in block or 'upsample' in block):
+    #             layer_blocks += [block]
+    #             continue
+    #
+    #         # Convolution neighbors indices
+    #         # *****************************
+    #
+    #         deform_layer = False
+    #         if layer_blocks:
+    #             # Convolutions are done in this layer, compute the neighbors with the good radius
+    #             if np.any(['deformable' in blck for blck in layer_blocks]):
+    #                 r = r_normal * self.config.deform_radius / self.config.conv_radius
+    #                 deform_layer = True
+    #             else:
+    #                 r = r_normal
+    #             conv_i = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
+    #
+    #         else:
+    #             # This layer only perform pooling, no neighbors required
+    #             conv_i = np.zeros((0, 1), dtype=np.int32)
+    #
+    #         # Pooling neighbors indices
+    #         # *************************
+    #
+    #         # If end of layer is a pooling operation
+    #         if 'pool' in block or 'strided' in block:
+    #
+    #             # New subsampling length
+    #             dl = 2 * r_normal / self.config.conv_radius
+    #
+    #             # Subsampled points
+    #             pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
+    #
+    #             # Radius of pooled neighbors
+    #             if 'deformable' in block:
+    #                 r = r_normal * self.config.deform_radius / self.config.conv_radius
+    #                 deform_layer = True
+    #             else:
+    #                 r = r_normal
+    #
+    #             # Subsample indices
+    #             pool_i = batch_neighbors(pool_p, stacked_points, pool_b, stack_lengths, r)
+    #
+    #         else:
+    #             # No pooling in the end of this layer, no pooling indices required
+    #             pool_i = np.zeros((0, 1), dtype=np.int32)
+    #             pool_p = np.zeros((0, 1), dtype=np.float32)
+    #             pool_b = np.zeros((0,), dtype=np.int32)
+    #
+    #         # Reduce size of neighbors matrices by eliminating furthest point
+    #         conv_i = self.big_neighborhood_filter(conv_i, len(input_points))
+    #         pool_i = self.big_neighborhood_filter(pool_i, len(input_points))
+    #
+    #         # Updating input lists
+    #         input_points += [stacked_points]
+    #         input_neighbors += [conv_i.astype(np.int64)]
+    #         input_pools += [pool_i.astype(np.int64)]
+    #         input_stack_lengths += [stack_lengths]
+    #         deform_layers += [deform_layer]
+    #
+    #         # New points for next layer
+    #         stacked_points = pool_p
+    #         stack_lengths = pool_b
+    #
+    #         # Update radius and reset blocks
+    #         r_normal *= 2
+    #         layer_blocks = []
+    #
+    #         # Stop when meeting a global pooling or upsampling
+    #         if 'global' in block or 'upsample' in block:
+    #             break
+    #
+    #     ###############
+    #     # Return inputs
+    #     ###############
+    #
+    #     # Save deform layers
+    #
+    #     # list of network inputs
+    #     li = input_points + input_neighbors + input_pools + input_stack_lengths
+    #     li += [stacked_features, labels]
+    #
+    #     return li
+    #
+    #
     def segmentation_inputs(self,
                             stacked_points,
                             stacked_features,
@@ -514,7 +529,7 @@ class PointCloudDataset(Dataset):
                 dl = 2 * r_normal / self.config.conv_radius
 
                 # Subsampled points
-                pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
+                pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)  # kuramin
 
                 # Radius of pooled neighbors
                 if 'deformable' in block:
