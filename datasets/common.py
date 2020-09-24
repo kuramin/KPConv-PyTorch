@@ -203,7 +203,7 @@ def batch_neighbors(queries, supports, q_batches, s_batches, radius):
     :param s_batches: (B) the list of lengths of batch elements in supports
     :param radius: float32
     :return: neighbors indices - a list which is a flattened matrix of neighbors for each query point
-    indexes are calculated ad (i0 * max_count + j),
+    indexes are calculated as (i0 * max_count + j),
     where i0 is index of some query point
     and j is index of some neighbor of this query point
     If some query point does not have max_count neighbors, all redundant indexes are set to -1
@@ -326,23 +326,23 @@ class PointCloudDataset(Dataset):
         #augmented_points = np.dot(points, R) * scale + noise
         augmented_points = np.sum(np.expand_dims(points, 2) * R, axis=1) * scale + noise
 
-
-        if normals is None:
-            return augmented_points, scale, R
-        else:
-            # Anisotropic scale of the normals thanks to cross product formula
-            normal_scale = scale[[1, 2, 0]] * scale[[2, 0, 1]]
-            augmented_normals = np.dot(normals, R) * normal_scale
-            # Renormalise
-            augmented_normals *= 1 / (np.linalg.norm(augmented_normals, axis=1, keepdims=True) + 1e-6)
-
-            if verbose:
-                test_p = [np.vstack([points, augmented_points])]
-                test_n = [np.vstack([normals, augmented_normals])]
-                test_l = [np.hstack([points[:, 2]*0, augmented_points[:, 2]*0+1])]
-                show_ModelNet_examples(test_p, test_n, test_l)
-
-            return augmented_points, augmented_normals, scale, R
+        return augmented_points, scale, R  # kuramin added instead of following lines which are used only for ModelNet
+        # if normals is None:
+        #     return augmented_points, scale, R
+        # else:
+        #     # Anisotropic scale of the normals thanks to cross product formula
+        #     normal_scale = scale[[1, 2, 0]] * scale[[2, 0, 1]]
+        #     augmented_normals = np.dot(normals, R) * normal_scale
+        #     # Renormalise
+        #     augmented_normals *= 1 / (np.linalg.norm(augmented_normals, axis=1, keepdims=True) + 1e-6)
+        #
+        #     if verbose:
+        #         test_p = [np.vstack([points, augmented_points])]
+        #         test_n = [np.vstack([normals, augmented_normals])]
+        #         test_l = [np.hstack([points[:, 2]*0, augmented_points[:, 2]*0+1])]
+        #         show_ModelNet_examples(test_p, test_n, test_l)
+        #
+        #     return augmented_points, augmented_normals, scale, R
 
     def big_neighborhood_filter(self, neighbors, layer):
         """
@@ -467,8 +467,8 @@ class PointCloudDataset(Dataset):
     #     li += [stacked_features, labels]
     #
     #     return li
-    #
-    #
+
+
     def segmentation_inputs(self,
                             stacked_points,
                             stacked_features,
@@ -494,11 +494,13 @@ class PointCloudDataset(Dataset):
         ######################
 
         arch = self.config.architecture
+        print(arch)
 
         for block_i, block in enumerate(arch):
 
             # Get all blocks of the layer
             if not ('pool' in block or 'strided' in block or 'global' in block or 'upsample' in block):
+                print('block', block)
                 layer_blocks += [block]
                 continue
 
@@ -529,7 +531,7 @@ class PointCloudDataset(Dataset):
                 dl = 2 * r_normal / self.config.conv_radius
 
                 # Subsampled points
-                pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)  # kuramin
+                pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
 
                 # Radius of pooled neighbors
                 if 'deformable' in block:
