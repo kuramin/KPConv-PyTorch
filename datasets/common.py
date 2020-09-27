@@ -371,7 +371,7 @@ class PointCloudDataset(Dataset):
     #     # Lists of inputs
     #     input_points = []
     #     input_neighbors = []
-    #     input_pools = []
+    #     input_pooled_points = []
     #     input_stack_lengths = []
     #     deform_layers = []
     #
@@ -399,11 +399,11 @@ class PointCloudDataset(Dataset):
     #                 deform_layer = True
     #             else:
     #                 r = r_normal
-    #             conv_i = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
+    #             conv_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
     #
     #         else:
     #             # This layer only perform pooling, no neighbors required
-    #             conv_i = np.zeros((0, 1), dtype=np.int32)
+    #             conv_indices = np.zeros((0, 1), dtype=np.int32)
     #
     #         # Pooling neighbors indices
     #         # *************************
@@ -415,7 +415,7 @@ class PointCloudDataset(Dataset):
     #             dl = 2 * r_normal / self.config.conv_radius
     #
     #             # Subsampled points
-    #             pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
+    #             pooled_points, pooled_batches = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
     #
     #             # Radius of pooled neighbors
     #             if 'deformable' in block:
@@ -425,28 +425,28 @@ class PointCloudDataset(Dataset):
     #                 r = r_normal
     #
     #             # Subsample indices
-    #             pool_i = batch_neighbors(pool_p, stacked_points, pool_b, stack_lengths, r)
+    #             pooled_indices = batch_neighbors(pooled_points, stacked_points, pooled_batches, stack_lengths, r)
     #
     #         else:
     #             # No pooling in the end of this layer, no pooling indices required
-    #             pool_i = np.zeros((0, 1), dtype=np.int32)
-    #             pool_p = np.zeros((0, 1), dtype=np.float32)
-    #             pool_b = np.zeros((0,), dtype=np.int32)
+    #             pooled_indices = np.zeros((0, 1), dtype=np.int32)
+    #             pooled_points = np.zeros((0, 1), dtype=np.float32)
+    #             pooled_batches = np.zeros((0,), dtype=np.int32)
     #
     #         # Reduce size of neighbors matrices by eliminating furthest point
-    #         conv_i = self.big_neighborhood_filter(conv_i, len(input_points))
-    #         pool_i = self.big_neighborhood_filter(pool_i, len(input_points))
+    #         conv_indices = self.big_neighborhood_filter(conv_indices, len(input_points))
+    #         pooled_indices = self.big_neighborhood_filter(pooled_indices, len(input_points))
     #
     #         # Updating input lists
     #         input_points += [stacked_points]
-    #         input_neighbors += [conv_i.astype(np.int64)]
-    #         input_pools += [pool_i.astype(np.int64)]
+    #         input_neighbors += [conv_indices.astype(np.int64)]
+    #         input_pooled_points += [pooled_indices.astype(np.int64)]
     #         input_stack_lengths += [stack_lengths]
     #         deform_layers += [deform_layer]
     #
     #         # New points for next layer
-    #         stacked_points = pool_p
-    #         stack_lengths = pool_b
+    #         stacked_points = pooled_points
+    #         stack_lengths = pooled_batches
     #
     #         # Update radius and reset blocks
     #         r_normal *= 2
@@ -463,7 +463,7 @@ class PointCloudDataset(Dataset):
     #     # Save deform layers
     #
     #     # list of network inputs
-    #     li = input_points + input_neighbors + input_pools + input_stack_lengths
+    #     li = input_points + input_neighbors + input_pooled_points + input_stack_lengths
     #     li += [stacked_features, labels]
     #
     #     return li
@@ -484,7 +484,7 @@ class PointCloudDataset(Dataset):
         # Lists of inputs
         input_points = []
         input_neighbors = []
-        input_pools = []
+        input_pooled_points = []
         input_upsamples = []
         input_stack_lengths = []
         deform_layers = []
@@ -499,39 +499,42 @@ class PointCloudDataset(Dataset):
         for block_i, block in enumerate(arch):
 
             # Get all blocks of the layer
-            if not ('pool' in block or 'strided' in block or 'global' in block or 'upsample' in block):
-                print('block', block)
+            if not ('strided' in block or 'upsample' in block):
                 layer_blocks += [block]
                 continue
 
+            # In our case all the following code of for-loop is performed only in case of strided or upsampling blocks
             # Convolution neighbors indices
             # *****************************
 
             deform_layer = False
-            if layer_blocks:
-                # Convolutions are done in this layer, compute the neighbors with the good radius
-                if np.any(['deformable' in blck for blck in layer_blocks]):
-                    r = r_normal * self.config.deform_radius / self.config.conv_radius
-                    deform_layer = True
-                else:
-                    r = r_normal
-                conv_i = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
+            # Convolutions are done in this layer, compute the neighbors with the good radius
 
+            #if layer_blocks: #kuramin commented (indentation begins)
+            if np.any(['deformable' in blck for blck in layer_blocks]):
+                r = r_normal * self.config.deform_radius / self.config.conv_radius
+                deform_layer = True
             else:
-                # This layer only perform pooling, no neighbors required
-                conv_i = np.zeros((0, 1), dtype=np.int32)
+                r = r_normal
+            # now lets build neighborhoods based on radius r.
+            # Conv_indices are indies of neighors for every point in stacked_points (not only barycenters)
+            conv_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
+
+            # else: #kuramin commented (indentation ends)
+            #     # This layer only perform pooling, no neighbors required
+            #     conv_indices = np.zeros((0, 1), dtype=np.int32)
 
             # Pooling neighbors indices
             # *************************
 
-            # If end of layer is a pooling operation
-            if 'pool' in block or 'strided' in block:
+            # If end of current layer is a block of resnetb_strided or resnetb_deformable_strided
+            if 'strided' in block:
 
-                # New subsampling length
+                # Set new subsampling length
                 dl = 2 * r_normal / self.config.conv_radius
 
-                # Subsampled points
-                pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
+                # And perform grid subsampling with this new value of dl
+                pooled_points, pooled_batches = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
 
                 # Radius of pooled neighbors
                 if 'deformable' in block:
@@ -541,38 +544,39 @@ class PointCloudDataset(Dataset):
                     r = r_normal
 
                 # Subsample indices
-                pool_i = batch_neighbors(pool_p, stacked_points, pool_b, stack_lengths, r)
+                pooled_indices = batch_neighbors(pooled_points, stacked_points, pooled_batches, stack_lengths, r)
 
                 # Upsample indices (with the radius of the next layer to keep wanted density)
-                up_i = batch_neighbors(stacked_points, pool_p, stack_lengths, pool_b, 2 * r)
+                upsampled_indices = batch_neighbors(stacked_points, pooled_points, stack_lengths, pooled_batches, 2 * r)
 
             else:
                 # No pooling in the end of this layer, no pooling indices required
-                pool_i = np.zeros((0, 1), dtype=np.int32)
-                pool_p = np.zeros((0, 3), dtype=np.float32)
-                pool_b = np.zeros((0,), dtype=np.int32)
-                up_i = np.zeros((0, 1), dtype=np.int32)
+                pooled_indices = np.zeros((0, 1), dtype=np.int32)
+                pooled_points = np.zeros((0, 3), dtype=np.float32)
+                pooled_batches = np.zeros((0,), dtype=np.int32)
+                upsampled_indices = np.zeros((0, 1), dtype=np.int32)
 
             # Reduce size of neighbors matrices by eliminating furthest point
-            conv_i = self.big_neighborhood_filter(conv_i, len(input_points))
-            pool_i = self.big_neighborhood_filter(pool_i, len(input_points))
-            if up_i.shape[0] > 0:
-                up_i = self.big_neighborhood_filter(up_i, len(input_points)+1)
+            conv_indices = self.big_neighborhood_filter(conv_indices, len(input_points))
+            pooled_indices = self.big_neighborhood_filter(pooled_indices, len(input_points))
+            if upsampled_indices.shape[0] > 0:
+                upsampled_indices = self.big_neighborhood_filter(upsampled_indices, len(input_points)+1)
 
             # Updating input lists
             input_points += [stacked_points]
-            input_neighbors += [conv_i.astype(np.int64)]
-            input_pools += [pool_i.astype(np.int64)]
-            input_upsamples += [up_i.astype(np.int64)]
+            input_neighbors += [conv_indices.astype(np.int64)]
+            input_pooled_points += [pooled_indices.astype(np.int64)]
+            input_upsamples += [upsampled_indices.astype(np.int64)]
             input_stack_lengths += [stack_lengths]
             deform_layers += [deform_layer]
 
             # New points for next layer
-            stacked_points = pool_p
-            stack_lengths = pool_b
+            stacked_points = pooled_points
+            stack_lengths = pooled_batches
 
             # Update radius and reset blocks
             r_normal *= 2
+            #print('block_i', block_i, 'block', block, 'layer_blocks', layer_blocks)
             layer_blocks = []
 
             # Stop when meeting a global pooling or upsampling
@@ -584,7 +588,7 @@ class PointCloudDataset(Dataset):
         ###############
 
         # list of network inputs
-        li = input_points + input_neighbors + input_pools + input_upsamples + input_stack_lengths
+        li = input_points + input_neighbors + input_pooled_points + input_upsamples + input_stack_lengths
         li += [stacked_features, labels]
 
         return li

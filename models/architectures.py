@@ -252,6 +252,7 @@ class KPFCNN(nn.Module):
                 r *= 2
                 out_dim *= 2
 
+        print('encoder is', self.encoder_blocks)
         #####################
         # List Decoder blocks
         #####################
@@ -293,6 +294,7 @@ class KPFCNN(nn.Module):
                 r *= 0.5
                 out_dim = out_dim // 2
 
+        print('decoder is', self.decoder_blocks)
         self.head_mlp = UnaryBlock(out_dim, config.first_features_dim, False, 0)
         self.head_softmax = UnaryBlock(config.first_features_dim, self.C, False, 0)
 
