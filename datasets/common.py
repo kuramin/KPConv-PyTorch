@@ -374,7 +374,7 @@ class PointCloudDataset(Dataset):
     #     # Lists of inputs
     #     input_points = []
     #     input_neighbors_indices = []
-    #     input_pooled_points = []
+    #     input_pooled_indices = []
     #     input_stack_lengths = []
     #     deform_layers = []
     #
@@ -443,7 +443,7 @@ class PointCloudDataset(Dataset):
     #         # Updating input lists
     #         input_points += [stacked_points]
     #         input_neighbors_indices += [neigh_indices.astype(np.int64)]
-    #         input_pooled_points += [pooled_indices.astype(np.int64)]
+    #         input_pooled_indices += [pooled_indices.astype(np.int64)]
     #         input_stack_lengths += [stack_lengths]
     #         deform_layers += [deform_layer]
     #
@@ -466,7 +466,7 @@ class PointCloudDataset(Dataset):
     #     # Save deform layers
     #
     #     # list of network inputs
-    #     li = input_points + input_neighbors_indices + input_pooled_points + input_stack_lengths
+    #     li = input_points + input_neighbors_indices + input_pooled_indices + input_stack_lengths
     #     li += [stacked_features, labels]
     #
     #     return li
@@ -477,6 +477,7 @@ class PointCloudDataset(Dataset):
                             stacked_features,
                             labels,
                             stack_lengths):
+        print('lets calc segm inp')
 
         # Starting radius of convolutions
         r_normal = self.config.first_subsampling_dl * self.config.conv_radius
@@ -487,7 +488,7 @@ class PointCloudDataset(Dataset):
         # Lists of inputs
         input_points = []
         input_neighbors_indices = []
-        input_pooled_points = []
+        input_indices_of_neighs_of_pooled = []
         input_upsamples = []
         input_stack_lengths = []
         deform_layers = []
@@ -547,29 +548,31 @@ class PointCloudDataset(Dataset):
                     r = r_normal
 
                 # Subsample indices
-                pooled_indices = batch_neighbors(pooled_points, stacked_points, pooled_batches, stack_lengths, r)
+                indices_of_neighs_of_pooled = batch_neighbors(pooled_points, stacked_points, pooled_batches, stack_lengths, r)
 
                 # Upsample indices (with the radius of the next layer to keep wanted density)
                 upsampled_indices = batch_neighbors(stacked_points, pooled_points, stack_lengths, pooled_batches, 2 * r)
 
             else:
-                # No pooling in the end of this layer, no pooling indices required
-                pooled_indices = np.zeros((0, 1), dtype=np.int32)
+                # Upsampling layer is met, which means that last layer did not have strided (pooling) block
+                # This layer will have input, but no points will be pooled. Thus, no pooling indices required
+                indices_of_neighs_of_pooled = np.zeros((0, 1), dtype=np.int32)
                 pooled_points = np.zeros((0, 3), dtype=np.float32)
                 pooled_batches = np.zeros((0,), dtype=np.int32)
                 upsampled_indices = np.zeros((0, 1), dtype=np.int32)
 
             # Reduce size of neighbors matrices by eliminating furthest point
-            print(len(input_points))
+            # Length of input_points provides number of layer. Based on number of layer and list "neighb_lim_dict"
+            # which we read from a pickle-file, we can leave only specified amount of closest neighbors and cut rest
             neigh_indices = self.big_neighborhood_filter(neigh_indices, len(input_points))
-            pooled_indices = self.big_neighborhood_filter(pooled_indices, len(input_points))
+            indices_of_neighs_of_pooled = self.big_neighborhood_filter(indices_of_neighs_of_pooled, len(input_points))
             if upsampled_indices.shape[0] > 0:
                 upsampled_indices = self.big_neighborhood_filter(upsampled_indices, len(input_points)+1)
 
             # Updating input lists
             input_points += [stacked_points]
             input_neighbors_indices += [neigh_indices.astype(np.int64)]
-            input_pooled_points += [pooled_indices.astype(np.int64)]
+            input_indices_of_neighs_of_pooled += [indices_of_neighs_of_pooled.astype(np.int64)]
             input_upsamples += [upsampled_indices.astype(np.int64)]
             input_stack_lengths += [stack_lengths]
             deform_layers += [deform_layer]
@@ -580,19 +583,20 @@ class PointCloudDataset(Dataset):
 
             # Update radius and reset blocks
             r_normal *= 2
-            #print('block_i', block_i, 'block', block, 'layer_blocks', layer_blocks)
+            print('block_i', block_i, 'block', block, 'layer_blocks', layer_blocks)
             layer_blocks = []
 
             # Stop when meeting a global pooling or upsampling
             if 'global' in block or 'upsample' in block:
+                print('break!')
                 break
 
         ###############
         # Return inputs
         ###############
 
-        # list of network inputs
-        li = input_points + input_neighbors_indices + input_pooled_points + input_upsamples + input_stack_lengths
+        # list of network inputs (concated in this way because of different dimensionality of components)
+        li = input_points + input_neighbors_indices + input_indices_of_neighs_of_pooled + input_upsamples + input_stack_lengths
         li += [stacked_features, labels]
 
         return li
