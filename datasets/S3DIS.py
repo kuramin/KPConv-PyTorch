@@ -749,7 +749,9 @@ class S3DISDataset(PointCloudDataset):
                 points = np.vstack((data['x'], data['y'], data['z'])).T
                 #colors = np.vstack((data['scalar_NumberOfReturns'], data['scalar_ReturnNumber'], data['scalar_Intensity'])).T  # kuramin changed
                 colors = np.vstack((data['red'], data['green'], data['blue'])).T
-                labels_float = data['scalar_Classification']
+                #labels_float = data['scalar_Classification']  # kuramin class
+                labels_float = data['class']
+                labels = []
                 labels = []
                 for label_float in labels_float:
                     label = int(label_float)
@@ -869,8 +871,10 @@ class S3DISDataset(PointCloudDataset):
                     #labels = data['class']
 
                     print(data.shape)
-                    print(data['scalar_Classification'].shape)
-                    labels_float = data['scalar_Classification']
+                    #print(data['scalar_Classification'].shape)
+                    #labels_float = data['scalar_Classification']
+                    print(data['class'].shape)  # kuramin class
+                    labels_float = data['class']  # kuramin class
                     labels = []
                     for label_float in labels_float:
                         label = int(label_float)

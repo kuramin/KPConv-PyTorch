@@ -202,11 +202,14 @@ def batch_neighbors(queries, supports, q_batches, s_batches, radius):
     :param q_batches: (B) the list of lengths of batch elements in queries
     :param s_batches: (B) the list of lengths of batch elements in supports
     :param radius: float32
-    :return: neighbors indices - a list which is a flattened matrix of neighbors for each query point
+    :return: neighbors indices - a 2D matrix: a list of neighbors for every point of cloud QUERIES found among points of cloud SUPPORT.
+
+    Cpp-function returns just a 1-D list which is a flattened matrix of neighbors for each query point
     indexes are calculated as (i0 * max_count + j),
     where i0 is index of some query point
     and j is index of some neighbor of this query point
     If some query point does not have max_count neighbors, all redundant indexes are set to -1
+    Later in the file wrapper.cppp it is specified how does 1D list become a 2D matrix
     """
 
     return cpp_neighbors.batch_query(queries, supports, q_batches, s_batches, radius=radius)
@@ -370,7 +373,7 @@ class PointCloudDataset(Dataset):
     #
     #     # Lists of inputs
     #     input_points = []
-    #     input_neighbors = []
+    #     input_neighbors_indices = []
     #     input_pooled_points = []
     #     input_stack_lengths = []
     #     deform_layers = []
@@ -399,11 +402,11 @@ class PointCloudDataset(Dataset):
     #                 deform_layer = True
     #             else:
     #                 r = r_normal
-    #             conv_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
+    #             neigh_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
     #
     #         else:
     #             # This layer only perform pooling, no neighbors required
-    #             conv_indices = np.zeros((0, 1), dtype=np.int32)
+    #             neigh_indices = np.zeros((0, 1), dtype=np.int32)
     #
     #         # Pooling neighbors indices
     #         # *************************
@@ -434,12 +437,12 @@ class PointCloudDataset(Dataset):
     #             pooled_batches = np.zeros((0,), dtype=np.int32)
     #
     #         # Reduce size of neighbors matrices by eliminating furthest point
-    #         conv_indices = self.big_neighborhood_filter(conv_indices, len(input_points))
+    #         neigh_indices = self.big_neighborhood_filter(neigh_indices, len(input_points))
     #         pooled_indices = self.big_neighborhood_filter(pooled_indices, len(input_points))
     #
     #         # Updating input lists
     #         input_points += [stacked_points]
-    #         input_neighbors += [conv_indices.astype(np.int64)]
+    #         input_neighbors_indices += [neigh_indices.astype(np.int64)]
     #         input_pooled_points += [pooled_indices.astype(np.int64)]
     #         input_stack_lengths += [stack_lengths]
     #         deform_layers += [deform_layer]
@@ -463,7 +466,7 @@ class PointCloudDataset(Dataset):
     #     # Save deform layers
     #
     #     # list of network inputs
-    #     li = input_points + input_neighbors + input_pooled_points + input_stack_lengths
+    #     li = input_points + input_neighbors_indices + input_pooled_points + input_stack_lengths
     #     li += [stacked_features, labels]
     #
     #     return li
@@ -483,7 +486,7 @@ class PointCloudDataset(Dataset):
 
         # Lists of inputs
         input_points = []
-        input_neighbors = []
+        input_neighbors_indices = []
         input_pooled_points = []
         input_upsamples = []
         input_stack_lengths = []
@@ -517,12 +520,12 @@ class PointCloudDataset(Dataset):
             else:
                 r = r_normal
             # now lets build neighborhoods based on radius r.
-            # Conv_indices are indies of neighors for every point in stacked_points (not only barycenters)
-            conv_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
+            # neigh_indices are indices of neighors for every point in stacked_points (not only barycenters)
+            neigh_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
 
             # else: #kuramin commented (indentation ends)
             #     # This layer only perform pooling, no neighbors required
-            #     conv_indices = np.zeros((0, 1), dtype=np.int32)
+            #     neigh_indices = np.zeros((0, 1), dtype=np.int32)
 
             # Pooling neighbors indices
             # *************************
@@ -557,14 +560,15 @@ class PointCloudDataset(Dataset):
                 upsampled_indices = np.zeros((0, 1), dtype=np.int32)
 
             # Reduce size of neighbors matrices by eliminating furthest point
-            conv_indices = self.big_neighborhood_filter(conv_indices, len(input_points))
+            print(len(input_points))
+            neigh_indices = self.big_neighborhood_filter(neigh_indices, len(input_points))
             pooled_indices = self.big_neighborhood_filter(pooled_indices, len(input_points))
             if upsampled_indices.shape[0] > 0:
                 upsampled_indices = self.big_neighborhood_filter(upsampled_indices, len(input_points)+1)
 
             # Updating input lists
             input_points += [stacked_points]
-            input_neighbors += [conv_indices.astype(np.int64)]
+            input_neighbors_indices += [neigh_indices.astype(np.int64)]
             input_pooled_points += [pooled_indices.astype(np.int64)]
             input_upsamples += [upsampled_indices.astype(np.int64)]
             input_stack_lengths += [stack_lengths]
@@ -588,7 +592,7 @@ class PointCloudDataset(Dataset):
         ###############
 
         # list of network inputs
-        li = input_points + input_neighbors + input_pooled_points + input_upsamples + input_stack_lengths
+        li = input_points + input_neighbors_indices + input_pooled_points + input_upsamples + input_stack_lengths
         li += [stacked_features, labels]
 
         return li
