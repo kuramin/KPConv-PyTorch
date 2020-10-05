@@ -28,8 +28,8 @@ import numpy as np
 import pickle
 import torch
 import math
-from multiprocessing import Lock
-
+#from multiprocessing import Lock
+import multiprocessing
 
 # OS functions
 from os import listdir
@@ -118,9 +118,9 @@ class S3DISDataset(PointCloudDataset):
         #self.cloud_names = ['Vaihingen3D_Training_rgb', 'Vaihingen3D_Evaluation_rgb']
         #self.cloud_names = ['cloud7 - Cloud2', 'cloud7 - Cloud2']
         #self.cloud_names = ['Area_1', 'Area_2']
-        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
-        self.all_splits = [0, 1]
-        self.validation_split = 1
+        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2', 'Area_3']
+        self.all_splits = [0, 1, 2]
+        self.validation_split = 2
 
         # Number of models used per epoch
         if self.set == 'training':
@@ -130,7 +130,7 @@ class S3DISDataset(PointCloudDataset):
         else:
             raise ValueError('Unknown set for S3DIS data: ', self.set)
 
-        # Stop data is not needed
+        # Stop, data is not needed
         if not load_data:
             return
 
@@ -145,22 +145,26 @@ class S3DISDataset(PointCloudDataset):
             self.prepare_S3DIS_ply(ply_path)
         else:
             print("Ply-files are already created based on txt-files")
+
         ################
         # Load ply files
         ################
 
-        # List of training files
+        # Fill in the list of training (or validation) files
         self.files = []
         for i, f in enumerate(self.cloud_names):
             if self.set == 'training':
+                # if training, self.files collects all full paths based on cloud_names which are for training
                 if self.all_splits[i] != self.validation_split:
                     self.files += [join(ply_path, f + '.ply')]
             elif self.set in ['validation', 'test', 'ERF']:
+                # if validation or test, self.files collects all full paths based on cloud_names which are for validation (or test)
                 if self.all_splits[i] == self.validation_split:
                     self.files += [join(ply_path, f + '.ply')]
             else:
                 raise ValueError('Unknown set for S3DIS data: ', self.set)
 
+        # leave only those cloud_names which are relevant for current procedure
         if self.set == 'training':
             self.cloud_names = [f for i, f in enumerate(self.cloud_names)
                                 if self.all_splits[i] != self.validation_split]
@@ -180,7 +184,7 @@ class S3DISDataset(PointCloudDataset):
         self.test_proj = []
         self.validation_labels = []
 
-        # Start loading
+        # Load data from self.files to self.pot_trees
         self.load_subsampled_clouds()
 
         ############################
@@ -196,6 +200,10 @@ class S3DISDataset(PointCloudDataset):
             self.potentials = []
             self.min_potentials = []
             self.argmin_potentials = []
+
+            # for every training/validation point cloud create a list of potentials - list of random values
+            # in range (0, 1e-3) of the same size as cloud
+            # create lists of minimal values of potentials and their indexes
             for i, tree in enumerate(self.pot_trees):
                 self.potentials += [torch.from_numpy(np.random.rand(tree.data.shape[0]) * 1e-3)]
                 min_ind = int(torch.argmin(self.potentials[-1]))
@@ -219,13 +227,12 @@ class S3DISDataset(PointCloudDataset):
             self.potentials = None
             self.min_potentials = None
             self.argmin_potentials = None
-            N = config.epoch_steps * config.batch_num
-            self.epoch_inds = torch.from_numpy(np.zeros((2, N), dtype=np.int64))
+            self.epoch_inds = torch.from_numpy(np.zeros((2, config.epoch_steps * config.batch_num), dtype=np.int64))
             self.epoch_i = torch.from_numpy(np.zeros((1,), dtype=np.int64))
             self.epoch_i.share_memory_()
             self.epoch_inds.share_memory_()
 
-        self.worker_lock = Lock()
+        self.worker_lock = multiprocessing.Lock()  # Create a lock which will be used later inside
 
         # For ERF visualization, we want only one cloud per batch and no randomness
         if self.set == 'ERF':
@@ -248,6 +255,7 @@ class S3DISDataset(PointCloudDataset):
         """
 
         if self.use_potentials:
+            #return self.random_item(batch_i)  #kuramin added
             return self.potential_item(batch_i)
         else:
             return self.random_item(batch_i)
@@ -256,7 +264,7 @@ class S3DISDataset(PointCloudDataset):
 
         t = [time.time()]
 
-        # Initiate concatanation lists
+        # Initiate concatеnation lists
         p_list = []
         f_list = []
         l_list = []
@@ -277,37 +285,37 @@ class S3DISDataset(PointCloudDataset):
 
             t += [time.time()]
 
-            if debug_workers:
-                message = ''
-                for wi in range(info.num_workers):
-                    if wi == wid:
-                        message += ' {:}X{:} '.format(bcolors.FAIL, bcolors.ENDC)
-                    elif self.worker_waiting[wi] == 0:
-                        message += '   '
-                    elif self.worker_waiting[wi] == 1:
-                        message += ' | '
-                    elif self.worker_waiting[wi] == 2:
-                        message += ' o '
-                print(message)
-                self.worker_waiting[wid] = 0
+            # if debug_workers:
+            #     message = ''
+            #     for wi in range(info.num_workers):
+            #         if wi == wid:
+            #             message += ' {:}X{:} '.format(bcolors.FAIL, bcolors.ENDC)
+            #         elif self.worker_waiting[wi] == 0:
+            #             message += '   '
+            #         elif self.worker_waiting[wi] == 1:
+            #             message += ' | '
+            #         elif self.worker_waiting[wi] == 2:
+            #             message += ' o '
+            #     print(message)
+            #     self.worker_waiting[wid] = 0  #kuramin commented
 
             with self.worker_lock:
 
-                if debug_workers:
-                    message = ''
-                    for wi in range(info.num_workers):
-                        if wi == wid:
-                            message += ' {:}v{:} '.format(bcolors.OKGREEN, bcolors.ENDC)
-                        elif self.worker_waiting[wi] == 0:
-                            message += '   '
-                        elif self.worker_waiting[wi] == 1:
-                            message += ' | '
-                        elif self.worker_waiting[wi] == 2:
-                            message += ' o '
-                    print(message)
-                    self.worker_waiting[wid] = 1
+                # if debug_workers:
+                #     message = ''
+                #     for wi in range(info.num_workers):
+                #         if wi == wid:
+                #             message += ' {:}v{:} '.format(bcolors.OKGREEN, bcolors.ENDC)
+                #         elif self.worker_waiting[wi] == 0:
+                #             message += '   '
+                #         elif self.worker_waiting[wi] == 1:
+                #             message += ' | '
+                #         elif self.worker_waiting[wi] == 2:
+                #             message += ' o '
+                #     print(message)
+                #     self.worker_waiting[wid] = 1
 
-                # Get potential minimum
+                # Get potential minimum  #kuramin commented
                 cloud_ind = int(torch.argmin(self.min_potentials))
                 point_ind = int(self.argmin_potentials[cloud_ind])
 
@@ -443,192 +451,200 @@ class S3DISDataset(PointCloudDataset):
         # Add scale and rotation for testing
         input_list += [scales, rots, cloud_inds, point_inds, input_inds]
 
-        if debug_workers:
-            message = ''
-            for wi in range(info.num_workers):
-                if wi == wid:
-                    message += ' {:}0{:} '.format(bcolors.OKBLUE, bcolors.ENDC)
-                elif self.worker_waiting[wi] == 0:
-                    message += '   '
-                elif self.worker_waiting[wi] == 1:
-                    message += ' | '
-                elif self.worker_waiting[wi] == 2:
-                    message += ' o '
-            print(message)
-            self.worker_waiting[wid] = 2
+        # if debug_workers:
+        #     message = ''
+        #     for wi in range(info.num_workers):
+        #         if wi == wid:
+        #             message += ' {:}0{:} '.format(bcolors.OKBLUE, bcolors.ENDC)
+        #         elif self.worker_waiting[wi] == 0:
+        #             message += '   '
+        #         elif self.worker_waiting[wi] == 1:
+        #             message += ' | '
+        #         elif self.worker_waiting[wi] == 2:
+        #             message += ' o '
+        #     print(message)
+        #     self.worker_waiting[wid] = 2  #kuramin commented
 
         t += [time.time()]
 
         # Display timings
-        debugT = False
-        if debugT:
-            print('\n************************\n')
-            print('Timings:')
-            ti = 0
-            N = 5
-            mess = 'Init ...... {:5.1f}ms /'
-            loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-            for dt in loop_times:
-                mess += ' {:5.1f}'.format(dt)
-            print(mess.format(np.sum(loop_times)))
-            ti += 1
-            mess = 'Pots ...... {:5.1f}ms /'
-            loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-            for dt in loop_times:
-                mess += ' {:5.1f}'.format(dt)
-            print(mess.format(np.sum(loop_times)))
-            ti += 1
-            mess = 'Sphere .... {:5.1f}ms /'
-            loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-            for dt in loop_times:
-                mess += ' {:5.1f}'.format(dt)
-            print(mess.format(np.sum(loop_times)))
-            ti += 1
-            mess = 'Collect ... {:5.1f}ms /'
-            loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-            for dt in loop_times:
-                mess += ' {:5.1f}'.format(dt)
-            print(mess.format(np.sum(loop_times)))
-            ti += 1
-            mess = 'Augment ... {:5.1f}ms /'
-            loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-            for dt in loop_times:
-                mess += ' {:5.1f}'.format(dt)
-            print(mess.format(np.sum(loop_times)))
-            ti += N * (len(stack_lengths) - 1) + 1
-            print('concat .... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
-            ti += 1
-            print('input ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
-            ti += 1
-            print('stack ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
-            ti += 1
-            print('\n************************\n')
+        #debugT = False  #kuramin commented
+        # if debugT:
+        #     print('\n************************\n')
+        #     print('Timings:')
+        #     ti = 0
+        #     N = 5
+        #     mess = 'Init ...... {:5.1f}ms /'
+        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
+        #     for dt in loop_times:
+        #         mess += ' {:5.1f}'.format(dt)
+        #     print(mess.format(np.sum(loop_times)))
+        #     ti += 1
+        #     mess = 'Pots ...... {:5.1f}ms /'
+        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
+        #     for dt in loop_times:
+        #         mess += ' {:5.1f}'.format(dt)
+        #     print(mess.format(np.sum(loop_times)))
+        #     ti += 1
+        #     mess = 'Sphere .... {:5.1f}ms /'
+        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
+        #     for dt in loop_times:
+        #         mess += ' {:5.1f}'.format(dt)
+        #     print(mess.format(np.sum(loop_times)))
+        #     ti += 1
+        #     mess = 'Collect ... {:5.1f}ms /'
+        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
+        #     for dt in loop_times:
+        #         mess += ' {:5.1f}'.format(dt)
+        #     print(mess.format(np.sum(loop_times)))
+        #     ti += 1
+        #     mess = 'Augment ... {:5.1f}ms /'
+        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
+        #     for dt in loop_times:
+        #         mess += ' {:5.1f}'.format(dt)
+        #     print(mess.format(np.sum(loop_times)))
+        #     ti += N * (len(stack_lengths) - 1) + 1
+        #     print('concat .... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
+        #     ti += 1
+        #     print('input ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
+        #     ti += 1
+        #     print('stack ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
+        #     ti += 1
+        #     print('\n************************\n')
         return input_list
 
-    def random_item(self, batch_i):
-
-        # Initiate concatanation lists
-        p_list = []
-        f_list = []
-        l_list = []
-        i_list = []
-        pi_list = []
-        ci_list = []
-        s_list = []
-        R_list = []
-        batch_n = 0
-
-        while True:
-
-            with self.worker_lock:
-
-                # Get potential minimum
-                cloud_ind = int(self.epoch_inds[0, self.epoch_i])
-                point_ind = int(self.epoch_inds[1, self.epoch_i])
-
-                # Update epoch indice
-                self.epoch_i += 1
-
-            # Get points from tree structure
-            points = np.array(self.input_trees[cloud_ind].data, copy=False)
-
-            # Center point of input region
-            center_point = points[point_ind, :].reshape(1, -1)
-
-            # Add a small noise to center point
-            if self.set != 'ERF':
-                center_point += np.random.normal(scale=self.config.in_radius / 10, size=center_point.shape)
-
-            # Indices of points in input region
-            input_inds = self.input_trees[cloud_ind].query_radius(center_point,
-                                                                  r=self.config.in_radius)[0]
-
-            # Number collected
-            n = input_inds.shape[0]
-
-            # Collect labels and colors
-            input_points = (points[input_inds] - center_point).astype(np.float32)
-            input_colors = self.input_colors[cloud_ind][input_inds]
-            if self.set in ['test', 'ERF']:
-                input_labels = np.zeros(input_points.shape[0])
-            else:
-                input_labels = self.input_labels[cloud_ind][input_inds]
-                input_labels = np.array([self.label_to_idx[l] for l in input_labels])
-
-            # Data augmentation
-            input_points, scale, R = self.augmentation_transform(input_points)
-
-            # Color augmentation
-            if np.random.rand() > self.config.augment_color:
-                input_colors *= 0
-
-            # Get original height as additional feature
-            input_features = np.hstack((input_colors, input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
-
-            # Stack batch
-            p_list += [input_points]
-            f_list += [input_features]
-            l_list += [input_labels]
-            pi_list += [input_inds]
-            i_list += [point_ind]
-            ci_list += [cloud_ind]
-            s_list += [scale]
-            R_list += [R]
-
-            # Update batch size
-            batch_n += n
-
-            # In case batch is full, stop
-            if batch_n > int(self.batch_limit):
-                break
-
-            # Randomly drop some points (act as an augmentation process and a safety for GPU memory consumption)
-            # if n > int(self.batch_limit):
-            #    input_inds = np.random.choice(input_inds, size=int(self.batch_limit) - 1, replace=False)
-            #    n = input_inds.shape[0]
-
-        ###################
-        # Concatenate batch
-        ###################
-
-        stacked_points = np.concatenate(p_list, axis=0)
-        features = np.concatenate(f_list, axis=0)
-        labels = np.concatenate(l_list, axis=0)
-        point_inds = np.array(i_list, dtype=np.int32)
-        cloud_inds = np.array(ci_list, dtype=np.int32)
-        input_inds = np.concatenate(pi_list, axis=0)
-        stack_lengths = np.array([pp.shape[0] for pp in p_list], dtype=np.int32)
-        scales = np.array(s_list, dtype=np.float32)
-        rots = np.stack(R_list, axis=0)
-
-        # Input features
-        stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
-        if self.config.in_features_dim == 1:
-            pass
-        elif self.config.in_features_dim == 4:
-            stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
-            stacked_features = np.hstack((stacked_features, features))
-        else:
-            raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)')
-
-        #######################
-        # Create network inputs
-        #######################
-        #
-        #   Points, neighbors, pooling indices for each layers
-        #
-
-        # Get the whole input list
-        input_list = self.segmentation_inputs(stacked_points,
-                                              stacked_features,
-                                              labels,
-                                              stack_lengths)
-
-        # Add scale and rotation for testing
-        input_list += [scales, rots, cloud_inds, point_inds, input_inds]
-
-        return input_list
+#    def random_item(self, batch_i):
+#
+#         # Initiate concatenation lists
+#         p_list = []
+#         f_list = []
+#         l_list = []
+#         i_list = []
+#         pi_list = []
+#         ci_list = []
+#         s_list = []
+#         R_list = []
+#         batch_n = 0
+#
+#         while True:
+#
+#             with self.worker_lock:  # with the lock acquired
+#
+#                 print('self.epoch_i', self.epoch_i)
+#                 print('self.epoch_inds', self.epoch_inds)
+#                 # Get potential minimum
+#                 cloud_ind = int(self.epoch_inds[0, self.epoch_i])
+#                 point_ind = int(self.epoch_inds[1, self.epoch_i])
+#
+#                 # Update epoch indice
+#                 self.epoch_i += 1
+#
+#             # Get points from tree structure
+#             points = np.array(self.input_trees[cloud_ind].data, copy=False)
+#
+#             # Center point of input region
+#             center_point = points[point_ind, :].reshape(1, -1)
+#
+#             # Add a small noise to center point
+#             if self.set != 'ERF':
+#                 center_point += np.random.normal(scale=self.config.in_radius / 10, size=center_point.shape)
+#
+#             #################################
+#             #  Fill in input_points, input_features, input_labels, input_inds,
+#             #  point_ind, cloud_ind, scale, R
+#             #################################
+#
+#             # Indices of points in input region
+#             input_inds = self.input_trees[cloud_ind].query_radius(center_point,
+#                                                                   r=self.config.in_radius)[0]
+#
+#             # Number collected
+#             n = input_inds.shape[0]
+#
+#             # Collect labels and colors
+#             input_points = (points[input_inds] - center_point).astype(np.float32)
+#             input_colors = self.input_colors[cloud_ind][input_inds]
+#             if self.set in ['test', 'ERF']:
+#                 input_labels = np.zeros(input_points.shape[0])
+#             else:
+#                 input_labels = self.input_labels[cloud_ind][input_inds]
+#                 input_labels = np.array([self.label_to_idx[l] for l in input_labels])
+#
+#             # Data augmentation
+#             input_points, scale, R = self.augmentation_transform(input_points)
+#
+#             # Color augmentation
+#             if np.random.rand() > self.config.augment_color:
+#                 input_colors *= 0
+#
+#             # Get original height as additional feature
+#             input_features = np.hstack((input_colors, input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
+#
+#             # Put those collected inputs into lists
+#             # Stack batch
+#             p_list += [input_points]
+#             f_list += [input_features]
+#             l_list += [input_labels]
+#             pi_list += [input_inds]
+#             i_list += [point_ind]
+#             ci_list += [cloud_ind]
+#             s_list += [scale]
+#             R_list += [R]
+#
+#             # Update batch size
+#             batch_n += n
+#
+#             # In case batch is full, stop
+#             if batch_n > int(self.batch_limit):
+#                 break
+#
+#             # Randomly drop some points (act as an augmentation process and a safety for GPU memory consumption)
+#             # if n > int(self.batch_limit):
+#             #    input_inds = np.random.choice(input_inds, size=int(self.batch_limit) - 1, replace=False)
+#             #    n = input_inds.shape[0]
+#
+#         ###################
+#         # Concatenate batch
+#         ###################
+#
+#         stacked_points = np.concatenate(p_list, axis=0)
+#         features = np.concatenate(f_list, axis=0)
+#         labels = np.concatenate(l_list, axis=0)
+#         point_inds = np.array(i_list, dtype=np.int32)
+#         cloud_inds = np.array(ci_list, dtype=np.int32)
+#         input_inds = np.concatenate(pi_list, axis=0)
+#         stack_lengths = np.array([pp.shape[0] for pp in p_list], dtype=np.int32)
+#         scales = np.array(s_list, dtype=np.float32)
+#         rots = np.stack(R_list, axis=0)
+#
+#         # Input features
+#         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
+#         if self.config.in_features_dim == 1:
+#             pass
+#         elif self.config.in_features_dim == 4:
+#             stacked_features = np.hstack((stacked_features, features[:, :3]))
+#         elif self.config.in_features_dim == 5:
+#             stacked_features = np.hstack((stacked_features, features))
+#         else:
+#             raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)')
+#
+#         #######################
+#         # Create network inputs
+#         #######################
+#         #
+#         #   Points, neighbors, pooling indices for each layers
+#         #
+#
+#         # Get the whole input list
+#         input_list = self.segmentation_inputs(stacked_points,
+#                                               stacked_features,
+#                                               labels,
+#                                               stack_lengths)
+#
+#         # Add scale and rotation for testing
+#         input_list += [scales, rots, cloud_inds, point_inds, input_inds]
+#
+#         return input_list
 
     def prepare_S3DIS_ply(self, ply_path):
 
@@ -751,11 +767,10 @@ class S3DISDataset(PointCloudDataset):
                 colors = np.vstack((data['red'], data['green'], data['blue'])).T
                 #labels_float = data['scalar_Classification']  # kuramin class
                 labels_float = data['class']
-                labels = []
+                #labels = []
                 labels = []
                 for label_float in labels_float:
-                    label = int(label_float)
-                    labels.append(label)
+                    labels.append(int(label_float))
 
                 # Subsample cloud
                 sub_points, sub_colors, sub_labels = grid_subsampling(points,
@@ -1465,174 +1480,174 @@ def S3DISCollate(batch_data):
 #
 #           Debug functions
 #       \*********************/
-
-
-def debug_upsampling(dataset, loader):
-    """Shows which labels are sampled according to strategy chosen"""
-
-
-    for epoch in range(10):
-
-        for batch_i, batch in enumerate(loader):
-
-            pc1 = batch.points[1].numpy()
-            pc2 = batch.points[2].numpy()
-            up1 = batch.upsamples[1].numpy()
-
-            print(pc1.shape, '=>', pc2.shape)
-            print(up1.shape, np.max(up1))
-
-            pc2 = np.vstack((pc2, np.zeros_like(pc2[:1, :])))
-
-            # Get neighbors distance
-            p0 = pc1[10, :]
-            neighbs0 = up1[10, :]
-            neighbs0 = pc2[neighbs0, :] - p0
-            d2 = np.sum(neighbs0 ** 2, axis=1)
-
-            print(neighbs0.shape)
-            print(neighbs0[:5])
-            print(d2[:5])
-
-            print('******************')
-        print('*******************************************')
-
-    _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
-
-
-def debug_timing(dataset, loader):
-    """Timing of generator function"""
-
-    t = [time.time()]
-    last_display = time.time()
-    mean_dt = np.zeros(2)
-    estim_b = dataset.config.batch_num
-    estim_N = 0
-
-    for epoch in range(10):
-
-        for batch_i, batch in enumerate(loader):
-            # print(batch_i, tuple(points.shape),  tuple(normals.shape), labels, indices, in_sizes)
-
-            # New time
-            t = t[-1:]
-            t += [time.time()]
-
-            # Update estim_b (low pass filter)
-            estim_b += (len(batch.cloud_inds) - estim_b) / 100
-            estim_N += (batch.features.shape[0] - estim_N) / 10
-
-            # Pause simulating computations
-            time.sleep(0.05)
-            t += [time.time()]
-
-            # Average timing
-            mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
-
-            # Console display (only one per second)
-            if (t[-1] - last_display) > -1.0:
-                last_display = t[-1]
-                message = 'Step {:08d} -> (ms/batch) {:8.2f} {:8.2f} / batch = {:.2f} - {:.0f}'
-                print(message.format(batch_i,
-                                     1000 * mean_dt[0],
-                                     1000 * mean_dt[1],
-                                     estim_b,
-                                     estim_N))
-
-        print('************* Epoch ended *************')
-
-    _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
-
-
-def debug_show_clouds(dataset, loader):
-
-
-    for epoch in range(10):
-
-        clouds = []
-        cloud_normals = []
-        cloud_labels = []
-
-        L = dataset.config.num_layers
-
-        for batch_i, batch in enumerate(loader):
-
-            # Print characteristics of input tensors
-            print('\nPoints tensors')
-            for i in range(L):
-                print(batch.points[i].dtype, batch.points[i].shape)
-            print('\nNeigbors tensors')
-            for i in range(L):
-                print(batch.neighbors[i].dtype, batch.neighbors[i].shape)
-            print('\nPools tensors')
-            for i in range(L):
-                print(batch.pools[i].dtype, batch.pools[i].shape)
-            print('\nStack lengths')
-            for i in range(L):
-                print(batch.lengths[i].dtype, batch.lengths[i].shape)
-            print('\nFeatures')
-            print(batch.features.dtype, batch.features.shape)
-            print('\nLabels')
-            print(batch.labels.dtype, batch.labels.shape)
-            print('\nAugment Scales')
-            print(batch.scales.dtype, batch.scales.shape)
-            print('\nAugment Rotations')
-            print(batch.rots.dtype, batch.rots.shape)
-            print('\nModel indices')
-            print(batch.model_inds.dtype, batch.model_inds.shape)
-
-            print('\nAre input tensors pinned')
-            print(batch.neighbors[0].is_pinned())
-            print(batch.neighbors[-1].is_pinned())
-            print(batch.points[0].is_pinned())
-            print(batch.points[-1].is_pinned())
-            print(batch.labels.is_pinned())
-            print(batch.scales.is_pinned())
-            print(batch.rots.is_pinned())
-            print(batch.model_inds.is_pinned())
-
-            show_input_batch(batch)
-
-        print('*******************************************')
-
-    _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
-
-
-def debug_batch_and_neighbors_calib(dataset, loader):
-    """Timing of generator function"""
-
-    t = [time.time()]
-    last_display = time.time()
-    mean_dt = np.zeros(2)
-
-    for epoch in range(10):
-
-        for batch_i, input_list in enumerate(loader):
-            # print(batch_i, tuple(points.shape),  tuple(normals.shape), labels, indices, in_sizes)
-
-            # New time
-            t = t[-1:]
-            t += [time.time()]
-
-            # Pause simulating computations
-            time.sleep(0.01)
-            t += [time.time()]
-
-            # Average timing
-            mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
-
-            # Console display (only one per second)
-            if (t[-1] - last_display) > 1.0:
-                last_display = t[-1]
-                message = 'Step {:08d} -> Average timings (ms/batch) {:8.2f} {:8.2f} '
-                print(message.format(batch_i,
-                                     1000 * mean_dt[0],
-                                     1000 * mean_dt[1]))
-
-        print('************* Epoch ended *************')
-
-    _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+#
+#
+# def debug_upsampling(dataset, loader):
+#     """Shows which labels are sampled according to strategy chosen"""
+#
+#
+#     for epoch in range(10):
+#
+#         for batch_i, batch in enumerate(loader):
+#
+#             pc1 = batch.points[1].numpy()
+#             pc2 = batch.points[2].numpy()
+#             up1 = batch.upsamples[1].numpy()
+#
+#             print(pc1.shape, '=>', pc2.shape)
+#             print(up1.shape, np.max(up1))
+#
+#             pc2 = np.vstack((pc2, np.zeros_like(pc2[:1, :])))
+#
+#             # Get neighbors distance
+#             p0 = pc1[10, :]
+#             neighbs0 = up1[10, :]
+#             neighbs0 = pc2[neighbs0, :] - p0
+#             d2 = np.sum(neighbs0 ** 2, axis=1)
+#
+#             print(neighbs0.shape)
+#             print(neighbs0[:5])
+#             print(d2[:5])
+#
+#             print('******************')
+#         print('*******************************************')
+#
+#     _, counts = np.unique(dataset.input_labels, return_counts=True)
+#     print(counts)
+#
+#
+# def debug_timing(dataset, loader):
+#     """Timing of generator function"""
+#
+#     t = [time.time()]
+#     last_display = time.time()
+#     mean_dt = np.zeros(2)
+#     estim_b = dataset.config.batch_num
+#     estim_N = 0
+#
+#     for epoch in range(10):
+#
+#         for batch_i, batch in enumerate(loader):
+#             # print(batch_i, tuple(points.shape),  tuple(normals.shape), labels, indices, in_sizes)
+#
+#             # New time
+#             t = t[-1:]
+#             t += [time.time()]
+#
+#             # Update estim_b (low pass filter)
+#             estim_b += (len(batch.cloud_inds) - estim_b) / 100
+#             estim_N += (batch.features.shape[0] - estim_N) / 10
+#
+#             # Pause simulating computations
+#             time.sleep(0.05)
+#             t += [time.time()]
+#
+#             # Average timing
+#             mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
+#
+#             # Console display (only one per second)
+#             if (t[-1] - last_display) > -1.0:
+#                 last_display = t[-1]
+#                 message = 'Step {:08d} -> (ms/batch) {:8.2f} {:8.2f} / batch = {:.2f} - {:.0f}'
+#                 print(message.format(batch_i,
+#                                      1000 * mean_dt[0],
+#                                      1000 * mean_dt[1],
+#                                      estim_b,
+#                                      estim_N))
+#
+#         print('************* Epoch ended *************')
+#
+#     _, counts = np.unique(dataset.input_labels, return_counts=True)
+#     print(counts)
+#
+#
+# def debug_show_clouds(dataset, loader):
+#
+#
+#     for epoch in range(10):
+#
+#         clouds = []
+#         cloud_normals = []
+#         cloud_labels = []
+#
+#         L = dataset.config.num_layers
+#
+#         for batch_i, batch in enumerate(loader):
+#
+#             # Print characteristics of input tensors
+#             print('\nPoints tensors')
+#             for i in range(L):
+#                 print(batch.points[i].dtype, batch.points[i].shape)
+#             print('\nNeigbors tensors')
+#             for i in range(L):
+#                 print(batch.neighbors[i].dtype, batch.neighbors[i].shape)
+#             print('\nPools tensors')
+#             for i in range(L):
+#                 print(batch.pools[i].dtype, batch.pools[i].shape)
+#             print('\nStack lengths')
+#             for i in range(L):
+#                 print(batch.lengths[i].dtype, batch.lengths[i].shape)
+#             print('\nFeatures')
+#             print(batch.features.dtype, batch.features.shape)
+#             print('\nLabels')
+#             print(batch.labels.dtype, batch.labels.shape)
+#             print('\nAugment Scales')
+#             print(batch.scales.dtype, batch.scales.shape)
+#             print('\nAugment Rotations')
+#             print(batch.rots.dtype, batch.rots.shape)
+#             print('\nModel indices')
+#             print(batch.model_inds.dtype, batch.model_inds.shape)
+#
+#             print('\nAre input tensors pinned')
+#             print(batch.neighbors[0].is_pinned())
+#             print(batch.neighbors[-1].is_pinned())
+#             print(batch.points[0].is_pinned())
+#             print(batch.points[-1].is_pinned())
+#             print(batch.labels.is_pinned())
+#             print(batch.scales.is_pinned())
+#             print(batch.rots.is_pinned())
+#             print(batch.model_inds.is_pinned())
+#
+#             show_input_batch(batch)
+#
+#         print('*******************************************')
+#
+#     _, counts = np.unique(dataset.input_labels, return_counts=True)
+#     print(counts)
+#
+#
+# def debug_batch_and_neighbors_calib(dataset, loader):
+#     """Timing of generator function"""
+#
+#     t = [time.time()]
+#     last_display = time.time()
+#     mean_dt = np.zeros(2)
+#
+#     for epoch in range(10):
+#
+#         for batch_i, input_list in enumerate(loader):
+#             # print(batch_i, tuple(points.shape),  tuple(normals.shape), labels, indices, in_sizes)
+#
+#             # New time
+#             t = t[-1:]
+#             t += [time.time()]
+#
+#             # Pause simulating computations
+#             time.sleep(0.01)
+#             t += [time.time()]
+#
+#             # Average timing
+#             mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
+#
+#             # Console display (only one per second)
+#             if (t[-1] - last_display) > 1.0:
+#                 last_display = t[-1]
+#                 message = 'Step {:08d} -> Average timings (ms/batch) {:8.2f} {:8.2f} '
+#                 print(message.format(batch_i,
+#                                      1000 * mean_dt[0],
+#                                      1000 * mean_dt[1]))
+#
+#         print('************* Epoch ended *************')
+#
+#     _, counts = np.unique(dataset.input_labels, return_counts=True)
+#     print(counts)
