@@ -279,7 +279,8 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
         header = ['ply']
 
         # Encoding format
-        header.append('format binary_' + sys.byteorder + '_endian 1.0')
+        header.append('format binary_' + sys.byteorder + '_endian 1.0') #kuramin changed
+        #header.append('format ascii 1.0')
 
         # Points properties description
         header.extend(header_properties(field_list, field_names))

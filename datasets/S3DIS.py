@@ -367,8 +367,9 @@ class S3DISDataset(PointCloudDataset):
             if self.set in ['test', 'ERF']:
                 input_labels = np.zeros(input_points.shape[0])
             else:
-                input_labels = self.input_labels[cloud_ind][input_inds]
-                input_labels = np.array([self.label_to_idx[l] for l in input_labels])
+                #input_labels = float(self.input_labels[cloud_ind][input_inds])
+                input_labels = self.input_labels[cloud_ind][input_inds]  #kuramin commented
+                input_labels = np.array([float(self.label_to_idx[l]) for l in input_labels])
 
             t += [time.time()]
 
@@ -383,6 +384,12 @@ class S3DISDataset(PointCloudDataset):
             input_features = np.hstack((input_colors, input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
 
             t += [time.time()]
+
+            write_ply('/home/kuramin/Downloads/input3.ply',
+                          [input_points, input_colors, input_labels],
+                          ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
+
+            # as a result, input_points is a ball of radius 1.3 m
 
             # Stack batch
             p_list += [input_points]
@@ -429,7 +436,7 @@ class S3DISDataset(PointCloudDataset):
         elif self.config.in_features_dim == 5:
             stacked_features = np.hstack((stacked_features, features))
         else:
-            raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)')
+            raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ). Probable typo: must be 1, 4, 5')
 
         #######################
         # Create network inputs
