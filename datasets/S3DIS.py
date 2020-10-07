@@ -118,7 +118,7 @@ class S3DISDataset(PointCloudDataset):
         #self.cloud_names = ['Vaihingen3D_Training_rgb', 'Vaihingen3D_Evaluation_rgb']
         #self.cloud_names = ['cloud7 - Cloud2', 'cloud7 - Cloud2']
         #self.cloud_names = ['Area_1', 'Area_2']
-        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2', 'Area_3']
+        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2', 'Area_1_orig.ply']
         self.all_splits = [0, 1, 2]
         self.validation_split = 2
 
@@ -274,6 +274,7 @@ class S3DISDataset(PointCloudDataset):
         s_list = []
         R_list = []
         batch_n = 0
+        inp_counter = 0
 
         info = get_worker_info()
         if info is not None:
@@ -385,7 +386,10 @@ class S3DISDataset(PointCloudDataset):
 
             t += [time.time()]
 
-            write_ply('/home/kuramin/Downloads/input3.ply',
+            inp_filename = '/home/kuramin/Downloads/input'
+            inp_counter += 1
+            print(str(inp_filename)+str(inp_counter)+'.ply')
+            write_ply('/home/kuramin/Downloads/input.ply',
                           [input_points, input_colors, input_labels],
                           ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
 
@@ -416,6 +420,12 @@ class S3DISDataset(PointCloudDataset):
         ###################
         # Concatenate batch
         ###################
+
+        # inp_filename = '/home/kuramin/Downloads/input'
+        # for i, inp in enumerate(p_list):
+        #     write_ply(str(inp_filename)+str(i)+'.ply',
+        #                   [p_list[i], f_list[i][:,0:3], l_list[i]],
+        #                   ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
 
         stacked_points = np.concatenate(p_list, axis=0)
         features = np.concatenate(f_list, axis=0)
@@ -774,7 +784,6 @@ class S3DISDataset(PointCloudDataset):
                 colors = np.vstack((data['red'], data['green'], data['blue'])).T
                 #labels_float = data['scalar_Classification']  # kuramin class
                 labels_float = data['class']
-                #labels = []
                 labels = []
                 for label_float in labels_float:
                     labels.append(int(label_float))

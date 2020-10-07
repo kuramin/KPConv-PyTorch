@@ -282,17 +282,17 @@ if __name__ == '__main__':
     t1 = time.time()
     net = KPFCNN(config, training_dataset.label_values, training_dataset.ignored_labels)
 
-    debug = False
-    if debug:
-        print('\n*************************************\n')
-        print(net)
-        print('\n*************************************\n')
-        for param in net.parameters():
-            if param.requires_grad:
-                print(param.shape)
-        print('\n*************************************\n')
-        print("Model size %i" % sum(param.numel() for param in net.parameters() if param.requires_grad))
-        print('\n*************************************\n')
+    # debug = False
+    # if debug:
+    #     print('\n*************************************\n')
+    #     print(net)
+    #     print('\n*************************************\n')
+    #     for param in net.parameters():
+    #         if param.requires_grad:
+    #             print(param.shape)
+    #     print('\n*************************************\n')
+    #     print("Model size %i" % sum(param.numel() for param in net.parameters() if param.requires_grad))
+    #     print('\n*************************************\n')
 
     # Define a trainer class
     trainer = ModelTrainer(net, config, chkp_path=chosen_chkp)
