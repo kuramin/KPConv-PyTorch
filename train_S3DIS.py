@@ -245,7 +245,7 @@ if __name__ == '__main__':
         print('config.saving_path is', config.saving_path)
 
     # Initialize datasets
-    training_dataset = S3DISDataset(config, set='training', use_potentials=True)
+    training_dataset = S3DISDataset(config, set='training', use_potentials=True)  # kuramin commented
     test_dataset = S3DISDataset(config, set='validation', use_potentials=True)
 
     # Initialize samplers

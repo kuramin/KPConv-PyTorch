@@ -118,9 +118,9 @@ class S3DISDataset(PointCloudDataset):
         #self.cloud_names = ['Vaihingen3D_Training_rgb', 'Vaihingen3D_Evaluation_rgb']
         #self.cloud_names = ['cloud7 - Cloud2', 'cloud7 - Cloud2']
         #self.cloud_names = ['Area_1', 'Area_2']
-        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2', 'Area_1_orig.ply']
-        self.all_splits = [0, 1, 2]
-        self.validation_split = 2
+        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
+        self.all_splits = [0, 1]
+        self.validation_split = 1
 
         # Number of models used per epoch
         if self.set == 'training':
@@ -386,12 +386,12 @@ class S3DISDataset(PointCloudDataset):
 
             t += [time.time()]
 
-            inp_filename = '/home/kuramin/Downloads/input'
-            inp_counter += 1
-            print(str(inp_filename)+str(inp_counter)+'.ply')
-            write_ply('/home/kuramin/Downloads/input.ply',
-                          [input_points, input_colors, input_labels],
-                          ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
+            # inp_filename = '/home/kuramin/Downloads/input'
+            # inp_counter += 1
+            # print(str(inp_filename)+str(inp_counter)+'.ply')
+            # write_ply('/home/kuramin/Downloads/input.ply',
+            #               [input_points, input_colors, input_labels],
+            #               ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
 
             # as a result, input_points is a ball of radius 1.3 m
 
@@ -834,6 +834,7 @@ class S3DISDataset(PointCloudDataset):
             pot_dl = self.config.in_radius / 10
             cloud_ind = 0
 
+            # in this loop kuramin renamed search_tree to coarse_search_tree and sub_points - to search_tree
             for i, file_path in enumerate(self.files):
 
                 # Get cloud name
@@ -846,22 +847,22 @@ class S3DISDataset(PointCloudDataset):
                 if exists(coarse_KDTree_file):
                     # Read pkl with search tree
                     with open(coarse_KDTree_file, 'rb') as f:
-                        search_tree = pickle.load(f)
+                        coarse_search_tree = pickle.load(f)
 
                 else:
                     # Subsample cloud
-                    sub_points = np.array(self.input_trees[cloud_ind].data, copy=False)
-                    coarse_points = grid_subsampling(sub_points.astype(np.float32), sampleDl=pot_dl)
+                    search_tree = np.array(self.input_trees[cloud_ind].data, copy=False)
+                    coarse_points = grid_subsampling(search_tree.astype(np.float32), sampleDl=pot_dl)
 
                     # Get chosen neighborhoods
-                    search_tree = KDTree(coarse_points, leaf_size=10)
+                    coarse_search_tree = KDTree(coarse_points, leaf_size=10)
 
                     # Save KDTree
                     with open(coarse_KDTree_file, 'wb') as f:
-                        pickle.dump(search_tree, f)
+                        pickle.dump(coarse_search_tree, f)
 
                 # Fill data containers
-                self.pot_trees += [search_tree]
+                self.pot_trees += [coarse_search_tree]
                 cloud_ind += 1
 
             print('Done in {:.1f}s'.format(time.time() - t0))
@@ -910,8 +911,10 @@ class S3DISDataset(PointCloudDataset):
                     for label_float in labels_float:
                         label = int(label_float)
                         labels.append(label)
+                        if len(labels) % 100000 == 0:
+                            print('Transforming labels of whole cloud to int in order to fill self.test_proj. Number of processed members is', len(labels))
 
-                    # Compute projection inds
+                    # Compute projection indices - which members of input_trees[i] is closest to every member of points
                     idxs = self.input_trees[i].query(points, return_distance=False)
                     #dists, idxs = self.input_trees[i_cloud].kneighbors(points)
                     proj_inds = np.squeeze(idxs).astype(np.int32)
