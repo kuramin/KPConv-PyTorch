@@ -831,7 +831,7 @@ class S3DISDataset(PointCloudDataset):
             # Restart timer
             t0 = time.time()
 
-            pot_dl = self.config.in_radius / 10
+            pot_dl = self.config.in_radius / 10  # current value of pot_dl will be 0.15
             cloud_ind = 0
 
             # in this loop kuramin renamed search_tree to coarse_search_tree and sub_points - to search_tree
@@ -852,6 +852,7 @@ class S3DISDataset(PointCloudDataset):
                 else:
                     # Subsample cloud
                     search_tree = np.array(self.input_trees[cloud_ind].data, copy=False)
+                    print('Lets find coarse poiints with pot_dl =', pot_dl)
                     coarse_points = grid_subsampling(search_tree.astype(np.float32), sampleDl=pot_dl)
 
                     # Get chosen neighborhoods
@@ -969,6 +970,7 @@ class S3DISSampler(Sampler):
         (input sphere) in epoch instead of the list of point indices
         """
 
+        # not used in our case, go to Generator loop
         if not self.dataset.use_potentials:
 
             # Initiate current epoch ind
@@ -1022,82 +1024,82 @@ class S3DISSampler(Sampler):
         """
         return self.N
 
-    def fast_calib(self):
-        """
-        This method calibrates the batch sizes while ensuring the potentials are well initialized. Indeed on a dataset
-        like Semantic3D, before potential have been updated over the dataset, there are cahnces that all the dense area
-        are picked in the begining and in the end, we will have very large batch of small point clouds
-        :return:
-        """
-
-        # Estimated average batch size and target value
-        estim_b = 0
-        target_b = self.dataset.config.batch_num
-
-        # Calibration parameters
-        low_pass_T = 10
-        Kp = 100.0
-        finer = False
-        breaking = False
-
-        # Convergence parameters
-        smooth_errors = []
-        converge_threshold = 0.1
-
-        t = [time.time()]
-        last_display = time.time()
-        mean_dt = np.zeros(2)
-
-        for epoch in range(10):
-            for i, test in enumerate(self):
-
-                # New time
-                t = t[-1:]
-                t += [time.time()]
-
-                # batch length
-                b = len(test)
-
-                # Update estim_b (low pass filter)
-                estim_b += (b - estim_b) / low_pass_T
-
-                # Estimate error (noisy)
-                error = target_b - b
-
-                # Save smooth errors for convergene check
-                smooth_errors.append(target_b - estim_b)
-                if len(smooth_errors) > 10:
-                    smooth_errors = smooth_errors[1:]
-
-                # Update batch limit with P controller
-                self.dataset.batch_limit += Kp * error
-
-                # finer low pass filter when closing in
-                if not finer and np.abs(estim_b - target_b) < 1:
-                    low_pass_T = 100
-                    finer = True
-
-                # Convergence
-                if finer and np.max(np.abs(smooth_errors)) < converge_threshold:
-                    breaking = True
-                    break
-
-                # Average timing
-                t += [time.time()]
-                mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
-
-                # Console display (only one per second)
-                if (t[-1] - last_display) > 1.0:
-                    last_display = t[-1]
-                    message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d},  //  {:.1f}ms {:.1f}ms'
-                    print(message.format(i,
-                                         estim_b,
-                                         int(self.dataset.batch_limit),
-                                         1000 * mean_dt[0],
-                                         1000 * mean_dt[1]))
-
-            if breaking:
-                break
+    # def fast_calib(self):
+    #     """
+    #     This method calibrates the batch sizes while ensuring the potentials are well initialized. Indeed on a dataset
+    #     like Semantic3D, before potential have been updated over the dataset, there are chances that all the dense area
+    #     are picked in the beginning and in the end, we will have very large batch of small point clouds
+    #     :return:
+    #     """
+    #
+    #     # Estimated average batch size and target value
+    #     estim_b = 0
+    #     target_b = self.dataset.config.batch_num
+    #
+    #     # Calibration parameters
+    #     low_pass_T = 10
+    #     Kp = 100.0
+    #     finer = False
+    #     breaking = False
+    #
+    #     # Convergence parameters
+    #     smooth_errors = []
+    #     converge_threshold = 0.1
+    #
+    #     t = [time.time()]
+    #     last_display = time.time()
+    #     mean_dt = np.zeros(2)
+    #
+    #     for epoch in range(10):
+    #         for i, test in enumerate(self):
+    #
+    #             # New time
+    #             t = t[-1:]
+    #             t += [time.time()]
+    #
+    #             # batch length
+    #             b = len(test)
+    #
+    #             # Update estim_b (low pass filter)
+    #             estim_b += (b - estim_b) / low_pass_T
+    #
+    #             # Estimate error (noisy)
+    #             error = target_b - b
+    #
+    #             # Save smooth errors for convergene check
+    #             smooth_errors.append(target_b - estim_b)
+    #             if len(smooth_errors) > 10:
+    #                 smooth_errors = smooth_errors[1:]
+    #
+    #             # Update batch limit with P controller
+    #             self.dataset.batch_limit += Kp * error
+    #
+    #             # finer low pass filter when closing in
+    #             if not finer and np.abs(estim_b - target_b) < 1:
+    #                 low_pass_T = 100
+    #                 finer = True
+    #
+    #             # Convergence
+    #             if finer and np.max(np.abs(smooth_errors)) < converge_threshold:
+    #                 breaking = True
+    #                 break
+    #
+    #             # Average timing
+    #             t += [time.time()]
+    #             mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
+    #
+    #             # Console display (only one per second)
+    #             if (t[-1] - last_display) > 1.0:
+    #                 last_display = t[-1]
+    #                 message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d},  //  {:.1f}ms {:.1f}ms'
+    #                 print(message.format(i,
+    #                                      estim_b,
+    #                                      int(self.dataset.batch_limit),
+    #                                      1000 * mean_dt[0],
+    #                                      1000 * mean_dt[1]))
+    #
+    #         if breaking:
+    #             break
 
     def calibration(self, dataloader, untouched_ratio=0.9, verbose=False, force_redo=False):
         """
