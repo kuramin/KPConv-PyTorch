@@ -1246,7 +1246,7 @@ class S3DISSampler(Sampler):
             for epoch in range(10):
                 # Use enumerate(dataloader) as provider of batches. Batch will be a ball of points.
                 # List batch.neighbors will contain neighbors on 5 levels.
-                # Matrix batch.neighbors[i]
+                # Matrix batch.neighbors[i] will contain ????
                 #
                 for batch_i, batch in enumerate(dataloader):
 
