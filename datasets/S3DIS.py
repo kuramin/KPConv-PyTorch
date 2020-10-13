@@ -274,13 +274,13 @@ class S3DISDataset(PointCloudDataset):
         s_list = []
         R_list = []
         batch_n = 0
-        inp_counter = 0
+        # inp_counter = 0
 
-        info = get_worker_info()
-        if info is not None:
-            wid = info.id
-        else:
-            wid = None
+        # info = get_worker_info()
+        # if info is not None:
+        #     wid = info.id
+        # else:
+        #     wid = None
 
         while True:
 
@@ -386,6 +386,7 @@ class S3DISDataset(PointCloudDataset):
 
             t += [time.time()]
 
+            print('input_points.shape', input_points.shape)
             # inp_filename = '/home/kuramin/Downloads/input'
             # inp_counter += 1
             # print(str(inp_filename)+str(inp_counter)+'.ply')
@@ -1203,6 +1204,7 @@ class S3DISSampler(Sampler):
                     v = '?'
                 print('{:}\"{:s}\": {:s}{:}'.format(color, key, v, bcolors.ENDC))
 
+        #  all the contents of this IF might be just calculation of self.batch_limit and self.neighborhood_limits
         if redo:
 
             ############################
@@ -1242,53 +1244,65 @@ class S3DISSampler(Sampler):
             #####################
 
             for epoch in range(10):
+                # Use enumerate(dataloader) as provider of batches. Batch will be a ball of points.
+                # List batch.neighbors will contain neighbors on 5 levels.
+                # Matrix batch.neighbors[i]
+                #
                 for batch_i, batch in enumerate(dataloader):
 
-                    # Update neighborhood histogram
-                    counts = [np.sum(neighb_mat.numpy() < neighb_mat.shape[0], axis=1) for neighb_mat in batch.neighbors]
-                    hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
-                    neighb_hists += np.vstack(hists)
-
-                    # batch length
-                    b = len(batch.cloud_inds)
-
-                    # Update estim_b (low pass filter)
-                    estim_b += (b - estim_b) / low_pass_T
-
-                    # Estimate error (noisy)
-                    error = target_b - b
-
-                    # Save smooth errors for convergene check
-                    smooth_errors.append(target_b - estim_b)
-                    if len(smooth_errors) > 10:
-                        smooth_errors = smooth_errors[1:]
-
-                    # Update batch limit with P controller
-                    self.dataset.batch_limit += Kp * error
-
-                    # finer low pass filter when closing in
-                    if not finer and np.abs(estim_b - target_b) < 1:
-                        low_pass_T = 100
-                        finer = True
-
-                    # Convergence
-                    if finer and np.max(np.abs(smooth_errors)) < converge_threshold:
-                        breaking = True
-                        break
-
-                    i += 1
-                    t = time.time()
-
-                    # Console display (only one per second)
-                    if verbose and (t - last_display) > 1.0:
-                        last_display = t
-                        message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}'
-                        print(message.format(i,
-                                             estim_b,
-                                             int(self.dataset.batch_limit)))
-
-                if breaking:
-                    break
+                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors len', len(batch.neighbors))
+                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[0].shape', batch.neighbors[0].shape)
+                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[1].shape', batch.neighbors[1].shape)
+                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[2].shape', batch.neighbors[2].shape)
+                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[3].shape', batch.neighbors[3].shape)
+                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[4].shape', batch.neighbors[4].shape)
+                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors', batch.neighbors)
+                    print('epoch', epoch, 'batch_i', batch_i, 'end')
+                #     # Update neighborhood histogram
+                #     counts = [np.sum(neighb_mat.numpy() < neighb_mat.shape[0], axis=1) for neighb_mat in batch.neighbors]
+                #     hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
+                #     neighb_hists += np.vstack(hists)
+                #
+                #     # batch length
+                #     b = len(batch.cloud_inds)
+                #
+                #     # Update estim_b (low pass filter)
+                #     estim_b += (b - estim_b) / low_pass_T
+                #
+                #     # Estimate error (noisy)
+                #     error = target_b - b
+                #
+                #     # Save smooth errors for convergene check
+                #     smooth_errors.append(target_b - estim_b)
+                #     if len(smooth_errors) > 10:
+                #         smooth_errors = smooth_errors[1:]
+                #
+                #     # Update batch limit with P controller
+                #     self.dataset.batch_limit += Kp * error
+                #
+                #     # finer low pass filter when closing in
+                #     if not finer and np.abs(estim_b - target_b) < 1:
+                #         low_pass_T = 100
+                #         finer = True
+                #
+                #     # Convergence
+                #     if finer and np.max(np.abs(smooth_errors)) < converge_threshold:
+                #         breaking = True
+                #         break
+                #
+                #     i += 1
+                #     t = time.time()
+                #
+                #     # Console display (only one per second)
+                #     if verbose and (t - last_display) > 1.0:
+                #         last_display = t
+                #         message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}'
+                #         print(message.format(i,
+                #                              estim_b,
+                #                              int(self.dataset.batch_limit)))
+                #
+                # if breaking:
+                #     break      kuramin commented. Uncomment
 
             # Use collected neighbor histogram to get neighbors limit
             cumsum = np.cumsum(neighb_hists.T, axis=0)
@@ -1324,7 +1338,7 @@ class S3DISSampler(Sampler):
                 print('\nchosen neighbors limits: ', percentiles)
                 print()
 
-            # Save batch_limit dictionary
+            # Save batch_limit dictionary to batch_limits.pkl
             if self.dataset.use_potentials:
                 sampler_method = 'potentials'
             else:
@@ -1337,7 +1351,7 @@ class S3DISSampler(Sampler):
             with open(batch_lim_file, 'wb') as file:
                 pickle.dump(batch_lim_dict, file)
 
-            # Save neighb_limit dictionary
+            # Save neighb_limit dictionary to neighbors_limits.pkl
             for layer_ind in range(self.dataset.config.num_layers):
                 dl = self.dataset.config.first_subsampling_dl * (2 ** layer_ind)
                 if self.dataset.config.deform_layers[layer_ind]:
