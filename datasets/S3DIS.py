@@ -118,9 +118,9 @@ class S3DISDataset(PointCloudDataset):
         #self.cloud_names = ['Vaihingen3D_Training_rgb', 'Vaihingen3D_Evaluation_rgb']
         #self.cloud_names = ['cloud7 - Cloud2', 'cloud7 - Cloud2']
         #self.cloud_names = ['Area_1', 'Area_2']
-        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
-        self.all_splits = [0, 1]
-        self.validation_split = 1
+        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_1_fake_rgb_remarked', 'Area_2']
+        self.all_splits = [0, 1, 2]
+        self.validation_split = 2
 
         # Number of models used per epoch
         if self.set == 'training':
@@ -202,7 +202,7 @@ class S3DISDataset(PointCloudDataset):
             self.argmin_potentials = []
 
             # for every training/validation point cloud create a list of potentials - list of random values
-            # in range (0, 1e-3) of the same size as cloud
+            # in range (0, 1e-3) of the same size as pot_tree of this cloud
             # create lists of minimal values of potentials and their indexes
             for i, tree in enumerate(self.pot_trees):
                 self.potentials += [torch.from_numpy(np.random.rand(tree.data.shape[0]) * 1e-3)]
@@ -317,28 +317,28 @@ class S3DISDataset(PointCloudDataset):
                 #     self.worker_waiting[wid] = 1
 
                 # Get potential minimum  #kuramin commented
-                cloud_ind = int(torch.argmin(self.min_potentials))
-                point_ind = int(self.argmin_potentials[cloud_ind])
+                cloud_ind = int(torch.argmin(self.min_potentials))  # cloud_ind is number of cloud, comes from whichever clouds minimal potential is randomized to be smaller
+                point_ind = int(self.argmin_potentials[cloud_ind])  # index of the smallest potential in this cloud, which are assigned randomly
 
                 # Get potential points from tree structure
                 pot_points = np.array(self.pot_trees[cloud_ind].data, copy=False)
 
-                # Center point of input region
+                # Start creation of ball by assigning a Center point (taken as cloud point with minimal random potential)
                 center_point = pot_points[point_ind, :].reshape(1, -1)
 
                 # Add a small noise to center point
                 if self.set != 'ERF':
                     center_point += np.random.normal(scale=self.config.in_radius / 10, size=center_point.shape)
 
-                # Indices of points in input region
+                # Indices of points of potential trees which are inside ball around center point
                 pot_inds, dists = self.pot_trees[cloud_ind].query_radius(center_point,
                                                                          r=self.config.in_radius,
                                                                          return_distance=True)
 
                 d2s = np.square(dists[0])
-                pot_inds = pot_inds[0]
+                pot_inds = pot_inds[0]  # query radius returns pot_inds wrapped in extra dimension
 
-                # Update potentials (Tukey weights)
+                # Update potentials (Tukey weights plot is -|x|+1 inside [-in_radius, in_radius] and 0 everywhere outside)
                 if self.set != 'ERF':
                     tukeys = np.square(1 - d2s / np.square(self.config.in_radius))
                     tukeys[d2s > np.square(self.config.in_radius)] = 0
@@ -349,32 +349,30 @@ class S3DISDataset(PointCloudDataset):
 
             t += [time.time()]
 
-            # Get points from tree structure
+            # Get points of once-sampled cloud from tree structure
             points = np.array(self.input_trees[cloud_ind].data, copy=False)
 
-
-            # Indices of points in input region
+            # Indices of points of once-sampled original cloud which are inside ball around center point
             input_inds = self.input_trees[cloud_ind].query_radius(center_point,
                                                                   r=self.config.in_radius)[0]
 
             t += [time.time()]
 
             # Number collected
-            n = input_inds.shape[0]
+            number_of_inball_points = input_inds.shape[0]
 
-            # Collect labels and colors
+            # Collect points, labels and colors
             input_points = (points[input_inds] - center_point).astype(np.float32)
             input_colors = self.input_colors[cloud_ind][input_inds]
             if self.set in ['test', 'ERF']:
                 input_labels = np.zeros(input_points.shape[0])
             else:
-                #input_labels = float(self.input_labels[cloud_ind][input_inds])
-                input_labels = self.input_labels[cloud_ind][input_inds]  #kuramin commented
+                input_labels = self.input_labels[cloud_ind][input_inds]
                 input_labels = np.array([float(self.label_to_idx[l]) for l in input_labels])
 
             t += [time.time()]
 
-            # Data augmentation
+            # Data augmentation. Returns result of application of some random transformation and parameters of this transformation
             input_points, scale, R = self.augmentation_transform(input_points)
 
             # Color augmentation
@@ -387,6 +385,13 @@ class S3DISDataset(PointCloudDataset):
             t += [time.time()]
 
             print('input_points.shape', input_points.shape)
+            print('input_features.shape', input_features.shape)
+            print('input_labels.shape', input_labels.shape)
+            print('input_inds.shape', input_inds.shape)
+            print('point_ind is', point_ind)
+            print('cloud_ind is ', cloud_ind)
+            print('scale.shape', scale.shape)
+            print('R.shape', R.shape)
             # inp_filename = '/home/kuramin/Downloads/input'
             # inp_counter += 1
             # print(str(inp_filename)+str(inp_counter)+'.ply')
@@ -406,17 +411,21 @@ class S3DISDataset(PointCloudDataset):
             s_list += [scale]
             R_list += [R]
 
+            print('len(p_list)', len(p_list))
+            for i in range(len(p_list)):
+                print('p_list[', i, '].shape', p_list[i].shape)
+
             # Update batch size
-            batch_n += n
+            batch_n += number_of_inball_points
 
             # In case batch is full, stop
             if batch_n > int(self.batch_limit):
                 break
 
             # Randomly drop some points (act as an augmentation process and a safety for GPU memory consumption)
-            # if n > int(self.batch_limit):
+            # if number_of_inball_points > int(self.batch_limit):
             #    input_inds = np.random.choice(input_inds, size=int(self.batch_limit) - 1, replace=False)
-            #    n = input_inds.shape[0]
+            #    number_of_inball_points = input_inds.shape[0]
 
         ###################
         # Concatenate batch
@@ -577,7 +586,7 @@ class S3DISDataset(PointCloudDataset):
 #                                                                   r=self.config.in_radius)[0]
 #
 #             # Number collected
-#             n = input_inds.shape[0]
+#             number_of_inball_points = input_inds.shape[0]
 #
 #             # Collect labels and colors
 #             input_points = (points[input_inds] - center_point).astype(np.float32)
@@ -617,9 +626,9 @@ class S3DISDataset(PointCloudDataset):
 #                 break
 #
 #             # Randomly drop some points (act as an augmentation process and a safety for GPU memory consumption)
-#             # if n > int(self.batch_limit):
+#             # if number_of_inball_points > int(self.batch_limit):
 #             #    input_inds = np.random.choice(input_inds, size=int(self.batch_limit) - 1, replace=False)
-#             #    n = input_inds.shape[0]
+#             #    number_of_inball_points = input_inds.shape[0]
 #
 #         ###################
 #         # Concatenate batch
