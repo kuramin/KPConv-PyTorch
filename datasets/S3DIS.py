@@ -417,6 +417,7 @@ class S3DISDataset(PointCloudDataset):
 
             # Update batch size
             batch_n += number_of_inball_points
+            print('batch_n is', batch_n)  # even batch_n is updated in a wrong way
 
             # In case batch is full, stop
             if batch_n > int(self.batch_limit):
