@@ -115,6 +115,10 @@ class S3DISDataset(PointCloudDataset):
         #self.all_splits = [0, 1, 2, 3, 4, 5]
         #self.validation_split = 4     kuramin changed
 
+        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
+        self.all_splits = [0, 1]
+        self.validation_split = 1
+
         self.cloud_names = ['Area_1', 'Area_3']
         self.all_splits = [0, 1]
         self.validation_split = 1
