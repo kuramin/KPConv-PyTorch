@@ -417,7 +417,7 @@ class S3DISDataset(PointCloudDataset):
 
             # Update batch size
             batch_n += number_of_inball_points
-            print('batch_n is', batch_n)  # even batch_n is updated in a wrong way
+            print('batch_n is', batch_n)
 
             # In case batch is full, stop
             if batch_n > int(self.batch_limit):
@@ -432,11 +432,10 @@ class S3DISDataset(PointCloudDataset):
         # Concatenate batch
         ###################
 
-        # inp_filename = '/home/kuramin/Downloads/input'
-        # for i, inp in enumerate(p_list):
-        #     write_ply(str(inp_filename)+str(i)+'.ply',
-        #                   [p_list[i], f_list[i][:,0:3], l_list[i]],
-        #                   ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
+        inp_filename = '/home/kuramin/Downloads/stacked_points/stacked_points'  # kuramin added
+        for i, inp in enumerate(p_list):
+            inp_filename += '_' + str(p_list[i].shape[0])
+            p_list[i] += pot_points[i_list[i], :]
 
         stacked_points = np.concatenate(p_list, axis=0)
         features = np.concatenate(f_list, axis=0)
@@ -448,16 +447,24 @@ class S3DISDataset(PointCloudDataset):
         scales = np.array(s_list, dtype=np.float32)
         rots = np.stack(R_list, axis=0)
 
+        write_ply(str(inp_filename)+'.ply', [stacked_points, features, labels], ['x', 'y', 'z', 'red', 'green', 'blue', 'height', 'class'])  # kuramin added
+
+        # inp_filename = '/home/kuramin/Downloads/stacked_points_xyz_'
+        # for i, inp in enumerate(p_list):
+        #     write_ply(str(inp_filename)+str(i)+'.ply',
+        #                   [p_list[i], f_list[i][:,0:3], l_list[i]],
+        #                   ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
+
         # Input features
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
         if self.config.in_features_dim == 1:
             pass
-        elif self.config.in_features_dim == 4:
+        elif self.config.in_features_dim == 4:  # without original height of point
             stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
+        elif self.config.in_features_dim == 5:  # with original height of point
             stacked_features = np.hstack((stacked_features, features))
         else:
-            raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ). Probable typo: must be 1, 4, 5')
+            raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)')  # Probable typo: must be 1, 4, 5
 
         #######################
         # Create network inputs
@@ -467,6 +474,9 @@ class S3DISDataset(PointCloudDataset):
         #
 
         t += [time.time()]
+
+        if len(p_list) > 10:  # kuramin added
+            print('Length of p_list is good')
 
         # Get the whole input list
         input_list = self.segmentation_inputs(stacked_points,
@@ -1268,51 +1278,52 @@ class S3DISSampler(Sampler):
                     print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[4].shape', batch.neighbors[4].shape)
                     print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors', batch.neighbors)
                     print('epoch', epoch, 'batch_i', batch_i, 'end')
-                #     # Update neighborhood histogram
-                #     counts = [np.sum(neighb_mat.numpy() < neighb_mat.shape[0], axis=1) for neighb_mat in batch.neighbors]
-                #     hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
-                #     neighb_hists += np.vstack(hists)
-                #
-                #     # batch length
-                #     b = len(batch.cloud_inds)
-                #
-                #     # Update estim_b (low pass filter)
-                #     estim_b += (b - estim_b) / low_pass_T
-                #
-                #     # Estimate error (noisy)
-                #     error = target_b - b
-                #
-                #     # Save smooth errors for convergene check
-                #     smooth_errors.append(target_b - estim_b)
-                #     if len(smooth_errors) > 10:
-                #         smooth_errors = smooth_errors[1:]
-                #
-                #     # Update batch limit with P controller
-                #     self.dataset.batch_limit += Kp * error
-                #
-                #     # finer low pass filter when closing in
-                #     if not finer and np.abs(estim_b - target_b) < 1:
-                #         low_pass_T = 100
-                #         finer = True
-                #
-                #     # Convergence
-                #     if finer and np.max(np.abs(smooth_errors)) < converge_threshold:
-                #         breaking = True
-                #         break
-                #
-                #     i += 1
-                #     t = time.time()
-                #
-                #     # Console display (only one per second)
-                #     if verbose and (t - last_display) > 1.0:
-                #         last_display = t
-                #         message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}'
-                #         print(message.format(i,
-                #                              estim_b,
-                #                              int(self.dataset.batch_limit)))
-                #
-                # if breaking:
-                #     break      kuramin commented. Uncomment
+                    # kuramin commented from here
+                    # Update neighborhood histogram
+                    counts = [np.sum(neighb_mat.numpy() < neighb_mat.shape[0], axis=1) for neighb_mat in batch.neighbors]
+                    hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
+                    neighb_hists += np.vstack(hists)
+
+                    # batch length
+                    b = len(batch.cloud_inds)
+
+                    # Update estim_b (low pass filter)
+                    estim_b += (b - estim_b) / low_pass_T
+
+                    # Estimate error (noisy)
+                    error = target_b - b
+
+                    # Save smooth errors for convergene check
+                    smooth_errors.append(target_b - estim_b)
+                    if len(smooth_errors) > 10:
+                        smooth_errors = smooth_errors[1:]
+
+                    # Update batch limit with P controller
+                    self.dataset.batch_limit += Kp * error
+
+                    # finer low pass filter when closing in
+                    if not finer and np.abs(estim_b - target_b) < 1:
+                        low_pass_T = 100
+                        finer = True
+
+                    # Convergence
+                    if finer and np.max(np.abs(smooth_errors)) < converge_threshold:
+                        breaking = True
+                        break
+
+                    i += 1
+                    t = time.time()
+
+                    # Console display (only one per second)
+                    if verbose and (t - last_display) > 1.0:
+                        last_display = t
+                        message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}'
+                        print(message.format(i,
+                                             estim_b,
+                                             int(self.dataset.batch_limit)))
+
+                if breaking:
+                    break      #kuramin commented. Uncomment
 
             # Use collected neighbor histogram to get neighbors limit
             cumsum = np.cumsum(neighb_hists.T, axis=0)
