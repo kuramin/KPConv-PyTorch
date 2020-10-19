@@ -1227,6 +1227,7 @@ class S3DISSampler(Sampler):
 
         #  all the contents of this IF might be just calculation of self.batch_limit and self.neighborhood_limits
         #  These values will define break when enough number of balls are collected during method "potential item"
+        #  which will be used inside Calibration (somehow it is used inside it too)
         if redo:
 
             ############################
