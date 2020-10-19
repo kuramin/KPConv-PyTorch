@@ -421,6 +421,7 @@ class S3DISDataset(PointCloudDataset):
 
             # In case batch is full, stop
             if batch_n > int(self.batch_limit):
+                print('break, cause batch_limit is', self.batch_limit)
                 break
 
             # Randomly drop some points (act as an augmentation process and a safety for GPU memory consumption)
@@ -1225,6 +1226,7 @@ class S3DISSampler(Sampler):
                 print('{:}\"{:s}\": {:s}{:}'.format(color, key, v, bcolors.ENDC))
 
         #  all the contents of this IF might be just calculation of self.batch_limit and self.neighborhood_limits
+        #  These values will define break when enough number of balls are collected during method "potential item"
         if redo:
 
             ############################
@@ -1276,7 +1278,7 @@ class S3DISSampler(Sampler):
                     print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[2].shape', batch.neighbors[2].shape)
                     print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[3].shape', batch.neighbors[3].shape)
                     print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[4].shape', batch.neighbors[4].shape)
-                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors', batch.neighbors)
+                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors\n', batch.neighbors)
                     print('epoch', epoch, 'batch_i', batch_i, 'end')
                     # kuramin commented from here
                     # Update neighborhood histogram
