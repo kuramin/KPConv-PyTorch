@@ -599,7 +599,7 @@ class PointCloudDataset(Dataset):
         # list of network inputs (concatenated in this way because of different dimensionality of components)
         li = input_points + input_neighbors_indices + input_indices_of_neighs_of_pooled + input_upsamples + input_stack_lengths
         li += [stacked_features, labels]
-
+        print('End of segmentation_input')
         return li
 
 

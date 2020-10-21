@@ -262,7 +262,7 @@ class S3DISDataset(PointCloudDataset):
             return self.random_item(batch_i)
 
     def potential_item(self, batch_i, debug_workers=False):
-
+        print('Start potential item')
         t = [time.time()]
 
         # Initiate concatеnation lists
@@ -552,6 +552,7 @@ class S3DISDataset(PointCloudDataset):
         #     print('stack ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
         #     ti += 1
         #     print('\n************************\n')
+        print('End of potential item')
         return input_list
 
 #    def random_item(self, batch_i):
@@ -1137,16 +1138,16 @@ class S3DISSampler(Sampler):
             causing an OOM crash. The neighborhood calibration function sets a limit for n_max,
             by checking some input batches.
             The limit (set for each layer of the network in the self.neighborhood_limits variable of the dataset class)
-            is set as the 80th percentile of the distribution of neighbor numbers.
-            It means that 80% of the neighborhoods won't be affected by this limit,
-            and that the 20% most dense neighborhoods will lose some of their points.
+            is set as the 90th percentile of the distribution of neighbor numbers.
+            It means that 90% of the neighborhoods won't be affected by this limit,
+            and that the 10% most dense neighborhoods will lose some of their points.
             Because of the way we compute neighborhoods, they lose the furthest points,
             which means they become KNN neighborhoods.
             Thanks to this trick, our network is lighter, faster, and it does not affect the performances.
 
-            Batch calibration: Set "batch_limit" (the maximum number of points allowed in every batch) so that the
+            Batch calibration: done to set "batch_limit" (the maximum number of points allowed in every batch) so that the
                                average batch size (number of stacked pointclouds) is the one asked.
-        Neighbors calibration: Set the "neighborhood_limits" (the maximum number of neighbors allowed in convolutions)
+        Neighbors calibration: done to set the "neighborhood_limits" (the maximum number of neighbors allowed in convolutions)
                                so that 90% of the neighborhoods remain untouched. There is a limit for each layer.
         """
 
@@ -1283,12 +1284,9 @@ class S3DISSampler(Sampler):
             #####################
             # Perform calibration
             #####################
-
+            print('Before range10')
             for epoch in range(10):
-                # Use enumerate(dataloader) as provider of batches. Batch will be a ball of points.
-                # Every batch will be an output of segmentation_input (input_list)
-                # which is used in method potential_item. This is how calibration and potentiaL_item refer to each other
-
+                print('Begin iter o range10. Before enumerate(dataloader)')
                 for batch_i, batch in enumerate(dataloader):
 
                     print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors len', len(batch.neighbors))
@@ -1354,17 +1352,22 @@ class S3DISSampler(Sampler):
                         print(message.format(i,
                                              estim_aver_bat_size,
                                              int(self.dataset.batch_limit)))
-
+                    print('Last step of enumerate(dataloader), breaking is ', breaking)
+                print('After enumerate(dataloader), breaking is ', breaking)
                 if breaking:
                     break
-
+                print('End of iter of range10')
             # Use collected neighbor histogram to get neighbors limit
+            print('After range10')
+            # cumsum[i] contains a list: number of points which have i or less neighbors on sampling level 0, i or less neighbors on level 1, ...., level 4
             cumsum = np.cumsum(neighb_hists.T, axis=0)
+
+            # number of neighbors which is exceeded by only 10% of points of sampling level 0, same for level 1, ...., level 4
             percentiles = np.sum(cumsum < (untouched_ratio * cumsum[upper_bound_of_neigh_number - 1, :]), axis=0)
             self.dataset.neighborhood_limits = percentiles
 
+            # Print histogram
             if verbose:
-
                 # Crop histogram
                 while np.sum(neighb_hists[:, -1]) == 0:
                     neighb_hists = neighb_hists[:, :-1]
@@ -1405,7 +1408,7 @@ class S3DISSampler(Sampler):
             with open(batch_lim_file, 'wb') as file:
                 pickle.dump(batch_lim_dict, file)
 
-            # Save neighb_limit dictionary to neighbors_limits.pkl
+            # Save neighborhood_limits to neighbors_limits.pkl
             for layer_ind in range(self.dataset.config.num_layers):
                 dl = self.dataset.config.first_subsampling_dl * (2 ** layer_ind)
                 if self.dataset.config.deform_layers[layer_ind]:
