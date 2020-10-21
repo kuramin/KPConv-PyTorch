@@ -59,7 +59,7 @@ class S3DISConfig(Config):
     dataset_task = ''
 
     # Number of CPU threads for the input pipeline
-    input_threads = 0  # 10 kuramin changed
+    input_threads = 8  # 10 kuramin changed
 
     #########################
     # Architecture definition
@@ -118,7 +118,7 @@ class S3DISConfig(Config):
     aggregation_mode = 'sum'
 
     # Choice of input features
-    first_features_dim = 128 #8 kuramin changed back
+    first_features_dim = 8 #128 kuramin changed back
     in_features_dim = 5 #4 kuramin changed back
 
     # Can the network learn modulations
@@ -153,7 +153,7 @@ class S3DISConfig(Config):
     batch_num = 6
 
     # Number of steps per epochs
-    epoch_steps = 500 #100 #500 kuramin changed
+    steps_per_epoch = 100 #500 kuramin changed
 
     # Number of validation examples per epoch
     validation_size = 50

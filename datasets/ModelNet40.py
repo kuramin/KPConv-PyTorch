@@ -128,8 +128,8 @@ class ModelNet40Dataset(PointCloudDataset):
         # Number of models and models used per epoch
         if self.train:
             self.num_models = 9843
-            if config.epoch_steps and config.epoch_steps * config.batch_num < self.num_models:
-                self.epoch_n = config.epoch_steps * config.batch_num
+            if config.steps_per_epoch and config.steps_per_epoch * config.batch_num < self.num_models:
+                self.epoch_n = config.steps_per_epoch * config.batch_num
             else:
                 self.epoch_n = self.num_models
         else:
@@ -551,8 +551,8 @@ class ModelNet40Sampler(Sampler):
             ########################
 
             # Estimated average batch size and target value
-            estim_b = 0
-            target_b = self.dataset.config.batch_num
+            estim_aver_bat_size = 0
+            target_aver_bat_size = self.dataset.config.batch_num
 
             # Calibration parameters
             low_pass_T = 10
@@ -583,14 +583,14 @@ class ModelNet40Sampler(Sampler):
                     # batch length
                     b = len(batch.labels)
 
-                    # Update estim_b (low pass filter)
-                    estim_b += (b - estim_b) / low_pass_T
+                    # Update estim_aver_bat_size (low pass filter)
+                    estim_aver_bat_size += (b - estim_aver_bat_size) / low_pass_T
 
                     # Estimate error (noisy)
-                    error = target_b - b
+                    error = target_aver_bat_size - b
 
                     # Save smooth errors for convergene check
-                    smooth_errors.append(target_b - estim_b)
+                    smooth_errors.append(target_aver_bat_size - estim_aver_bat_size)
                     if len(smooth_errors) > 10:
                         smooth_errors = smooth_errors[1:]
 
@@ -598,7 +598,7 @@ class ModelNet40Sampler(Sampler):
                     self.batch_limit += Kp * error
 
                     # finer low pass filter when closing in
-                    if not finer and np.abs(estim_b - target_b) < 1:
+                    if not finer and np.abs(estim_aver_bat_size - target_aver_bat_size) < 1:
                         low_pass_T = 100
                         finer = True
 
@@ -613,9 +613,9 @@ class ModelNet40Sampler(Sampler):
                     # Console display (only one per second)
                     if verbose and (t - last_display) > 1.0:
                         last_display = t
-                        message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}'
+                        message = 'Step {:5d}  estim_aver_bat_size ={:5.2f} batch_limit ={:7d}'
                         print(message.format(i,
-                                             estim_b,
+                                             estim_aver_bat_size,
                                              int(self.batch_limit)))
 
                 if breaking:
@@ -841,7 +841,7 @@ def debug_timing(dataset, sampler, loader):
     t = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
-    estim_b = dataset.config.batch_num
+    estim_aver_bat_size = dataset.config.batch_num
 
     for epoch in range(10):
 
@@ -852,8 +852,8 @@ def debug_timing(dataset, sampler, loader):
             t = t[-1:]
             t += [time.time()]
 
-            # Update estim_b (low pass filter)
-            estim_b += (len(batch.labels) - estim_b) / 100
+            # Update estim_aver_bat_size (low pass filter)
+            estim_aver_bat_size += (len(batch.labels) - estim_aver_bat_size) / 100
 
             # Pause simulating computations
             time.sleep(0.050)
@@ -869,7 +869,7 @@ def debug_timing(dataset, sampler, loader):
                 print(message.format(batch_i,
                                      1000 * mean_dt[0],
                                      1000 * mean_dt[1],
-                                     estim_b))
+                                     estim_aver_bat_size))
 
         print('************* Epoch ended *************')
 

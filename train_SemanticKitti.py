@@ -160,7 +160,7 @@ class SemanticKittiConfig(Config):
     grad_clip_norm = 100.0
 
     # Number of steps per epochs
-    epoch_steps = 500
+    steps_per_epoch = 500
 
     # Number of validation examples per epoch
     validation_size = 200

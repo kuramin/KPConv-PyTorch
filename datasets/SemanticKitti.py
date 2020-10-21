@@ -175,7 +175,7 @@ class SemanticKittiDataset(PointCloudDataset):
 
         # shared epoch indices and classes (in case we want class balanced sampler)
         if set == 'training':
-            N = int(np.ceil(config.epoch_steps * self.batch_num * 1.1))
+            N = int(np.ceil(config.steps_per_epoch * self.batch_num * 1.1))
         else:
             N = int(np.ceil(config.validation_size * self.batch_num * 1.1))
         self.epoch_i = torch.from_numpy(np.zeros((1,), dtype=np.int64))
@@ -731,7 +731,7 @@ class SemanticKittiSampler(Sampler):
 
         # Number of step per epoch
         if dataset.set == 'training':
-            self.N = dataset.config.epoch_steps
+            self.N = dataset.config.steps_per_epoch
         else:
             self.N = dataset.config.validation_size
 
@@ -1071,8 +1071,8 @@ class SemanticKittiSampler(Sampler):
             ########################
 
             # Estimated average batch size and target value
-            estim_b = 0
-            target_b = self.dataset.batch_num
+            estim_aver_bat_size = 0
+            target_aver_bat_size = self.dataset.batch_num
 
             # Calibration parameters
             low_pass_T = 10
@@ -1114,14 +1114,14 @@ class SemanticKittiSampler(Sampler):
                     # batch length
                     b = len(batch.frame_inds)
 
-                    # Update estim_b (low pass filter)
-                    estim_b += (b - estim_b) / low_pass_T
+                    # Update estim_aver_bat_size (low pass filter)
+                    estim_aver_bat_size += (b - estim_aver_bat_size) / low_pass_T
 
                     # Estimate error (noisy)
-                    error = target_b - b
+                    error = target_aver_bat_size - b
 
                     # Save smooth errors for convergene check
-                    smooth_errors.append(target_b - estim_b)
+                    smooth_errors.append(target_aver_bat_size - estim_aver_bat_size)
                     if len(smooth_errors) > 10:
                         smooth_errors = smooth_errors[1:]
 
@@ -1129,7 +1129,7 @@ class SemanticKittiSampler(Sampler):
                     self.dataset.batch_limit[0] += Kp * error
 
                     # finer low pass filter when closing in
-                    if not finer and np.abs(estim_b - target_b) < 1:
+                    if not finer and np.abs(estim_aver_bat_size - target_aver_bat_size) < 1:
                         low_pass_T = 100
                         finer = True
 
@@ -1144,9 +1144,9 @@ class SemanticKittiSampler(Sampler):
                     # Console display (only one per second)
                     if verbose and (t - last_display) > 1.0:
                         last_display = t
-                        message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}'
+                        message = 'Step {:5d}  estim_aver_bat_size ={:5.2f} batch_limit ={:7d}'
                         print(message.format(i,
-                                             estim_b,
+                                             estim_aver_bat_size,
                                              int(self.dataset.batch_limit[0])))
 
                 if breaking:
@@ -1383,7 +1383,7 @@ def debug_timing(dataset, loader):
     t = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
-    estim_b = dataset.batch_num
+    estim_aver_bat_size = dataset.batch_num
     estim_N = 0
 
     for epoch in range(10):
@@ -1395,8 +1395,8 @@ def debug_timing(dataset, loader):
             t = t[-1:]
             t += [time.time()]
 
-            # Update estim_b (low pass filter)
-            estim_b += (len(batch.frame_inds) - estim_b) / 100
+            # Update estim_aver_bat_size (low pass filter)
+            estim_aver_bat_size += (len(batch.frame_inds) - estim_aver_bat_size) / 100
             estim_N += (batch.features.shape[0] - estim_N) / 10
 
             # Pause simulating computations
@@ -1413,7 +1413,7 @@ def debug_timing(dataset, loader):
                 print(message.format(batch_i,
                                      1000 * mean_dt[0],
                                      1000 * mean_dt[1],
-                                     estim_b,
+                                     estim_aver_bat_size,
                                      estim_N))
 
         print('************* Epoch ended *************')

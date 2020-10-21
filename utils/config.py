@@ -175,7 +175,7 @@ class Config:
     max_epoch = 1000
 
     # Number of steps per epochs
-    epoch_steps = 1000
+    steps_per_epoch = 1000
 
     # Number of validation examples per epoch
     validation_size = 100
@@ -373,10 +373,10 @@ class Config:
             text_file.write('batch_num = {:d}\n'.format(self.batch_num))
             text_file.write('val_batch_num = {:d}\n'.format(self.val_batch_num))
             text_file.write('max_epoch = {:d}\n'.format(self.max_epoch))
-            if self.epoch_steps is None:
-                text_file.write('epoch_steps = None\n')
+            if self.steps_per_epoch is None:
+                text_file.write('steps_per_epoch = None\n')
             else:
-                text_file.write('epoch_steps = {:d}\n'.format(self.epoch_steps))
+                text_file.write('steps_per_epoch = {:d}\n'.format(self.steps_per_epoch))
             text_file.write('validation_size = {:d}\n'.format(self.validation_size))
             text_file.write('checkpoint_gap = {:d}\n'.format(self.checkpoint_gap))
 

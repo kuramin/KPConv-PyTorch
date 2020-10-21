@@ -153,7 +153,7 @@ class S3DISConfig(Config):
     batch_num = 6
 
     # Number of steps per epochs
-    epoch_steps = 100 #500 kuramin changed
+    steps_per_epoch = 100 #500 kuramin changed
 
     # Number of validation examples per epoch
     validation_size = 50

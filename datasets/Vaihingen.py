@@ -123,7 +123,7 @@ class S3DISDataset(PointCloudDataset):
 
         # Number of models used per epoch
         if self.set == 'training':
-            self.epoch_n = config.epoch_steps * config.batch_num
+            self.epoch_n = config.steps_per_epoch * config.batch_num
         elif self.set in ['validation', 'test', 'ERF']:
             self.epoch_n = config.validation_size * config.batch_num
         else:
@@ -213,7 +213,7 @@ class S3DISDataset(PointCloudDataset):
             self.potentials = None
             self.min_potentials = None
             self.argmin_potentials = None
-            N = config.epoch_steps * config.batch_num
+            N = config.steps_per_epoch * config.batch_num
             self.epoch_inds = torch.from_numpy(np.zeros((2, N), dtype=np.int64))
             self.epoch_i = torch.from_numpy(np.zeros((1,), dtype=np.int64))
             self.epoch_i.share_memory_()
@@ -915,7 +915,7 @@ class S3DISSampler(Sampler):
 
         # Number of step per epoch
         if dataset.set == 'training':
-            self.N = dataset.config.epoch_steps
+            self.N = dataset.config.steps_per_epoch
         else:
             self.N = dataset.config.validation_size
 
@@ -989,8 +989,8 @@ class S3DISSampler(Sampler):
         """
 
         # Estimated average batch size and target value
-        estim_b = 0
-        target_b = self.dataset.config.batch_num
+        estim_aver_bat_size = 0
+        target_aver_bat_size = self.dataset.config.batch_num
 
         # Calibration parameters
         low_pass_T = 10
@@ -1016,14 +1016,14 @@ class S3DISSampler(Sampler):
                 # batch length
                 b = len(test)
 
-                # Update estim_b (low pass filter)
-                estim_b += (b - estim_b) / low_pass_T
+                # Update estim_aver_bat_size (low pass filter)
+                estim_aver_bat_size += (b - estim_aver_bat_size) / low_pass_T
 
                 # Estimate error (noisy)
-                error = target_b - b
+                error = target_aver_bat_size - b
 
                 # Save smooth errors for convergene check
-                smooth_errors.append(target_b - estim_b)
+                smooth_errors.append(target_aver_bat_size - estim_aver_bat_size)
                 if len(smooth_errors) > 10:
                     smooth_errors = smooth_errors[1:]
 
@@ -1031,7 +1031,7 @@ class S3DISSampler(Sampler):
                 self.dataset.batch_limit += Kp * error
 
                 # finer low pass filter when closing in
-                if not finer and np.abs(estim_b - target_b) < 1:
+                if not finer and np.abs(estim_aver_bat_size - target_aver_bat_size) < 1:
                     low_pass_T = 100
                     finer = True
 
@@ -1047,9 +1047,9 @@ class S3DISSampler(Sampler):
                 # Console display (only one per second)
                 if (t[-1] - last_display) > 1.0:
                     last_display = t[-1]
-                    message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d},  //  {:.1f}ms {:.1f}ms'
+                    message = 'Step {:5d}  estim_aver_bat_size ={:5.2f} batch_limit ={:7d},  //  {:.1f}ms {:.1f}ms'
                     print(message.format(i,
-                                         estim_b,
+                                         estim_aver_bat_size,
                                          int(self.dataset.batch_limit),
                                          1000 * mean_dt[0],
                                          1000 * mean_dt[1]))
@@ -1176,8 +1176,8 @@ class S3DISSampler(Sampler):
             ########################
 
             # Estimated average batch size and target value
-            estim_b = 0
-            target_b = self.dataset.config.batch_num
+            estim_aver_bat_size = 0
+            target_aver_bat_size = self.dataset.config.batch_num
 
             # Calibration parameters
             low_pass_T = 10
@@ -1208,14 +1208,14 @@ class S3DISSampler(Sampler):
                     # batch length
                     b = len(batch.cloud_inds)
 
-                    # Update estim_b (low pass filter)
-                    estim_b += (b - estim_b) / low_pass_T
+                    # Update estim_aver_bat_size (low pass filter)
+                    estim_aver_bat_size += (b - estim_aver_bat_size) / low_pass_T
 
                     # Estimate error (noisy)
-                    error = target_b - b
+                    error = target_aver_bat_size - b
 
                     # Save smooth errors for convergene check
-                    smooth_errors.append(target_b - estim_b)
+                    smooth_errors.append(target_aver_bat_size - estim_aver_bat_size)
                     if len(smooth_errors) > 10:
                         smooth_errors = smooth_errors[1:]
 
@@ -1223,7 +1223,7 @@ class S3DISSampler(Sampler):
                     self.dataset.batch_limit += Kp * error
 
                     # finer low pass filter when closing in
-                    if not finer and np.abs(estim_b - target_b) < 1:
+                    if not finer and np.abs(estim_aver_bat_size - target_aver_bat_size) < 1:
                         low_pass_T = 100
                         finer = True
 
@@ -1238,9 +1238,9 @@ class S3DISSampler(Sampler):
                     # Console display (only one per second)
                     if verbose and (t - last_display) > 1.0:
                         last_display = t
-                        message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}'
+                        message = 'Step {:5d}  estim_aver_bat_size ={:5.2f} batch_limit ={:7d}'
                         print(message.format(i,
-                                             estim_b,
+                                             estim_aver_bat_size,
                                              int(self.dataset.batch_limit)))
 
                 if breaking:
@@ -1499,7 +1499,7 @@ def debug_timing(dataset, loader):
     t = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
-    estim_b = dataset.config.batch_num
+    estim_aver_bat_size = dataset.config.batch_num
     estim_N = 0
 
     for epoch in range(10):
@@ -1511,8 +1511,8 @@ def debug_timing(dataset, loader):
             t = t[-1:]
             t += [time.time()]
 
-            # Update estim_b (low pass filter)
-            estim_b += (len(batch.cloud_inds) - estim_b) / 100
+            # Update estim_aver_bat_size (low pass filter)
+            estim_aver_bat_size += (len(batch.cloud_inds) - estim_aver_bat_size) / 100
             estim_N += (batch.features.shape[0] - estim_N) / 10
 
             # Pause simulating computations
@@ -1529,7 +1529,7 @@ def debug_timing(dataset, loader):
                 print(message.format(batch_i,
                                      1000 * mean_dt[0],
                                      1000 * mean_dt[1],
-                                     estim_b,
+                                     estim_aver_bat_size,
                                      estim_N))
 
         print('************* Epoch ended *************')

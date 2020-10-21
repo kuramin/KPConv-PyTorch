@@ -122,9 +122,9 @@ class S3DISDataset(PointCloudDataset):
         self.all_splits = [0, 1]
         self.validation_split = 1
 
-        # Number of models used per epoch
+        # Number of models used per epoch (used only during visualization)
         if self.set == 'training':
-            self.epoch_n = config.epoch_steps * config.batch_num
+            self.epoch_n = config.steps_per_epoch * config.batch_num
         elif self.set in ['validation', 'test', 'ERF']:
             self.epoch_n = config.validation_size * config.batch_num
         else:
@@ -227,7 +227,7 @@ class S3DISDataset(PointCloudDataset):
             self.potentials = None
             self.min_potentials = None
             self.argmin_potentials = None
-            self.epoch_inds = torch.from_numpy(np.zeros((2, config.epoch_steps * config.batch_num), dtype=np.int64))
+            self.epoch_inds = torch.from_numpy(np.zeros((2, config.steps_per_epoch * config.batch_num), dtype=np.int64))
             self.epoch_i = torch.from_numpy(np.zeros((1,), dtype=np.int64))
             self.epoch_i.share_memory_()
             self.epoch_inds.share_memory_()
@@ -980,7 +980,7 @@ class S3DISSampler(Sampler):
 
         # Number of step per epoch
         if dataset.set == 'training':
-            self.N = dataset.config.epoch_steps
+            self.N = dataset.config.steps_per_epoch
         else:
             self.N = dataset.config.validation_size
 
@@ -1055,8 +1055,8 @@ class S3DISSampler(Sampler):
     #     """
     #
     #     # Estimated average batch size and target value
-    #     estim_b = 0
-    #     target_b = self.dataset.config.batch_num
+    #     estim_aver_bat_size = 0
+    #     target_aver_bat_size = self.dataset.config.batch_num
     #
     #     # Calibration parameters
     #     low_pass_T = 10
@@ -1082,14 +1082,14 @@ class S3DISSampler(Sampler):
     #             # batch length
     #             b = len(test)
     #
-    #             # Update estim_b (low pass filter)
-    #             estim_b += (b - estim_b) / low_pass_T
+    #             # Update estim_aver_bat_size (low pass filter)
+    #             estim_aver_bat_size += (b - estim_aver_bat_size) / low_pass_T
     #
     #             # Estimate error (noisy)
-    #             error = target_b - b
+    #             error = target_aver_bat_size - b
     #
     #             # Save smooth errors for convergene check
-    #             smooth_errors.append(target_b - estim_b)
+    #             smooth_errors.append(target_aver_bat_size - estim_aver_bat_size)
     #             if len(smooth_errors) > 10:
     #                 smooth_errors = smooth_errors[1:]
     #
@@ -1097,7 +1097,7 @@ class S3DISSampler(Sampler):
     #             self.dataset.batch_limit += Kp * error
     #
     #             # finer low pass filter when closing in
-    #             if not finer and np.abs(estim_b - target_b) < 1:
+    #             if not finer and np.abs(estim_aver_bat_size - target_aver_bat_size) < 1:
     #                 low_pass_T = 100
     #                 finer = True
     #
@@ -1113,9 +1113,9 @@ class S3DISSampler(Sampler):
     #             # Console display (only one per second)
     #             if (t[-1] - last_display) > 1.0:
     #                 last_display = t[-1]
-    #                 message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d},  //  {:.1f}ms {:.1f}ms'
+    #                 message = 'Step {:5d}  estim_aver_bat_size ={:5.2f} batch_limit ={:7d},  //  {:.1f}ms {:.1f}ms'
     #                 print(message.format(i,
-    #                                      estim_b,
+    #                                      estim_aver_bat_size,
     #                                      int(self.dataset.batch_limit),
     #                                      1000 * mean_dt[0],
     #                                      1000 * mean_dt[1]))
@@ -1125,7 +1125,23 @@ class S3DISSampler(Sampler):
 
     def calibration(self, dataloader, untouched_ratio=0.9, verbose=False, force_redo=False):
         """
-        Method performing batch and neighbors calibration.
+            The neighborhood calibration function is here to control the number of neighbors.
+            As we preferred radius neighborhood (for geometrical consistency),
+            some of the neighborhoods (in the dense areas like vegetation) can contain a lot of points.
+            For an input batch, the neighborhood matrix size is [N, n_max]
+            where n_max is the maximum number of neighbors.
+            As we have big batches, there is often a dense area among the points, forcing n_max to be large.
+            Furthermore, in the case the density is not controlled with a grid, we could end up with very large n_max,
+            causing an OOM crash. The neighborhood calibration function sets a limit for n_max,
+            by checking some input batches.
+            The limit (set for each layer of the network in the self.neighborhood_limits variable of the dataset class)
+            is set as the 80th percentile of the distribution of neighbor numbers.
+            It means that 80% of the neighborhoods won't be affected by this limit,
+            and that the 20% most dense neighborhoods will lose some of their points.
+            Because of the way we compute neighborhoods, they lose the furthest points,
+            which means they become KNN neighborhoods.
+            Thanks to this trick, our network is lighter, faster, and it does not affect the performances.
+
             Batch calibration: Set "batch_limit" (the maximum number of points allowed in every batch) so that the
                                average batch size (number of stacked pointclouds) is the one asked.
         Neighbors calibration: Set the "neighborhood_limits" (the maximum number of neighbors allowed in convolutions)
@@ -1225,9 +1241,9 @@ class S3DISSampler(Sampler):
                     v = '?'
                 print('{:}\"{:s}\": {:s}{:}'.format(color, key, v, bcolors.ENDC))
 
-        #  all the contents of this IF might be just calculation of self.batch_limit and self.neighborhood_limits
-        #  These values will define break when enough number of balls are collected during method "potential item"
-        #  which will be used inside Calibration (somehow it is used inside it too)
+        # all the contents of this IF might be just calculation of self.batch_limit and self.neighborhood_limits
+        # These values will define break when enough number of balls are collected during method "potential item"
+        # which will be used inside Calibration (somehow it is used inside it too)
         if redo:
 
             ############################
@@ -1235,18 +1251,18 @@ class S3DISSampler(Sampler):
             ############################
 
             # From config parameter, compute higher bound of neighbors number in a neighborhood
-            hist_n = int(np.ceil(4 / 3 * np.pi * (self.dataset.config.deform_radius + 1) ** 3))
+            upper_bound_of_neigh_number = int(np.ceil(4 / 3 * np.pi * (self.dataset.config.deform_radius + 1) ** 3))
 
             # Histogram of neighborhood sizes
-            neighb_hists = np.zeros((self.dataset.config.num_layers, hist_n), dtype=np.int32)
+            neighb_hists = np.zeros((self.dataset.config.num_layers, upper_bound_of_neigh_number), dtype=np.int32)
 
             ########################
             # Batch calib parameters
             ########################
 
-            # Estimated average batch size and target value
-            estim_b = 0
-            target_b = self.dataset.config.batch_num
+            # Estimated average batch size and target value (0 and 6)
+            estim_aver_bat_size = 0
+            target_aver_bat_size = self.dataset.config.batch_num
 
             # Calibration parameters
             low_pass_T = 10
@@ -1268,9 +1284,9 @@ class S3DISSampler(Sampler):
 
             for epoch in range(10):
                 # Use enumerate(dataloader) as provider of batches. Batch will be a ball of points.
-                # List batch.neighbors will contain neighbors on 5 levels.
-                # Matrix batch.neighbors[i] will contain ????
-                #
+                # Every batch will be an output of segmentation_input (input_list)
+                # which is used in method potential_item. This is how calibration and potentiaL_item refer to each other
+
                 for batch_i, batch in enumerate(dataloader):
 
                     print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors len', len(batch.neighbors))
@@ -1281,31 +1297,43 @@ class S3DISSampler(Sampler):
                     print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[4].shape', batch.neighbors[4].shape)
                     print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors\n', batch.neighbors)
                     print('epoch', epoch, 'batch_i', batch_i, 'end')
-                    # kuramin commented from here
+
                     # Update neighborhood histogram
+                    for neighb_mat in batch.neighbors:
+                        neinum = neighb_mat.numpy()
+                        print('neighb_mat.numpy())', neighb_mat.numpy())
+                        print('neighb_mat.shape[0])', neighb_mat.shape[0])
+
+                    # number of neighbors of each point on every layer (5 layers)
                     counts = [np.sum(neighb_mat.numpy() < neighb_mat.shape[0], axis=1) for neighb_mat in batch.neighbors]
-                    hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
+
+                    # on every layer we calculate how many points have 0 neighs, 1 neigh, 2 .... upper_bound_of_neigh_number neighs (which is much more than we need)
+                    hists = [np.bincount(c, minlength=upper_bound_of_neigh_number)[:upper_bound_of_neigh_number] for c in counts]
+
+                    # transform list hists to ndarray neighb_hists
                     neighb_hists += np.vstack(hists)
+                    print('counts', counts)
+                    print('neighb_hists', neighb_hists)
 
                     # batch length
                     b = len(batch.cloud_inds)
 
-                    # Update estim_b (low pass filter)
-                    estim_b += (b - estim_b) / low_pass_T
+                    # Update estim_aver_bat_size (low pass filter)
+                    estim_aver_bat_size += (b - estim_aver_bat_size) / low_pass_T
 
                     # Estimate error (noisy)
-                    error = target_b - b
+                    error = target_aver_bat_size - b
 
-                    # Save smooth errors for convergene check
-                    smooth_errors.append(target_b - estim_b)
+                    # Save smooth errors for convergence check
+                    smooth_errors.append(target_aver_bat_size - estim_aver_bat_size)
                     if len(smooth_errors) > 10:
                         smooth_errors = smooth_errors[1:]
 
                     # Update batch limit with P controller
                     self.dataset.batch_limit += Kp * error
 
-                    # finer low pass filter when closing in
-                    if not finer and np.abs(estim_b - target_b) < 1:
+                    # turn on finer low pass filter when estim_aver_bat_size is close to target_aver_bat_size
+                    if not finer and np.abs(estim_aver_bat_size - target_aver_bat_size) < 1:
                         low_pass_T = 100
                         finer = True
 
@@ -1320,17 +1348,17 @@ class S3DISSampler(Sampler):
                     # Console display (only one per second)
                     if verbose and (t - last_display) > 1.0:
                         last_display = t
-                        message = 'Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}'
+                        message = 'For-loop through batches during calibration: Step {:5d} - estim_aver_bat_size ={:5.2f} batch_limit ={:7d}'
                         print(message.format(i,
-                                             estim_b,
+                                             estim_aver_bat_size,
                                              int(self.dataset.batch_limit)))
 
                 if breaking:
-                    break      #kuramin commented. Uncomment
+                    break
 
             # Use collected neighbor histogram to get neighbors limit
             cumsum = np.cumsum(neighb_hists.T, axis=0)
-            percentiles = np.sum(cumsum < (untouched_ratio * cumsum[hist_n - 1, :]), axis=0)
+            percentiles = np.sum(cumsum < (untouched_ratio * cumsum[upper_bound_of_neigh_number - 1, :]), axis=0)
             self.dataset.neighborhood_limits = percentiles
 
             if verbose:
@@ -1338,14 +1366,14 @@ class S3DISSampler(Sampler):
                 # Crop histogram
                 while np.sum(neighb_hists[:, -1]) == 0:
                     neighb_hists = neighb_hists[:, :-1]
-                hist_n = neighb_hists.shape[1]
+                upper_bound_of_neigh_number = neighb_hists.shape[1]
 
                 print('\n**************************************************\n')
                 line0 = 'neighbors_num '
                 for layer in range(neighb_hists.shape[0]):
                     line0 += '|  layer {:2d}  '.format(layer)
                 print(line0)
-                for neighb_size in range(hist_n):
+                for neighb_size in range(upper_bound_of_neigh_number):
                     line0 = '     {:4d}     '.format(neighb_size)
                     for layer in range(neighb_hists.shape[0]):
                         if neighb_size > percentiles[layer]:
@@ -1581,7 +1609,7 @@ def S3DISCollate(batch_data):
 #     t = [time.time()]
 #     last_display = time.time()
 #     mean_dt = np.zeros(2)
-#     estim_b = dataset.config.batch_num
+#     estim_aver_bat_size = dataset.config.batch_num
 #     estim_N = 0
 #
 #     for epoch in range(10):
@@ -1593,8 +1621,8 @@ def S3DISCollate(batch_data):
 #             t = t[-1:]
 #             t += [time.time()]
 #
-#             # Update estim_b (low pass filter)
-#             estim_b += (len(batch.cloud_inds) - estim_b) / 100
+#             # Update estim_aver_bat_size (low pass filter)
+#             estim_aver_bat_size += (len(batch.cloud_inds) - estim_aver_bat_size) / 100
 #             estim_N += (batch.features.shape[0] - estim_N) / 10
 #
 #             # Pause simulating computations
@@ -1611,7 +1639,7 @@ def S3DISCollate(batch_data):
 #                 print(message.format(batch_i,
 #                                      1000 * mean_dt[0],
 #                                      1000 * mean_dt[1],
-#                                      estim_b,
+#                                      estim_aver_bat_size,
 #                                      estim_N))
 #
 #         print('************* Epoch ended *************')

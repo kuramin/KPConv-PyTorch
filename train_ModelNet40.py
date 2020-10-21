@@ -145,7 +145,7 @@ class Modelnet40Config(Config):
     batch_num = 10
 
     # Number of steps per epochs
-    epoch_steps = 300
+    steps_per_epoch = 300
 
     # Number of validation examples per epoch
     validation_size = 30
