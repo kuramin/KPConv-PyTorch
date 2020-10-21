@@ -256,6 +256,7 @@ class S3DISDataset(PointCloudDataset):
 
         if self.use_potentials:
             #return self.random_item(batch_i)  #kuramin added
+            print('get_item')
             return self.potential_item(batch_i)
         else:
             return self.random_item(batch_i)
@@ -283,7 +284,7 @@ class S3DISDataset(PointCloudDataset):
         #     wid = None
 
         while True:
-
+            print('Begin new iteration of while')
             t += [time.time()]
 
             # if debug_workers:
@@ -400,6 +401,7 @@ class S3DISDataset(PointCloudDataset):
             #               ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
 
             # as a result, input_points is a ball of radius 1.3 m
+            # and p_list is a set of such balls. Number of balls is limited by current value of self.batch_limit
 
             # Stack batch
             p_list += [input_points]
@@ -418,10 +420,11 @@ class S3DISDataset(PointCloudDataset):
             # Update batch size
             batch_n += number_of_inball_points
             print('batch_n is', batch_n)
+            print('batch_limit is', self.batch_limit)
 
             # In case batch is full, stop
             if batch_n > int(self.batch_limit):
-                print('break, cause batch_limit is', self.batch_limit)
+                print('break out from while, cause batch_limit is', self.batch_limit)
                 break
 
             # Randomly drop some points (act as an augmentation process and a safety for GPU memory consumption)
@@ -433,8 +436,10 @@ class S3DISDataset(PointCloudDataset):
         # Concatenate batch
         ###################
 
+        print("p_list is full, its size is", len(p_list))
         inp_filename = '/home/kuramin/Downloads/stacked_points/stacked_points'  # kuramin added
         for i, inp in enumerate(p_list):
+            print('p_list member', i, 'has size', p_list[i].shape[0])
             inp_filename += '_' + str(p_list[i].shape[0])
             p_list[i] += pot_points[i_list[i], :]
 
@@ -448,7 +453,7 @@ class S3DISDataset(PointCloudDataset):
         scales = np.array(s_list, dtype=np.float32)
         rots = np.stack(R_list, axis=0)
 
-        write_ply(str(inp_filename)+'.ply', [stacked_points, features, labels], ['x', 'y', 'z', 'red', 'green', 'blue', 'height', 'class'])  # kuramin added
+        #write_ply(str(inp_filename)+'.ply', [stacked_points, features, labels], ['x', 'y', 'z', 'red', 'green', 'blue', 'height', 'class'])  # kuramin added
 
         # inp_filename = '/home/kuramin/Downloads/stacked_points_xyz_'
         # for i, inp in enumerate(p_list):
@@ -456,7 +461,7 @@ class S3DISDataset(PointCloudDataset):
         #                   [p_list[i], f_list[i][:,0:3], l_list[i]],
         #                   ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
 
-        # Input features
+        # Input features (feature with constant value 1 means that this point is real member of original cloud)
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
         if self.config.in_features_dim == 1:
             pass
@@ -465,7 +470,7 @@ class S3DISDataset(PointCloudDataset):
         elif self.config.in_features_dim == 5:  # with original height of point
             stacked_features = np.hstack((stacked_features, features))
         else:
-            raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)')  # Probable typo: must be 1, 4, 5
+            raise ValueError('Only accepted input dimensions are 1, 4 and 5 (without and with XYZ)')  # Kuramin fixed typo: was 7, now 5
 
         #######################
         # Create network inputs
@@ -476,10 +481,7 @@ class S3DISDataset(PointCloudDataset):
 
         t += [time.time()]
 
-        if len(p_list) > 10:  # kuramin added
-            print('Length of p_list is good')
-
-        # Get the whole input list
+        # Perform several batch_grid_samplings to get 5 levels of sampling of cloud stacked_points
         input_list = self.segmentation_inputs(stacked_points,
                                               stacked_features,
                                               labels,

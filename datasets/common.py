@@ -347,7 +347,7 @@ class PointCloudDataset(Dataset):
         #
         #     return augmented_points, augmented_normals, scale, R
 
-    def big_neighborhood_filter(self, neighbors, layer):
+    def big_neighborhood_filter(self, neigh_indices, layer):
         """
         Filter neighborhoods with max number of neighbors. Limit is set to keep XX% of the neighborhoods untouched.
         Limit is computed at initialization
@@ -355,9 +355,9 @@ class PointCloudDataset(Dataset):
 
         # crop neighbors matrix
         if len(self.neighborhood_limits) > 0:
-            return neighbors[:, :self.neighborhood_limits[layer]]
+            return neigh_indices[:, :self.neighborhood_limits[layer]]
         else:
-            return neighbors
+            return neigh_indices
 
     # def classification_inputs(self,
     #                           stacked_points,
@@ -477,7 +477,7 @@ class PointCloudDataset(Dataset):
                             stacked_features,
                             labels,
                             stack_lengths):
-        print('lets calc segm inp')
+        print('Begin calculating segmentation input')
 
         # Starting radius of convolutions
         r_normal = self.config.first_subsampling_dl * self.config.conv_radius
@@ -562,8 +562,9 @@ class PointCloudDataset(Dataset):
                 upsampled_indices = np.zeros((0, 1), dtype=np.int32)
 
             # Reduce size of neighbors matrices by eliminating furthest point
-            # Length of input_points provides number of layer. Based on number of layer and list "neighb_lim_dict"
+            # Length of input_points provides number of layer. Based on number of layer and list "self.neighborhood_limits"
             # which we read from a pickle-file, we can leave only specified amount of closest neighbors and cut rest
+            # This is done on neigh_indices by function big_neighborhood_filter based on value self.neighborhood_limits
             neigh_indices = self.big_neighborhood_filter(neigh_indices, len(input_points))
             indices_of_neighs_of_pooled = self.big_neighborhood_filter(indices_of_neighs_of_pooled, len(input_points))
             if upsampled_indices.shape[0] > 0:
@@ -595,7 +596,7 @@ class PointCloudDataset(Dataset):
         # Return inputs
         ###############
 
-        # list of network inputs (concated in this way because of different dimensionality of components)
+        # list of network inputs (concatenated in this way because of different dimensionality of components)
         li = input_points + input_neighbors_indices + input_indices_of_neighs_of_pooled + input_upsamples + input_stack_lengths
         li += [stacked_features, labels]
 
