@@ -382,8 +382,13 @@ class S3DISDataset(PointCloudDataset):
             s_list += [scale]
             R_list += [R]
 
+            print('len(p_list)', len(p_list))
+            for i in range(len(p_list)):
+                print('p_list[', i, '].shape', p_list[i].shape)
+
             # Update batch size
             batch_n += n
+            print('batch_n', batch_n)
 
             # In case batch is full, stop
             if batch_n > int(self.batch_limit):
