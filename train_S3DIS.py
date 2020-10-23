@@ -59,7 +59,7 @@ class S3DISConfig(Config):
     dataset_task = ''
 
     # Number of CPU threads for the input pipeline
-    input_threads = 10  # 10 kuramin changed
+    input_threads = 0  # 10 kuramin changed
 
     #########################
     # Architecture definition
@@ -150,9 +150,9 @@ class S3DISConfig(Config):
     grad_clip_norm = 100.0
 
     # Number of batch
-    batch_num = 6
+    batch_num = 6  # target_aver_batch_size will be set equal to it
 
-    # Number of steps per epochs
+    # Number of steps per epoch (how many batches will be created from dataloader by enumerate(dataloader))
     steps_per_epoch = 100 #500 kuramin changed
 
     # Number of validation examples per epoch

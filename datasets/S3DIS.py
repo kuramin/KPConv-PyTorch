@@ -1300,7 +1300,6 @@ class S3DISSampler(Sampler):
 
                     # Update neighborhood histogram
                     for neighb_mat in batch.neighbors:
-                        neinum = neighb_mat.numpy()
                         print('neighb_mat.numpy())', neighb_mat.numpy())
                         print('neighb_mat.shape[0])', neighb_mat.shape[0])
 

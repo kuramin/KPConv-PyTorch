@@ -168,7 +168,7 @@ class Config:
     repulse_extent = 1.0                    # Distance of repulsion for deformed kernel points
 
     # Number of batch
-    batch_num = 10 #kuramin
+    batch_num = 10  # target_aver_batch_size will be equal to it
     val_batch_num = 10
 
     # Maximal number of epochs
