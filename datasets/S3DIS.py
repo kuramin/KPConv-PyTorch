@@ -119,9 +119,9 @@ class S3DISDataset(PointCloudDataset):
         self.all_splits = [0, 1]
         self.validation_split = 1
 
-        self.cloud_names = ['Area_1', 'Area_3']
-        self.all_splits = [0, 1]
-        self.validation_split = 1
+        # self.cloud_names = ['Area_1', 'Area_3']
+        # self.all_splits = [0, 1]
+        # self.validation_split = 1
 
         # Number of models used per epoch
         if self.set == 'training':
