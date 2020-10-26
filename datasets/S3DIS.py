@@ -257,6 +257,7 @@ class S3DISDataset(PointCloudDataset):
         if self.use_potentials:
             #return self.random_item(batch_i)  #kuramin added
             print('get_item')
+            print('Threading batch_i', batch_i)
             return self.potential_item(batch_i)
         else:
             return self.random_item(batch_i)
