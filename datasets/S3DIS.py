@@ -789,7 +789,7 @@ class S3DISDataset(PointCloudDataset):
 
             # Check if inputs have already been computed
             if exists(KDTree_file):
-                print('\nFound KDTree for cloud {:s}, subsampled at {:.3f}'.format(cloud_name, dl))
+                print('\nFound KDTree {:s} for cloud {:s} with path {:s}, subsampled at {:.3f}'.format(KDTree_file, cloud_name, sub_ply_file, dl))
 
                 # read ply with data
                 data = read_ply(sub_ply_file)
@@ -801,7 +801,7 @@ class S3DISDataset(PointCloudDataset):
                     search_tree = pickle.load(f)
 
             else:
-                print('\nPreparing KDTree for cloud {:s}, subsampled at {:.3f}'.format(cloud_name, dl))
+                print('\nPreparing KDTree {:s} for cloud {:s} with path {:s}, subsampled at {:.3f}'.format(KDTree_file, cloud_name, sub_ply_file, dl))
 
                 # Read ply file
                 data = read_ply(file_path)
