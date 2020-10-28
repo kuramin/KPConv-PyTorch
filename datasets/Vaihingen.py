@@ -1449,7 +1449,15 @@ class S3DISCustomBatch:
         return all_p_list
 
 
+
 def S3DISCollate(batch_data):
+    '''
+        Collate_fn is your callable/function that processes the batch you want to return from your dataloader
+        Hereof, what is PyTorch DataLoader? Combines a dataset and a sampler, and provides an iterable over the given dataset.
+        Class DataLoader supports both single- or multi-process loading, customizing loading order, optional automatic batching (collation) and memory pinning.
+        Variable num_workers , which denotes the number of processes that generate batches in parallel.
+        DataLoader is a python iterator that will return elements from your dataset batch by batch. This allows you to use it as for data in train_loader.
+    '''
     return S3DISCustomBatch(batch_data)
 
 
