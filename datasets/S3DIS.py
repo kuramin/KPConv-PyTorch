@@ -270,8 +270,8 @@ class S3DISDataset(PointCloudDataset):
         p_list = []
         f_list = []
         l_list = []
-        i_list = []
         pi_list = []
+        i_list = []
         ci_list = []
         s_list = []
         R_list = []
@@ -408,8 +408,8 @@ class S3DISDataset(PointCloudDataset):
             p_list += [input_points]
             f_list += [input_features]
             l_list += [input_labels]
-            pi_list += [input_inds]
-            i_list += [point_ind]
+            i_list += [input_inds]
+            pi_list += [point_ind]
             ci_list += [cloud_ind]
             s_list += [scale]
             R_list += [R]
@@ -442,14 +442,14 @@ class S3DISDataset(PointCloudDataset):
         for i, inp in enumerate(p_list):
             print('p_list member', i, 'has size', p_list[i].shape[0])
             inp_filename += '_' + str(p_list[i].shape[0])
-            p_list[i] += pot_points[i_list[i], :]
+            p_list[i] += pot_points[pi_list[i], :]
 
         stacked_points = np.concatenate(p_list, axis=0)
         features = np.concatenate(f_list, axis=0)
         labels = np.concatenate(l_list, axis=0)
-        point_inds = np.array(i_list, dtype=np.int32)
+        point_inds = np.array(pi_list, dtype=np.int32)
         cloud_inds = np.array(ci_list, dtype=np.int32)
-        input_inds = np.concatenate(pi_list, axis=0)
+        input_inds = np.concatenate(i_list, axis=0)
         stack_lengths = np.array([pp.shape[0] for pp in p_list], dtype=np.int32)
         scales = np.array(s_list, dtype=np.float32)
         rots = np.stack(R_list, axis=0)
@@ -562,8 +562,8 @@ class S3DISDataset(PointCloudDataset):
 #         p_list = []
 #         f_list = []
 #         l_list = []
-#         i_list = []
 #         pi_list = []
+#         i_list = []
 #         ci_list = []
 #         s_list = []
 #         R_list = []
@@ -628,8 +628,8 @@ class S3DISDataset(PointCloudDataset):
 #             p_list += [input_points]
 #             f_list += [input_features]
 #             l_list += [input_labels]
-#             pi_list += [input_inds]
-#             i_list += [point_ind]
+#             i_list += [input_inds]
+#             pi_list += [point_ind]
 #             ci_list += [cloud_ind]
 #             s_list += [scale]
 #             R_list += [R]
@@ -653,9 +653,9 @@ class S3DISDataset(PointCloudDataset):
 #         stacked_points = np.concatenate(p_list, axis=0)
 #         features = np.concatenate(f_list, axis=0)
 #         labels = np.concatenate(l_list, axis=0)
-#         point_inds = np.array(i_list, dtype=np.int32)
+#         point_inds = np.array(pi_list, dtype=np.int32)
 #         cloud_inds = np.array(ci_list, dtype=np.int32)
-#         input_inds = np.concatenate(pi_list, axis=0)
+#         input_inds = np.concatenate(i_list, axis=0)
 #         stack_lengths = np.array([pp.shape[0] for pp in p_list], dtype=np.int32)
 #         scales = np.array(s_list, dtype=np.float32)
 #         rots = np.stack(R_list, axis=0)
