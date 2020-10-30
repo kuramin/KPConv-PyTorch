@@ -140,7 +140,7 @@ class S3DISDataset(PointCloudDataset):
 
         #ply_path = join(self.path, self.train_path)
         if not exists(ply_path):
-            print("No ply-files were found, let's create them from txt-files")
+            print("No folder", ply_path, "with ply-files was found, let's create ply-files from txt-files")
             makedirs(ply_path)
             self.prepare_S3DIS_ply(ply_path)
         else:
@@ -702,6 +702,7 @@ class S3DISDataset(PointCloudDataset):
             # Pass if the cloud has already been computed
             cloud_file = join(ply_path, cloud_name + '.ply')
             if exists(cloud_file):
+                print("Cloud_file", cloud_file, "already exists, dont use txt files")
                 continue
 
             # Get rooms of the current cloud
