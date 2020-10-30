@@ -117,8 +117,9 @@ class S3DISDataset(PointCloudDataset):
 
         #self.cloud_names = ['Vaihingen3D_Training_rgb', 'Vaihingen3D_Evaluation_rgb']
         #self.cloud_names = ['cloud7 - Cloud2', 'cloud7 - Cloud2']
-        #self.cloud_names = ['Area_1', 'Area_2']
-        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
+        self.cloud_names = ['Area_1', 'Area_3']
+        #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
+        #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2_remarked']
         self.all_splits = [0, 1]
         self.validation_split = 1
 
