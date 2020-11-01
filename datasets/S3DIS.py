@@ -117,8 +117,9 @@ class S3DISDataset(PointCloudDataset):
 
         #self.cloud_names = ['Vaihingen3D_Training_rgb', 'Vaihingen3D_Evaluation_rgb']
         #self.cloud_names = ['cloud7 - Cloud2', 'cloud7 - Cloud2']
-        #self.cloud_names = ['Area_1', 'Area_2']
-        self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
+        self.cloud_names = ['Area_1', 'Area_3']
+        #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
+        #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2_remarked']
         self.all_splits = [0, 1]
         self.validation_split = 1
 
@@ -140,7 +141,7 @@ class S3DISDataset(PointCloudDataset):
 
         #ply_path = join(self.path, self.train_path)
         if not exists(ply_path):
-            print("No ply-files were found, let's create them from txt-files")
+            print("No folder", ply_path, "with ply-files was found, let's create ply-files from txt-files")
             makedirs(ply_path)
             self.prepare_S3DIS_ply(ply_path)
         else:
@@ -702,6 +703,7 @@ class S3DISDataset(PointCloudDataset):
             # Pass if the cloud has already been computed
             cloud_file = join(ply_path, cloud_name + '.ply')
             if exists(cloud_file):
+                print("Cloud_file", cloud_file, "already exists, dont use txt files")
                 continue
 
             # Get rooms of the current cloud
@@ -789,7 +791,7 @@ class S3DISDataset(PointCloudDataset):
 
             # Check if inputs have already been computed
             if exists(KDTree_file):
-                print('\nFound KDTree for cloud {:s}, subsampled at {:.3f}'.format(cloud_name, dl))
+                print('\nFound KDTree {:s} for cloud {:s} with path {:s}, subsampled at {:.3f}'.format(KDTree_file, cloud_name, sub_ply_file, dl))
 
                 # read ply with data
                 data = read_ply(sub_ply_file)
@@ -801,7 +803,7 @@ class S3DISDataset(PointCloudDataset):
                     search_tree = pickle.load(f)
 
             else:
-                print('\nPreparing KDTree for cloud {:s}, subsampled at {:.3f}'.format(cloud_name, dl))
+                print('\nPreparing KDTree {:s} for cloud {:s} with path {:s}, subsampled at {:.3f}'.format(KDTree_file, cloud_name, sub_ply_file, dl))
 
                 # Read ply file
                 data = read_ply(file_path)
