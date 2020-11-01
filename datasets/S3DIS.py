@@ -794,7 +794,7 @@ class S3DISDataset(PointCloudDataset):
                 # read ply with data
                 data = read_ply(sub_ply_file)
                 sub_colors = np.vstack((data['red'], data['green'], data['blue'])).T
-                sub_labels = data['class']
+                sub_labels = data['scalar_Classification']
 
                 # Read pkl with search tree
                 with open(KDTree_file, 'rb') as f:
