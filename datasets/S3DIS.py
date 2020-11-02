@@ -340,7 +340,8 @@ class S3DISDataset(PointCloudDataset):
                                                                          return_distance=True)
 
                 d2s = np.square(dists[0])
-                pot_inds = pot_inds[0]  # query radius returns pot_inds wrapped in extra dimension
+                pot_inds = torch.tensor(pot_inds[0])  # query radius returns pot_inds wrapped in extra dimension
+                #pot_inds = pot_inds[0]  # kuramin changed
 
                 # Update potentials (Tukey weights plot is -|x|+1 inside [-in_radius, in_radius] and 0 everywhere outside)
                 if self.set != 'ERF':
@@ -797,7 +798,8 @@ class S3DISDataset(PointCloudDataset):
                 # read ply with data
                 data = read_ply(sub_ply_file)
                 sub_colors = np.vstack((data['red'], data['green'], data['blue'])).T
-                sub_labels = data['scalar_Classification']
+                #sub_labels = data['scalar_Classification']
+                sub_labels = data['class']
 
                 # Read pkl with search tree
                 with open(KDTree_file, 'rb') as f:
