@@ -111,15 +111,16 @@ class S3DISDataset(PointCloudDataset):
         ply_path = join(self.path, self.train_path)
 
         # Proportion of validation scenes
-        #self.cloud_names = ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6']
-        #self.all_splits = [0, 1, 2, 3, 4, 5]
-        #self.validation_split = 4     kuramin changed
+        # self.cloud_names = ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6']
+        # self.all_splits = [0, 1, 2, 3, 4, 5]
+        # self.validation_split = 5    # kuramin changed
 
         #self.cloud_names = ['Vaihingen3D_Training_rgb', 'Vaihingen3D_Evaluation_rgb']
         #self.cloud_names = ['cloud7 - Cloud2', 'cloud7 - Cloud2']
-        self.cloud_names = ['Area_1', 'Area_3']
         #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
         #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2_remarked']
+
+        self.cloud_names = ['Area_1', 'Area_3']
         self.all_splits = [0, 1]
         self.validation_split = 1
 
