@@ -257,9 +257,9 @@ class S3DISDataset(PointCloudDataset):
         """
 
         if self.use_potentials:
-            #return self.random_item(batch_i)  #kuramin added
-            print('get_item')
-            print('Threading batch_i', batch_i)
+            # kuramins print
+            # print('get_item')
+            # print('Threading batch_i', batch_i)
             return self.potential_item(batch_i)
         else:
             return self.random_item(batch_i)
@@ -287,7 +287,7 @@ class S3DISDataset(PointCloudDataset):
         #     wid = None
 
         while True:
-            print('Begin new iteration of while')
+            # print('Begin new iteration of while')  # kuramins print
             t += [time.time()]
 
             # if debug_workers:
@@ -390,14 +390,16 @@ class S3DISDataset(PointCloudDataset):
 
             t += [time.time()]
 
-            print('input_points.shape', input_points.shape)
-            print('input_features.shape', input_features.shape)
-            print('input_labels.shape', input_labels.shape)
-            print('input_inds.shape', input_inds.shape)
-            print('point_ind is', point_ind)
-            print('cloud_ind is ', cloud_ind)
-            print('scale.shape', scale.shape)
-            print('R.shape', R.shape)
+            # kramins print
+            # print('input_points.shape', input_points.shape)
+            # print('input_features.shape', input_features.shape)
+            # print('input_labels.shape', input_labels.shape)
+            # print('input_inds.shape', input_inds.shape)
+            # print('point_ind is', point_ind)
+            # print('cloud_ind is ', cloud_ind)
+            # print('scale.shape', scale.shape)
+            # print('R.shape', R.shape)
+
             # inp_filename = '/home/kuramin/Downloads/input'
             # inp_counter += 1
             # print(str(inp_filename)+str(inp_counter)+'.ply')
@@ -418,18 +420,20 @@ class S3DISDataset(PointCloudDataset):
             s_list += [scale]
             R_list += [R]
 
-            print('len(p_list)', len(p_list))
-            for i in range(len(p_list)):
-                print('p_list[', i, '].shape', p_list[i].shape)
+            # kuramins print
+            # print('len(p_list)', len(p_list))
+            # for i in range(len(p_list)):
+            #     print('p_list[', i, '].shape', p_list[i].shape)
 
             # Update batch size
             batch_n += number_of_inball_points
-            print('batch_n is', batch_n)
-            print('batch_limit is', self.batch_limit)
+            # kuramins print
+            # print('batch_n is', batch_n)
+            # print('batch_limit is', self.batch_limit)
 
             # In case batch is full, stop
             if batch_n > int(self.batch_limit):
-                print('break out from while, cause batch_limit is', self.batch_limit)
+                # print('break out from while, cause batch_limit is', self.batch_limit)  # kuramins print
                 break
 
             # Randomly drop some points (act as an augmentation process and a safety for GPU memory consumption)
@@ -441,10 +445,10 @@ class S3DISDataset(PointCloudDataset):
         # Concatenate batch
         ###################
 
-        print("p_list is full, its size is", len(p_list))
+        # print("p_list is full, its size is", len(p_list))  # kuramins print
         inp_filename = '/home/kuramin/Downloads/stacked_points/stacked_points'  # kuramin added
         for i, inp in enumerate(p_list):
-            print('p_list member', i, 'has size', p_list[i].shape[0])
+            # print('p_list member', i, 'has size', p_list[i].shape[0])  # kuramins print
             inp_filename += '_' + str(p_list[i].shape[0])
             p_list[i] += pot_points[pi_list[i], :]
 
@@ -557,7 +561,7 @@ class S3DISDataset(PointCloudDataset):
         #     print('stack ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
         #     ti += 1
         #     print('\n************************\n')
-        print('End of potential item')
+        # print('End of potential item')  # kuramins print
         return input_list
 
 #    def random_item(self, batch_i):
@@ -1296,14 +1300,15 @@ class S3DISSampler(Sampler):
                 print('Begin iter o range10. Before enumerate(dataloader)')
                 for batch_i, batch in enumerate(dataloader):
 
-                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors len', len(batch.neighbors))
-                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[0].shape', batch.neighbors[0].shape)
-                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[1].shape', batch.neighbors[1].shape)
-                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[2].shape', batch.neighbors[2].shape)
-                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[3].shape', batch.neighbors[3].shape)
-                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[4].shape', batch.neighbors[4].shape)
-                    print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors\n', batch.neighbors)
-                    print('epoch', epoch, 'batch_i', batch_i, 'end')
+                    # kuramins print
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors len', len(batch.neighbors))
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[0].shape', batch.neighbors[0].shape)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[1].shape', batch.neighbors[1].shape)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[2].shape', batch.neighbors[2].shape)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[3].shape', batch.neighbors[3].shape)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[4].shape', batch.neighbors[4].shape)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors\n', batch.neighbors)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'end')
 
                     # Update neighborhood histogram
                     for neighb_mat in batch.neighbors:
@@ -1318,8 +1323,9 @@ class S3DISSampler(Sampler):
 
                     # transform list hists to ndarray neighb_hists
                     neighb_hists += np.vstack(hists)
-                    print('counts', counts)
-                    print('neighb_hists', neighb_hists)
+                    # kuramins print
+                    # print('counts', counts)
+                    # print('neighb_hists', neighb_hists)
 
                     # batch length
                     b = len(batch.cloud_inds)

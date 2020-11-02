@@ -477,7 +477,7 @@ class PointCloudDataset(Dataset):
                             stacked_features,
                             labels,
                             stack_lengths):
-        print('Begin calculating segmentation input')
+        # print('Begin calculating segmentation input')  # kuramins print
 
         # Starting radius of convolutions
         r_normal = self.config.first_subsampling_dl * self.config.conv_radius
@@ -584,7 +584,7 @@ class PointCloudDataset(Dataset):
 
             # Update radius and reset blocks
             r_normal *= 2
-            print('block_i', block_i, 'block', block, 'layer_blocks', layer_blocks)
+            # print('block_i', block_i, 'block', block, 'layer_blocks', layer_blocks)  # kuramins print
             layer_blocks = []
 
             # Stop when meeting a global pooling or upsampling
@@ -599,7 +599,7 @@ class PointCloudDataset(Dataset):
         # list of network inputs (concatenated in this way because of different dimensionality of components)
         li = input_points + input_neighbors_indices + input_indices_of_neighs_of_pooled + input_upsamples + input_stack_lengths
         li += [stacked_features, labels]
-        print('End of segmentation_input')
+        # print('End of segmentation_input')  # kuramins print
         return li
 
 
