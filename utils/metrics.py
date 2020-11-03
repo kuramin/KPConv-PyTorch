@@ -42,7 +42,7 @@ def fast_confusion(true, pred, label_values=None):
     """
 
     # Ensure data is in the right format
-    true = np.squeeze(true)
+    true = np.int32(np.squeeze(true))  # kuramin added casting to np.int32
     pred = np.squeeze(pred)
     if len(true.shape) != 1:
         raise ValueError('Truth values are stored in a {:d}D array instead of 1D array'. format(len(true.shape)))
