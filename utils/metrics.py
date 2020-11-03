@@ -49,7 +49,9 @@ def fast_confusion(true, pred, label_values=None):
     if len(pred.shape) != 1:
         raise ValueError('Prediction values are stored in a {:d}D array instead of 1D array'. format(len(pred.shape)))
     if true.dtype not in [np.int32, np.int64]:
-        raise ValueError('Truth values are {:s} instead of int32 or int64'.format(true.dtype))
+        print('Truth values type error. True.dtype is')
+        print(true.dtype)
+        #raise ValueError('Truth values are {:s} instead of int32 or int64'.format(true.dtype))  # kuramin commented
     if pred.dtype not in [np.int32, np.int64]:
         raise ValueError('Prediction values are {:s} instead of int32 or int64'.format(pred.dtype))
     true = true.astype(np.int32)

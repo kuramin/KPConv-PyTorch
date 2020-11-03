@@ -498,7 +498,7 @@ class PointCloudDataset(Dataset):
         ######################
 
         arch = self.config.architecture
-        print(arch)
+        # print(arch)  # kuramins print
 
         for block_i, block in enumerate(arch):
 
@@ -589,7 +589,7 @@ class PointCloudDataset(Dataset):
 
             # Stop when meeting a global pooling or upsampling
             if 'global' in block or 'upsample' in block:
-                print('break!')
+                # print('break!')  # kuramins print
                 break
 
         ###############

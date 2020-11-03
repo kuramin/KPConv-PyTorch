@@ -265,7 +265,7 @@ class S3DISDataset(PointCloudDataset):
             return self.random_item(batch_i)
 
     def potential_item(self, batch_i, debug_workers=False):
-        print('Start potential item')
+        # print('Start potential item')  # kuramins print
         t = [time.time()]
 
         # Initiate concatеnation lists
