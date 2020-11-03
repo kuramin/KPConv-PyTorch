@@ -340,14 +340,14 @@ class S3DISDataset(PointCloudDataset):
                                                                          return_distance=True)
 
                 d2s = np.square(dists[0])
-                pot_inds = torch.tensor(pot_inds[0])  # query radius returns pot_inds wrapped in extra dimension
-                #pot_inds = pot_inds[0]  # kuramin changed
+                #pot_inds = torch.tensor(pot_inds[0])  # query radius returns pot_inds wrapped in extra dimension
+                pot_inds = pot_inds[0]  # kuramin returned it back to this
 
                 # Update potentials (Tukey weights plot is -|x|+1 inside [-in_radius, in_radius] and 0 everywhere outside)
                 if self.set != 'ERF':
                     tukeys = np.square(1 - d2s / np.square(self.config.in_radius))
                     tukeys[d2s > np.square(self.config.in_radius)] = 0
-                    tukeys = torch.tensor(tukeys)
+                    tukeys = torch.tensor(tukeys)  # kuramin added when it didnt work on Hulk
                     self.potentials[cloud_ind][pot_inds] += tukeys
                     min_ind = torch.argmin(self.potentials[cloud_ind])
                     self.min_potentials[[cloud_ind]] = self.potentials[cloud_ind][min_ind]
