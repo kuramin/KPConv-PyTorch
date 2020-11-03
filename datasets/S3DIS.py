@@ -347,7 +347,7 @@ class S3DISDataset(PointCloudDataset):
                 if self.set != 'ERF':
                     tukeys = np.square(1 - d2s / np.square(self.config.in_radius))
                     tukeys[d2s > np.square(self.config.in_radius)] = 0
-                    tukeys = torch.tensor(tukeys, dtype=torch.long)  # kuramin added when it didnt work on Hulk
+                    tukeys = torch.tensor(tukeys)  # kuramin added when it didnt work on Hulk
                     self.potentials[cloud_ind][pot_inds] += tukeys
                     min_ind = torch.argmin(self.potentials[cloud_ind])
                     self.min_potentials[[cloud_ind]] = self.potentials[cloud_ind][min_ind]

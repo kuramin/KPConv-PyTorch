@@ -360,7 +360,7 @@ class KPFCNN(nn.Module):
         # Reshape to have a minibatch size of 1
         outputs = torch.transpose(outputs, 0, 1)
         outputs = outputs.unsqueeze(0)
-        target = target.unsqueeze(0)
+        target = target.unsqueeze(0).long()
 
         # Cross entropy loss
         self.output_loss = self.criterion(outputs, target)
