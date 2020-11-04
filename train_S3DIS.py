@@ -98,7 +98,7 @@ class S3DISConfig(Config):
     in_radius = 1.5
 
     # Number of kernel points
-    num_kernel_points = 9  # 15 kuramin changed
+    num_kernel_points = 15  # kuramin changed back from 9
 
     # Size of the first subsampling grid in meter
     first_subsampling_dl = 0.03
@@ -119,8 +119,8 @@ class S3DISConfig(Config):
     aggregation_mode = 'sum'
 
     # Choice of input features
-    first_features_dim = 8 #128 kuramin changed back
-    in_features_dim = 5 #4 kuramin changed back
+    first_features_dim = 128 # kuramin changed back from 8
+    in_features_dim = 5 # kuramin changed back from 4
 
     # Can the network learn modulations
     modulated = False
@@ -154,7 +154,7 @@ class S3DISConfig(Config):
     batch_num = 6  # target_aver_batch_size will be set equal to it
 
     # Number of steps per epoch (how many batches will be created from dataloader by enumerate(dataloader))
-    steps_per_epoch = 100 #500 kuramin changed
+    steps_per_epoch = 500  # kuramin changed back from 100
 
     # Number of validation examples per epoch
     validation_size = 50
