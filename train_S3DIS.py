@@ -142,7 +142,7 @@ class S3DISConfig(Config):
     #####################
 
     # Maximal number of epochs
-    max_epoch = 500
+    max_epoch = 2  # 500
 
     # Learning rate management
     learning_rate = 1e-2
