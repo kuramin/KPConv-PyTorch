@@ -499,7 +499,7 @@ class ModelTrainer:
                 val_name = join(val_path, cloud_name)
 
                 # Save file
-                labels = val_loader.dataset.validation_labels[i].astype(np.int32)
+                labels = np.array(val_loader.dataset.validation_labels[i]).astype(np.int32)
                 write_ply(val_name,
                           [points, preds, labels],
                           ['x', 'y', 'z', 'preds', 'class'])

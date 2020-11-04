@@ -32,6 +32,7 @@ from torch.utils.data import DataLoader
 from utils.config import Config
 from utils.trainer import ModelTrainer
 from models.architectures import KPFCNN
+import subprocess
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -194,7 +195,13 @@ if __name__ == '__main__':
     ############################
 
     # Set which gpu is going to be used
-    GPU_ID = '3'  # '0'
+    number_of_gpus = str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
+    print('Number of GPUs is', number_of_gpus)
+
+    if number_of_gpus == 1:
+        GPU_ID = '0'
+    else:
+        GPU_ID = '3'
 
     # Set GPU visible device
     os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
