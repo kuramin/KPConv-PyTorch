@@ -390,7 +390,7 @@ class S3DISDataset(PointCloudDataset):
 
             t += [time.time()]
 
-            # kramins print
+            # kuramins print
             # print('input_points.shape', input_points.shape)
             # print('input_features.shape', input_features.shape)
             # print('input_labels.shape', input_labels.shape)
@@ -1431,7 +1431,6 @@ class S3DISSampler(Sampler):
                 neighb_lim_dict[key] = self.dataset.neighborhood_limits[layer_ind]
             with open(neighb_lim_file, 'wb') as file:
                 pickle.dump(neighb_lim_dict, file)
-
 
         print('Calibration done in {:.1f}s\n'.format(time.time() - t0))
         return

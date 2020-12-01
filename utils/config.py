@@ -41,102 +41,103 @@ class Config:
     ##################
 
     # Dataset name
-    dataset = ''
+    dataset = ''  # redefined in train_S3DIS.py
 
     # Type of network model
-    dataset_task = ''
+    dataset_task = ''  # redefined in train_S3DIS.py
 
     # Number of classes in the dataset
-    num_classes = 0
+    num_classes = 0  # redefined in train_S3DIS.py
 
     # Dimension of input points
     in_points_dim = 3
 
     # Dimension of input features
-    in_features_dim = 1
+    in_features_dim = 1  # redefined in train_S3DIS.py
 
     # Radius of the input sphere (ignored for models, only used for point clouds)
-    in_radius = 1.0
+    in_radius = 1.0  # redefined in train_S3DIS.py
 
     # Number of CPU threads for the input pipeline
-    input_threads = 8
+    input_threads = 8  # redefined in train_S3DIS.py
 
     ##################
     # Model parameters
     ##################
 
     # Architecture definition. List of blocks
-    architecture = []
+    architecture = []  # redefined in train_S3DIS.py
 
-    # Decide the mode of equivariance and invariance
-    equivar_mode = ''
-    invar_mode = ''
+    # Decide the mode of equivariance and invariance (not mentioned anywhere)
+    #equivar_mode = ''
+    #invar_mode = ''
 
     # Dimension of the first feature maps
-    first_features_dim = 64
+    first_features_dim = 64  # redefined in train_S3DIS.py
 
     # Batch normalization parameters
-    use_batch_norm = True
-    batch_norm_momentum = 0.99
+    use_batch_norm = True  # redefined in train_S3DIS.py
+    batch_norm_momentum = 0.99  # redefined in train_S3DIS.py
 
     # For segmentation models : ratio between the segmented area and the input area
-    segmentation_ratio = 1.0
+    # segmentation_ratio = 1.0  # not mentioned anywhere
 
     ###################
     # KPConv parameters
     ###################
 
     # Number of kernel points
-    num_kernel_points = 15 #kuramin
+    num_kernel_points = 15  # redefined in train_S3DIS.py
 
     # Size of the first subsampling grid in meter
-    first_subsampling_dl = 0.02
+    first_subsampling_dl = 0.02  # redefined in train_S3DIS.py
 
     # Radius of convolution in "number grid cell". (2.5 is the standard value)
-    conv_radius = 2.5
+    conv_radius = 2.5  # redefined in train_S3DIS.py
 
     # Radius of deformable convolution in "number grid cell". Larger so that deformed kernel can spread out
-    deform_radius = 5.0
+    deform_radius = 5.0  # redefined in train_S3DIS.py
 
     # Kernel point influence radius
-    KP_extent = 1.0
+    KP_extent = 1.0  # redefined in train_S3DIS.py
 
     # Influence function when d < KP_extent. ('constant', 'linear', 'gaussian') When d > KP_extent, always zero
-    KP_influence = 'linear'
+    KP_influence = 'linear'  # redefined in train_S3DIS.py
 
     # Aggregation function of KPConv in ('closest', 'sum')
     # Decide if you sum all kernel point influences, or if you only take the influence of the closest KP
-    aggregation_mode = 'sum'
+    aggregation_mode = 'sum'  # redefined in train_S3DIS.py
 
     # Fixed points in the kernel : 'none', 'center' or 'verticals'
-    fixed_kernel_points = 'center'
+    fixed_kernel_points = 'center'  # redefined in train_S3DIS.py by myself
 
     # Use modulateion in deformable convolutions
-    modulated = False
+    modulated = False  # redefined in train_S3DIS.py
 
-    # For SLAM datasets like SemanticKitti number of frames used (minimum one)
-    n_frames = 1
-
-    # For SLAM datasets like SemanticKitti max number of point in input cloud + validation
-    max_in_points = 0
-    val_radius = 51.0
-    max_val_points = 50000
+    # # For SLAM datasets like SemanticKitti number of frames used (minimum one)
+    # n_frames = 1
+    #
+    # # For SLAM datasets like SemanticKitti max number of point in input cloud + validation
+    # max_in_points = 0
+    # val_radius = 51.0
+    # max_val_points = 50000
 
     #####################
     # Training parameters
     #####################
 
     # Network optimizer parameters (learning rate and momentum)
-    learning_rate = 1e-3
-    momentum = 0.9
+    learning_rate = 1e-3  # redefined in train_S3DIS.py
+    momentum = 0.9  # redefined in train_S3DIS.py
 
     # Learning rate decays. Dictionary of all decay values with their epoch {epoch: decay}.
-    lr_decays = {200: 0.2, 300: 0.2}
+    lr_decays = {200: 0.2, 300: 0.2}  # redefined in train_S3DIS.py
 
     # Gradient clipping value (negative means no clipping)
-    grad_clip_norm = 100.0
+    grad_clip_norm = 100.0  # redefined in train_S3DIS.py
 
     # Augmentation parameters
+    # (all redefined in train_S3DIS.py)
     augment_scale_anisotropic = True
     augment_scale_min = 0.9
     augment_scale_max = 1.1
@@ -146,20 +147,21 @@ class Config:
     augment_color = 0.7
 
     # Augment with occlusions (not implemented yet)
-    augment_occlusion = 'none'
-    augment_occlusion_ratio = 0.2
-    augment_occlusion_num = 1
+    #augment_occlusion = 'none'
+    #augment_occlusion_ratio = 0.2
+    #augment_occlusion_num = 1
 
     # Regularization loss importance
-    weight_decay = 1e-3
+    weight_decay = 1e-3  # redefined in train_S3DIS.py by myself
 
     # The way we balance segmentation loss DEPRECATED
-    segloss_balance = 'none'
+    segloss_balance = 'none'  # redefined in train_S3DIS.py
 
     # Choose weights for class (used in segmentation loss). Empty list for no weights
-    class_w = []
+    class_w = []  # redefined in train_S3DIS.py by myself
 
     # Deformable offset loss
+    # all redefined in train_S3DIS.py
     # 'point2point' fitting geometry by penalizing distance from deform point to input points
     # 'point2plane' fitting geometry by penalizing distance from deform point to input point triplet (not implemented)
     deform_fitting_mode = 'point2point'
@@ -168,28 +170,28 @@ class Config:
     repulse_extent = 1.0                    # Distance of repulsion for deformed kernel points
 
     # Number of batch
-    batch_num = 10  # target_aver_batch_size will be equal to it
+    batch_num = 10    # redefined in train_S3DIS.py
     val_batch_num = 10
 
     # Maximal number of epochs
-    max_epoch = 1000
+    max_epoch = 1000  # redefined in train_S3DIS.py
 
     # Number of steps per epochs
-    steps_per_epoch = 1000
+    steps_per_epoch = 1000  # redefined in train_S3DIS.py
 
     # Number of validation examples per epoch
-    validation_size = 100
+    validation_size = 100  # redefined in train_S3DIS.py
 
     # Number of epoch between each checkpoint
-    checkpoint_gap = 50
+    checkpoint_gap = 50  # redefined in train_S3DIS.py
 
     # Do we nee to save convergence
-    saving = True
-    saving_path = None
+    saving = True  # redefined in train_S3DIS.py
+    saving_path = None  # redefined in train_S3DIS.py
 
     def __init__(self):
         """
-        Class Initialyser
+        Class Initializer
         """
 
         # Number of layers
