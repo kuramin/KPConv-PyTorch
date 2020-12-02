@@ -194,47 +194,49 @@ class Config:
         Class Initializer
         """
 
-        # Number of layers
+        # Number of layers (every layer, except the last, of KPFCNN has a strided block)
         self.num_layers = len([block for block in self.architecture if 'pool' in block or 'strided' in block]) + 1
 
         ###################
         # Deform layer list
         ###################
         #
-        # List of boolean indicating which layer has a deformable convolution
-        #
-
+        # Calculating a list of boolean indicating which layer has a deformable convolution
         layer_blocks = []
         self.deform_layers = []
         arch = self.architecture
         for block_i, block in enumerate(arch):
 
             # Get all blocks of the layer
-            if not ('pool' in block or 'strided' in block or 'global' in block or 'upsample' in block):
+            if not ('strided' in block or 'upsample' in block):
                 layer_blocks += [block]
                 continue
 
-            # Convolution neighbors indices
-            # *****************************
-
+            # if any non-strided block of the layer is deformable, set bool to true
             deform_layer = False
             if layer_blocks:
                 if np.any(['deformable' in blck for blck in layer_blocks]):
                     deform_layer = True
 
-            if 'pool' in block or 'strided' in block:
-                if 'deformable' in block:
-                    deform_layer = True
+            # if strided block of the layer is deformable, set bool to true
+            if 'strided' in block and 'deformable' in block:
+                deform_layer = True
 
+            # collect information about deform layers in network
             self.deform_layers += [deform_layer]
+
+            # make this list ready to process next layer
             layer_blocks = []
 
             # Stop when meeting a global pooling or upsampling
-            if 'global' in block or 'upsample' in block:
+            if 'upsample' in block:
                 break
+        print('self.deform_layers set to', self.deform_layers)
 
     def load(self, path):
-
+        """
+        Loads config from parameters.txt
+        """
         filename = join(path, 'parameters.txt')
         with open(filename, 'r') as f:
             lines = f.readlines()
@@ -277,7 +279,9 @@ class Config:
         self.__init__()
 
     def save(self):
-
+        """
+        Saves config as parameters.txt
+        """
         with open(join(self.saving_path, 'parameters.txt'), "w") as text_file:
 
             text_file.write('# -----------------------------------#\n')
@@ -309,13 +313,13 @@ class Config:
             for a in self.architecture:
                 text_file.write(' {:s}'.format(a))
             text_file.write('\n')
-            text_file.write('equivar_mode = {:s}\n'.format(self.equivar_mode))
-            text_file.write('invar_mode = {:s}\n'.format(self.invar_mode))
+            # text_file.write('equivar_mode = {:s}\n'.format(self.equivar_mode))
+            # text_file.write('invar_mode = {:s}\n'.format(self.invar_mode))
             text_file.write('num_layers = {:d}\n'.format(self.num_layers))
             text_file.write('first_features_dim = {:d}\n'.format(self.first_features_dim))
             text_file.write('use_batch_norm = {:d}\n'.format(int(self.use_batch_norm)))
             text_file.write('batch_norm_momentum = {:.6f}\n\n'.format(self.batch_norm_momentum))
-            text_file.write('segmentation_ratio = {:.6f}\n\n'.format(self.segmentation_ratio))
+            # text_file.write('segmentation_ratio = {:.6f}\n\n'.format(self.segmentation_ratio))
 
             # KPConv parameters
             text_file.write('# KPConv parameters\n')
@@ -330,10 +334,10 @@ class Config:
             text_file.write('KP_influence = {:s}\n'.format(self.KP_influence))
             text_file.write('aggregation_mode = {:s}\n'.format(self.aggregation_mode))
             text_file.write('modulated = {:d}\n'.format(int(self.modulated)))
-            text_file.write('n_frames = {:d}\n'.format(self.n_frames))
-            text_file.write('max_in_points = {:d}\n\n'.format(self.max_in_points))
-            text_file.write('max_val_points = {:d}\n\n'.format(self.max_val_points))
-            text_file.write('val_radius = {:.6f}\n\n'.format(self.val_radius))
+            # text_file.write('n_frames = {:d}\n'.format(self.n_frames))
+            # text_file.write('max_in_points = {:d}\n\n'.format(self.max_in_points))
+            # text_file.write('max_val_points = {:d}\n\n'.format(self.max_val_points))
+            # text_file.write('val_radius = {:.6f}\n\n'.format(self.val_radius))
 
             # Training parameters
             text_file.write('# Training parameters\n')
@@ -347,16 +351,15 @@ class Config:
             text_file.write('\n')
             text_file.write('grad_clip_norm = {:f}\n\n'.format(self.grad_clip_norm))
 
-
             text_file.write('augment_symmetries =')
             for a in self.augment_symmetries:
                 text_file.write(' {:d}'.format(int(a)))
             text_file.write('\n')
             text_file.write('augment_rotation = {:s}\n'.format(self.augment_rotation))
             text_file.write('augment_noise = {:f}\n'.format(self.augment_noise))
-            text_file.write('augment_occlusion = {:s}\n'.format(self.augment_occlusion))
-            text_file.write('augment_occlusion_ratio = {:.6f}\n'.format(self.augment_occlusion_ratio))
-            text_file.write('augment_occlusion_num = {:d}\n'.format(self.augment_occlusion_num))
+            # text_file.write('augment_occlusion = {:s}\n'.format(self.augment_occlusion))
+            # text_file.write('augment_occlusion_ratio = {:.6f}\n'.format(self.augment_occlusion_ratio))
+            # text_file.write('augment_occlusion_num = {:d}\n'.format(self.augment_occlusion_num))
             text_file.write('augment_scale_anisotropic = {:d}\n'.format(int(self.augment_scale_anisotropic)))
             text_file.write('augment_scale_min = {:.6f}\n'.format(self.augment_scale_min))
             text_file.write('augment_scale_max = {:.6f}\n'.format(self.augment_scale_max))

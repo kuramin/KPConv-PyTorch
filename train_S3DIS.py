@@ -44,6 +44,7 @@ import subprocess
 class S3DISConfig(Config):
     """
     Override the parameters you want to modify for this dataset
+    Inherit methods __init__, load and save from class Config
     """
 
     ####################
