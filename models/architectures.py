@@ -330,10 +330,10 @@ class KPFCNN(nn.Module):
 
         # Get input features
         x = batch.features.clone().detach()
-        print(batch.shape())
-        print(batch.shape)
-        print(batch.size)
-        print(len(batch))
+        print(x.shape())
+        print(x.shape)
+        print(x.size)
+        print(len(x))
         #print('x = batch.features.clone().detach() =', x)
 
         # Loop over consecutive blocks
@@ -343,7 +343,7 @@ class KPFCNN(nn.Module):
                 skip_x.append(x)
             x = block_op(x, batch)
         #print('self.encoder_skips is', self.encoder_skips)
-        #print('skip_x is', skip_x)
+        print('skip_x is', skip_x)
 
         for block_i, block_op in enumerate(self.decoder_blocks):
             if block_i in self.decoder_concats:
