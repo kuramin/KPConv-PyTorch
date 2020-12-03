@@ -330,10 +330,10 @@ class KPFCNN(nn.Module):
 
         # Get input features
         x = batch.features.clone().detach()
-        print(x.shape())
-        print(x.shape)
-        print(x.size)
-        print(len(x))
+        #print(x.shape())
+        #print(x.shape)
+        print(x.size())
+        #print(len(x))
         #print('x = batch.features.clone().detach() =', x)
 
         # Loop over consecutive blocks
