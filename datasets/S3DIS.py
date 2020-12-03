@@ -1432,7 +1432,7 @@ class S3DISSampler(Sampler):
             with open(neighb_lim_file, 'wb') as file:
                 pickle.dump(neighb_lim_dict, file)
 
-
+        print('self.dataset.batch_limit', self.dataset.batch_limit, 'self.dataset.neighborhood_limits', self.dataset.neighborhood_limits)
         print('Calibration done in {:.1f}s\n'.format(time.time() - t0))
         return
 
