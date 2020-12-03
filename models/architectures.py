@@ -330,8 +330,8 @@ class KPFCNN(nn.Module):
 
         # Get input features
         x = batch.features.clone().detach()
-        print(batch.shape(), batch.shape, batch.size, len(batch))
-        print('x = batch.features.clone().detach() =', x)
+        #print(batch.shape(), batch.shape, batch.size, len(batch))
+        #print('x = batch.features.clone().detach() =', x)
 
         # Loop over consecutive blocks
         skip_x = []
@@ -339,14 +339,14 @@ class KPFCNN(nn.Module):
             if block_i in self.encoder_skips:
                 skip_x.append(x)
             x = block_op(x, batch)
-        print('self.encoder_skips is', self.encoder_skips)
-        print('skip_x is', skip_x)
+        #print('self.encoder_skips is', self.encoder_skips)
+        #print('skip_x is', skip_x)
 
         for block_i, block_op in enumerate(self.decoder_blocks):
             if block_i in self.decoder_concats:
                 x = torch.cat([x, skip_x.pop()], dim=1)
             x = block_op(x, batch)
-        print('self.decoder_concats is', self.decoder_concats)
+        #print('self.decoder_concats is', self.decoder_concats)
 
         # Head of network
         x = self.head_mlp(x, batch)
@@ -366,16 +366,16 @@ class KPFCNN(nn.Module):
         target = - torch.ones_like(labels)
         for i, c in enumerate(self.valid_labels):
             target[labels == c] = i
-        print('target before unsqueeze(0) is', target)
-        print('outputs before transpose and unsqueeze(0) is', outputs)
+        #print('target before unsqueeze(0) is', target)
+        #print('outputs before transpose and unsqueeze(0) is', outputs)
 
         # Reshape to have a minibatch size of 1
         outputs = torch.transpose(outputs, 0, 1)
         outputs = outputs.unsqueeze(0)
         target = target.unsqueeze(0).long()
 
-        print('target after unsqueeze(0) is', target)
-        print('outputs after transpose and unsqueeze(0) is', outputs)
+        #print('target after unsqueeze(0) is', target)
+        #print('outputs after transpose and unsqueeze(0) is', outputs)
 
         # Use chosen CrossEntropyLoss which was assigned during init
         self.output_loss = self.criterion(outputs, target)
