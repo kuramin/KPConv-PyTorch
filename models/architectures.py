@@ -247,9 +247,9 @@ class KPFCNN(nn.Module):
                 out_dim *= 2
 
         print('encoder_blocks is calculated as', self.encoder_blocks)
-        print('layer is', layer)
-        print('r is', r)
-        print('out_dim is', out_dim)
+        print('layer after encoder is', layer)
+        print('r after encoder is', r)
+        print('out_dim after encoder is', out_dim)
 
         #####################
         # List Decoder blocks
@@ -289,9 +289,9 @@ class KPFCNN(nn.Module):
                 out_dim = out_dim // 2
 
         print('decoder is', self.decoder_blocks)
-        print('layer is', layer)
-        print('r is', r)
-        print('out_dim is', out_dim)
+        print('layer after decoder is', layer)
+        print('r after decoder is', r)
+        print('out_dim after decoder is', out_dim)
 
         # head of network is the end
         self.head_mlp = UnaryBlock(out_dim, config.first_features_dim, False, 0)
@@ -330,6 +330,7 @@ class KPFCNN(nn.Module):
 
         # Get input features
         x = batch.features.clone().detach()
+        print(batch.shape(), batch.shape, batch.size, len(batch))
         print('x = batch.features.clone().detach() =', x)
 
         # Loop over consecutive blocks
