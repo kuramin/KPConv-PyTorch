@@ -209,11 +209,11 @@ if __name__ == '__main__':
     print('**********\n')
 
     # Training
-    if config.dataset_task == 'classification':
-        tester.classification_test(net, test_loader, config)
-    elif config.dataset_task == 'cloud_segmentation':
+    if config.dataset_task == 'cloud_segmentation':
         tester.cloud_segmentation_test(net, test_loader, config)
-    elif config.dataset_task == 'slam_segmentation':
-        tester.slam_segmentation_test(net, test_loader, config)
+    # elif config.dataset_task == 'classification':
+    #     tester.classification_test(net, test_loader, config)
+    # elif config.dataset_task == 'slam_segmentation':
+    #     tester.slam_segmentation_test(net, test_loader, config)
     else:
         raise ValueError('Unsupported dataset_task for testing: ' + config.dataset_task)

@@ -390,7 +390,7 @@ class S3DISDataset(PointCloudDataset):
 
             t += [time.time()]
 
-            # kramins print
+            # kuramins print
             # print('input_points.shape', input_points.shape)
             # print('input_features.shape', input_features.shape)
             # print('input_labels.shape', input_labels.shape)

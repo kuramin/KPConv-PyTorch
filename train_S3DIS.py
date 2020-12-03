@@ -44,6 +44,7 @@ import subprocess
 class S3DISConfig(Config):
     """
     Override the parameters you want to modify for this dataset
+    Inherit methods __init__, load and save from class Config
     """
 
     ####################
@@ -147,7 +148,9 @@ class S3DISConfig(Config):
     # Learning rate management
     learning_rate = 1e-2
     momentum = 0.98
+    # Dictionary of all decay values with their epoch {epoch: decay}.
     lr_decays = {i: 0.1 ** (1 / 150) for i in range(1, max_epoch)}
+    # Gradient clipping value (negative means no clipping)
     grad_clip_norm = 100.0
 
     # Number of batch
@@ -180,6 +183,16 @@ class S3DISConfig(Config):
     # Do we need to save convergence
     saving = True
     saving_path = None
+
+    # kuramin copied from config.py
+    # Regularization loss importance
+    weight_decay = 1e-3
+
+    # Fixed points in the kernel : 'none', 'center' or 'verticals'
+    fixed_kernel_points = 'center'
+
+    # Choose weights for class (used in segmentation loss). Empty list for no weights
+    class_w = []
 
 
 # ----------------------------------------------------------------------------------------------------------------------

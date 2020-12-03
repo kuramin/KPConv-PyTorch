@@ -54,136 +54,136 @@ def p2p_fitting_regularizer(net):
     return net.deform_fitting_power * (2 * fitting_loss + repulsive_loss)
 
 
-class KPCNN(nn.Module):
-    """
-    Class defining KPCNN
-    """
-
-    def __init__(self, config):
-        super(KPCNN, self).__init__()
-
-        #####################
-        # Network opperations
-        #####################
-
-        # Current radius of convolution and feature dimension
-        layer = 0
-        r = config.first_subsampling_dl * config.conv_radius
-        in_dim = config.in_features_dim
-        out_dim = config.first_features_dim
-        self.K = config.num_kernel_points
-
-        # Save all block operations in a list of modules
-        self.block_ops = nn.ModuleList()
-
-        # Loop over consecutive blocks
-        block_in_layer = 0
-        for block_i, block in enumerate(config.architecture):
-
-            # Check equivariance
-            if ('equivariant' in block) and (not out_dim % 3 == 0):
-                raise ValueError('Equivariant block but features dimension is not a factor of 3')
-
-            # Detect upsampling block to stop
-            if 'upsample' in block:
-                break
-
-            # Apply the good block function defining tf ops
-            self.block_ops.append(block_decider(block,
-                                                r,
-                                                in_dim,
-                                                out_dim,
-                                                layer,
-                                                config))
-
-
-            # Index of block in this layer
-            block_in_layer += 1
-
-            # Update dimension of input from output
-            if 'simple' in block:
-                in_dim = out_dim // 2
-            else:
-                in_dim = out_dim
-
-
-            # Detect change to a subsampled layer
-            if 'pool' in block or 'strided' in block:
-                # Update radius and feature dimension for next layer
-                layer += 1
-                r *= 2
-                out_dim *= 2
-                block_in_layer = 0
-
-        self.head_mlp = UnaryBlock(out_dim, 1024, False, 0)
-        self.head_softmax = UnaryBlock(1024, config.num_classes, False, 0)
-
-        ################
-        # Network Losses
-        ################
-
-        self.criterion = torch.nn.CrossEntropyLoss()
-        self.deform_fitting_mode = config.deform_fitting_mode
-        self.deform_fitting_power = config.deform_fitting_power
-        self.deform_lr_factor = config.deform_lr_factor
-        self.repulse_extent = config.repulse_extent
-        self.output_loss = 0
-        self.reg_loss = 0
-        self.l1 = nn.L1Loss()
-
-        return
-
-    def forward(self, batch, config):
-
-        # Save all block operations in a list of modules
-        x = batch.features.clone().detach()
-
-        # Loop over consecutive blocks
-        for block_op in self.block_ops:
-            x = block_op(x, batch)
-
-        # Head of network
-        x = self.head_mlp(x, batch)
-        x = self.head_softmax(x, batch)
-
-        return x
-
-    def loss(self, outputs, labels):
-        """
-        Runs the loss on outputs of the model
-        :param outputs: logits
-        :param labels: labels
-        :return: loss
-        """
-
-        # Cross entropy loss
-        self.output_loss = self.criterion(outputs, labels)
-
-        # Regularization of deformable offsets
-        if self.deform_fitting_mode == 'point2point':
-            self.reg_loss = p2p_fitting_regularizer(self)
-        elif self.deform_fitting_mode == 'point2plane':
-            raise ValueError('point2plane fitting mode not implemented yet.')
-        else:
-            raise ValueError('Unknown fitting mode: ' + self.deform_fitting_mode)
-
-        # Combined loss
-        return self.output_loss + self.reg_loss
-
-    @staticmethod
-    def accuracy(outputs, labels):
-        """
-        Computes accuracy of the current batch
-        :param outputs: logits predicted by the network
-        :param labels: labels
-        :return: accuracy value
-        """
-
-        predicted = torch.argmax(outputs.data, dim=1)
-        total = labels.size(0)
-        correct = (predicted == labels).sum().item()
-
-        return correct / total
+# class KPCNN(nn.Module):
+#     """
+#     Class defining KPCNN
+#     """
+#
+#     def __init__(self, config):
+#         super(KPCNN, self).__init__()
+#
+#         #####################
+#         # Network opperations
+#         #####################
+#
+#         # Current radius of convolution and feature dimension
+#         layer = 0
+#         r = config.first_subsampling_dl * config.conv_radius
+#         in_dim = config.in_features_dim
+#         out_dim = config.first_features_dim
+#         self.K = config.num_kernel_points
+#
+#         # Save all block operations in a list of modules
+#         self.block_ops = nn.ModuleList()
+#
+#         # Loop over consecutive blocks
+#         block_in_layer = 0
+#         for block_i, block in enumerate(config.architecture):
+#
+#             # Check equivariance
+#             if ('equivariant' in block) and (not out_dim % 3 == 0):
+#                 raise ValueError('Equivariant block but features dimension is not a factor of 3')
+#
+#             # Detect upsampling block to stop
+#             if 'upsample' in block:
+#                 break
+#
+#             # Apply the good block function defining tf ops
+#             self.block_ops.append(block_decider(block,
+#                                                 r,
+#                                                 in_dim,
+#                                                 out_dim,
+#                                                 layer,
+#                                                 config))
+#
+#
+#             # Index of block in this layer
+#             block_in_layer += 1
+#
+#             # Update dimension of input from output
+#             if 'simple' in block:
+#                 in_dim = out_dim // 2
+#             else:
+#                 in_dim = out_dim
+#
+#
+#             # Detect change to a subsampled layer
+#             if 'pool' in block or 'strided' in block:
+#                 # Update radius and feature dimension for next layer
+#                 layer += 1
+#                 r *= 2
+#                 out_dim *= 2
+#                 block_in_layer = 0
+#
+#         self.head_mlp = UnaryBlock(out_dim, 1024, False, 0)
+#         self.head_softmax = UnaryBlock(1024, config.num_classes, False, 0)
+#
+#         ################
+#         # Network Losses
+#         ################
+#
+#         self.criterion = torch.nn.CrossEntropyLoss()
+#         self.deform_fitting_mode = config.deform_fitting_mode
+#         self.deform_fitting_power = config.deform_fitting_power
+#         self.deform_lr_factor = config.deform_lr_factor
+#         self.repulse_extent = config.repulse_extent
+#         self.output_loss = 0
+#         self.reg_loss = 0
+#         self.l1 = nn.L1Loss()
+#
+#         return
+#
+#     def forward(self, batch, config):
+#
+#         # Save all block operations in a list of modules
+#         x = batch.features.clone().detach()
+#
+#         # Loop over consecutive blocks
+#         for block_op in self.block_ops:
+#             x = block_op(x, batch)
+#
+#         # Head of network
+#         x = self.head_mlp(x, batch)
+#         x = self.head_softmax(x, batch)
+#
+#         return x
+#
+#     def loss(self, outputs, labels):
+#         """
+#         Runs the loss on outputs of the model
+#         :param outputs: logits
+#         :param labels: labels
+#         :return: loss
+#         """
+#
+#         # Cross entropy loss
+#         self.output_loss = self.criterion(outputs, labels)
+#
+#         # Regularization of deformable offsets
+#         if self.deform_fitting_mode == 'point2point':
+#             self.reg_loss = p2p_fitting_regularizer(self)
+#         elif self.deform_fitting_mode == 'point2plane':
+#             raise ValueError('point2plane fitting mode not implemented yet.')
+#         else:
+#             raise ValueError('Unknown fitting mode: ' + self.deform_fitting_mode)
+#
+#         # Combined loss
+#         return self.output_loss + self.reg_loss
+#
+#     @staticmethod
+#     def accuracy(outputs, labels):
+#         """
+#         Computes accuracy of the current batch
+#         :param outputs: logits predicted by the network
+#         :param labels: labels
+#         :return: accuracy value
+#         """
+#
+#         predicted = torch.argmax(outputs.data, dim=1)
+#         total = labels.size(0)
+#         correct = (predicted == labels).sum().item()
+#
+#         return correct / total
 
 
 class KPFCNN(nn.Module):
@@ -218,12 +218,9 @@ class KPFCNN(nn.Module):
         # Loop over consecutive blocks
         for block_i, block in enumerate(config.architecture):
 
-            # Check equivariance
-            if ('equivariant' in block) and (not out_dim % 3 == 0):
-                raise ValueError('Equivariant block but features dimension is not a factor of 3')
-
             # Detect change to next layer for skip connection
-            if np.any([tmp in block for tmp in ['pool', 'strided', 'upsample', 'global']]):
+            # If block is strided or upsample, append it to list of block_numbers and list of in_dims
+            if np.any([tmp in block for tmp in ['strided', 'upsample']]):
                 self.encoder_skips.append(block_i)
                 self.encoder_skip_dims.append(in_dim)
 
@@ -231,28 +228,29 @@ class KPFCNN(nn.Module):
             if 'upsample' in block:
                 break
 
-            # Apply the good block function defining tf ops
-            self.encoder_blocks.append(block_decider(block,
-                                                    r,
-                                                    in_dim,
-                                                    out_dim,
-                                                    layer,
-                                                    config))
+            # Append corresponding encoder blocks to the network
+            # Apply the good block function defining tf ops -- ??
+            self.encoder_blocks.append(block_decider(block, r, in_dim, out_dim, layer, config))
 
             # Update dimension of input from output
             if 'simple' in block:
+                # sets in_dim for next block (resnetb block of layer 0) to 64
                 in_dim = out_dim // 2
             else:
+                # sets in_dim for next block equal to out_dim of current block
                 in_dim = out_dim
 
-            # Detect change to a subsampled layer
-            if 'pool' in block or 'strided' in block:
-                # Update radius and feature dimension for next layer
+            # In the end of every encoder layer update number of layer, radius and out_dim for next layer
+            if 'strided' in block:
                 layer += 1
                 r *= 2
                 out_dim *= 2
 
-        print('encoder is', self.encoder_blocks)
+        print('encoder_blocks is calculated as', self.encoder_blocks)
+        print('layer is', layer)
+        print('r is', r)
+        print('out_dim is', out_dim)
+
         #####################
         # List Decoder blocks
         #####################
@@ -268,33 +266,34 @@ class KPFCNN(nn.Module):
                 start_i = block_i
                 break
 
-        # Loop over consecutive blocks
+        # Loop over consecutive blocks starting from block start_i
         for block_i, block in enumerate(config.architecture[start_i:]):
 
             # Add dimension of skip connection concat
             if block_i > 0 and 'upsample' in config.architecture[start_i + block_i - 1]:
+                # in_dim of this decoder layer is taken from corresponding value from encoder
                 in_dim += self.encoder_skip_dims[layer]
-                self.decoder_concats.append(block_i)
+                self.decoder_concats.append(block_i)  # keep block numbers of upsample blocks in decoder
 
+            # Append corresponding decoder blocks to the network
             # Apply the good block function defining tf ops
-            self.decoder_blocks.append(block_decider(block,
-                                                    r,
-                                                    in_dim,
-                                                    out_dim,
-                                                    layer,
-                                                    config))
+            self.decoder_blocks.append(block_decider(block, r, in_dim, out_dim, layer, config))
 
-            # Update dimension of input from output
+            # Update dimension of input for next block from output of current block
             in_dim = out_dim
 
-            # Detect change to a subsampled layer
+            # In the beginning of every decoder layer decrease number of layer, radius and out_dim for next layer
             if 'upsample' in block:
-                # Update radius and feature dimension for next layer
                 layer -= 1
                 r *= 0.5
                 out_dim = out_dim // 2
 
         print('decoder is', self.decoder_blocks)
+        print('layer is', layer)
+        print('r is', r)
+        print('out_dim is', out_dim)
+
+        # head of network is the end
         self.head_mlp = UnaryBlock(out_dim, config.first_features_dim, False, 0)
         self.head_softmax = UnaryBlock(config.first_features_dim, self.C, False, 0)
 
@@ -309,6 +308,7 @@ class KPFCNN(nn.Module):
         if len(config.class_w) > 0:
             class_w = torch.from_numpy(np.array(config.class_w, dtype=np.float32))
             self.criterion = torch.nn.CrossEntropyLoss(weight=class_w, ignore_index=-1)
+            print('class_w is', class_w)
         else:
             self.criterion = torch.nn.CrossEntropyLoss(ignore_index=-1)
         self.deform_fitting_mode = config.deform_fitting_mode
@@ -319,12 +319,18 @@ class KPFCNN(nn.Module):
         self.reg_loss = 0
         self.l1 = nn.L1Loss()
 
+        print('Initialized the following KPFCNN architecture', self)
+
         return
 
     def forward(self, batch, config):
+        """
+        Describes how forward pass comes from input features to softmax values
+        """
 
         # Get input features
         x = batch.features.clone().detach()
+        print('x = batch.features.clone().detach() =', x)
 
         # Loop over consecutive blocks
         skip_x = []
@@ -332,11 +338,14 @@ class KPFCNN(nn.Module):
             if block_i in self.encoder_skips:
                 skip_x.append(x)
             x = block_op(x, batch)
+        print('self.encoder_skips is', self.encoder_skips)
+        print('skip_x is', skip_x)
 
         for block_i, block_op in enumerate(self.decoder_blocks):
             if block_i in self.decoder_concats:
                 x = torch.cat([x, skip_x.pop()], dim=1)
             x = block_op(x, batch)
+        print('self.decoder_concats is', self.decoder_concats)
 
         # Head of network
         x = self.head_mlp(x, batch)
@@ -356,13 +365,18 @@ class KPFCNN(nn.Module):
         target = - torch.ones_like(labels)
         for i, c in enumerate(self.valid_labels):
             target[labels == c] = i
+        print('target before unsqueeze(0) is', target)
+        print('outputs before transpose and unsqueeze(0) is', outputs)
 
         # Reshape to have a minibatch size of 1
         outputs = torch.transpose(outputs, 0, 1)
         outputs = outputs.unsqueeze(0)
         target = target.unsqueeze(0).long()
 
-        # Cross entropy loss
+        print('target after unsqueeze(0) is', target)
+        print('outputs after transpose and unsqueeze(0) is', outputs)
+
+        # Use chosen CrossEntropyLoss which was assigned during init
         self.output_loss = self.criterion(outputs, target)
 
         # Regularization of deformable offsets
