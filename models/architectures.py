@@ -288,7 +288,7 @@ class KPFCNN(nn.Module):
                 r *= 0.5
                 out_dim = out_dim // 2
 
-        print('decoder is', self.decoder_blocks)
+        print('decoder.blocks is', self.decoder_blocks)
         print('layer after decoder is', layer)
         print('r after decoder is', r)
         print('out_dim after decoder is', out_dim)
@@ -325,26 +325,73 @@ class KPFCNN(nn.Module):
 
     def forward(self, batch, config):
         """
-        Describes how forward pass comes from input features to softmax values
+        Describes how forward pass comes from input features to softmax values.
+        As described in S3DIS.S3DISCustomBatch, batch is list of points (with their features, labels etc) 
+        which were taken within one of balls, then concatenated and subsampled to 5 different levels
+        Batch - consists of batch.points, batch.features, batch.neighbors, batch.labels etc
+        Batch.points[0] - consists of points of level 0, each is [X, Y, Z] (~80 000 for S3DIS)
+        Batch.points[1] - consists of points of level 1, each is [X, Y, Z] (~22 000 for S3DIS)
+        Batch.points[2] - consists of points of level 2, each is [X, Y, Z] (~ 6 000 for S3DIS)
+        Batch.points[3] - consists of points of level 3, each is [X, Y, Z] (~ 1 500 for S3DIS)
+        Batch.points[4] - consists of points of level 4, each is [X, Y, Z] (~   400 for S3DIS)
+        
+        Batch.features[0] - consists of feature-lists of those points of level 0 (~80 000 for S3DIS), each list contains values of 5 features from initial cloud 
+        Batch.features[1] - consists of feature-lists of those points of level 1 (~22 000 for S3DIS), each list contains values of 5 features from initial cloud
+        Batch.features[2] - consists of feature-lists of those points of level 2 (~ 6 000 for S3DIS), each list contains values of 5 features from initial cloud
+        Batch.features[3] - consists of feature-lists of those points of level 3 (~ 1 500 for S3DIS), each list contains values of 5 features from initial cloud
         """
 
         # Get input features
         x = batch.features.clone().detach()
-        #print(x.shape())
-        #print(x.shape)
-        print(x.size())
-        #print(len(x))
-        #print('x = batch.features.clone().detach() =', x)
+
+        print('len(batch.points)', len(batch.points))
+        print('len(batch.points[0])', len(batch.points[0]))
+        print('len(batch.points[1])', len(batch.points[1]))
+        print('len(batch.points[2])', len(batch.points[2]))
+        print('len(batch.points[3])', len(batch.points[3]))   
+        print('len(batch.points[4])', len(batch.points[4]))       
+
+        print('x.size() before for', x.size())
+        print('len(batch.features)', len(batch.features))
+        print('len(batch.features[0])', len(batch.features[0]))
+        print('len(batch.features[1])', len(batch.features[1]))
+        print('len(batch.features[2])', len(batch.features[2]))
+        print('len(batch.features[3])', len(batch.features[3]))   
+        print('len(batch.features[4])', len(batch.features[4]))   
+        print('len(batch.features[5])', len(batch.features[5]))   
 
         # Loop over consecutive blocks
         skip_x = []
+        # self.encoder_skips is [2, 5, 8, 11, 14] (all strided blocks and the first upsample block)
         for block_i, block_op in enumerate(self.encoder_blocks):
+            print()
+            print('In for before if: block_i', block_i, 'will apply block_op', block_op, 'to x, where x.size() is', x.size())
             if block_i in self.encoder_skips:
+                print('In for before append: block_i', block_i, 'but we append x to skip_x, x.size() is', x.size())
                 skip_x.append(x)
-            x = block_op(x, batch)
-        #print('self.encoder_skips is', self.encoder_skips)
+            x = block_op(x, batch)  # apply the block to x
+            print('In for after if: now block is applied to x, x.size() is', x.size())
+            
+        print('self.encoder_skips is', self.encoder_skips)
         print('skip_x is', skip_x)
-
+        print('skip_x size is', len(skip_x))
+        print('skip_x[0] len is', len(skip_x[0]))
+        print('skip_x[1] len is', len(skip_x[1]))
+        print('skip_x[2] len is', len(skip_x[2]))
+        print('skip_x[3] len is', len(skip_x[3]))
+        
+#         print('skip_x[0][0] len is', len(skip_x[0][0]))
+#         print('skip_x[0][1] len is', len(skip_x[0][1]))
+        
+#         print('skip_x[1][0] len is', len(skip_x[1][0]))
+#         print('skip_x[1][1] len is', len(skip_x[1][1]))
+        
+#         print('skip_x[2][0] len is', len(skip_x[2][0]))
+#         print('skip_x[2][1] len is', len(skip_x[2][1]))
+        
+#         print('skip_x[3][0] len is', len(skip_x[3][0]))
+#         print('skip_x[3][1] len is', len(skip_x[3][1]))
+        
         for block_i, block_op in enumerate(self.decoder_blocks):
             if block_i in self.decoder_concats:
                 x = torch.cat([x, skip_x.pop()], dim=1)

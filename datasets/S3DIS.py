@@ -205,7 +205,14 @@ class S3DISDataset(PointCloudDataset):
 
             # for every training/validation point cloud create a list of potentials - list of random values
             # in range (0, 1e-3) of the same size as pot_tree of this cloud
+            # When list of potentials for current cloud is created, append it to self.potentials,
+            # then find an index of minimal potential for last appended cloud,
+            # and append this index to self.argmin_potentials.
+            # The value of minimal potential of current cloud is appended to self.min_potentials
             # create lists of minimal values of potentials and their indexes
+            # So, self.potentials[i] contains list of potentials for i-th cloud,
+            # self.argmin_potentials[i] - index of point with minimal potential within this cloud
+            # self.min_potentials[i] - value of minimal potential within this cloud
             for i, tree in enumerate(self.pot_trees):
                 self.potentials += [torch.from_numpy(np.random.rand(tree.data.shape[0]) * 1e-3)]
                 min_ind = int(torch.argmin(self.potentials[-1]))
@@ -335,6 +342,7 @@ class S3DISDataset(PointCloudDataset):
                     center_point += np.random.normal(scale=self.config.in_radius / 10, size=center_point.shape)
 
                 # Indices of points of potential trees which are inside ball around center point
+                # Result allows to increase potentials of these points
                 pot_inds, dists = self.pot_trees[cloud_ind].query_radius(center_point,
                                                                          r=self.config.in_radius,
                                                                          return_distance=True)
@@ -359,6 +367,7 @@ class S3DISDataset(PointCloudDataset):
             points = np.array(self.input_trees[cloud_ind].data, copy=False)
 
             # Indices of points of once-sampled original cloud which are inside ball around center point
+            # Result is the ball of points which is used later
             input_inds = self.input_trees[cloud_ind].query_radius(center_point,
                                                                   r=self.config.in_radius)[0]
 
@@ -495,6 +504,13 @@ class S3DISDataset(PointCloudDataset):
                                               stacked_features,
                                               labels,
                                               stack_lengths)
+        
+        print('len(input_list)',len(input_list))
+        print('len(input_list[0])',len(input_list[0]))
+        print('len(input_list[1])',len(input_list[1]))
+        print('len(input_list[2])',len(input_list[2]))
+        print('len(input_list[3])',len(input_list[3]))
+        print('len(input_list[4])',len(input_list[4]))
 
         t += [time.time()]
 
