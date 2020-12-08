@@ -289,17 +289,26 @@ class KPConv(nn.Module):
         else:
             deformed_K_points = self.kernel_points
 
-        # Get all difference matrices [n_points, n_neighbors, n_kpoints, dim]
+        # Turn neighbors from [n_points, n_neighbors, dim] to [n_points, n_neighbors, 1, dim]
         neighbors.unsqueeze_(2)
+
+        # Get all difference matrices [n_points, n_neighbors, n_kpoints, dim]
+        # Each of 95000 points has 28 neighbors,
+        # each neighbor has coordinate difference to each of 15 kernel points
+        # each difference has X, Y, Z coordinates
         differences = neighbors - deformed_K_points
 
-        # Get the square distances [n_points, n_neighbors, n_kpoints]
+        # Get the squared distances between each neighbor and each kernel point
+        # for each location of kernel (95000 locations)
+        # by summing squared differences along X, Y, Z
+        # sq_distances is [n_points, n_neighbors, n_kpoints]
         sq_distances = torch.sum(differences ** 2, dim=3)
 
         # Optimization by ignoring points outside a deformed KP range
         if self.deformable:
 
-            # Save distances for loss
+            # Save distances for loss [n_points, n_kpoints]
+            # Every kernel point in every kernel location has one of neighbors as the closest
             self.min_d2, _ = torch.min(sq_distances, dim=1)
 
             # Boolean of the neighbors in range of a kernel point [n_points, n_neighbors]

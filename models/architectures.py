@@ -32,21 +32,36 @@ def p2p_fitting_regularizer(net):
             ##############
 
             # Get the distance to closest input point and normalize to be independant from layers
+            # m.min_d2 and KP_min_d2 are [n_points, n_kpoints]
+            # Every kernel point in every kernel location has one of neighbors as the closest
             KP_min_d2 = m.min_d2 / (m.KP_extent ** 2)
 
-            # Loss will be the square distance to closest input point. We use L1 because dist is already squared
+            # Fitting loss will be a sum along net.modules:
+            # sum of [n_points, n_kpoints] of squared distances
+            # [ every point of kernel in every point location - the closest to it cloud point ]
+            # For some reason, its formulated more complexed
+            # as a sum of absolute values of differences
+            # between [n_points, n_kpoints] of squared distances
+            # and zero-tensor of the same shape.
             fitting_loss += net.l1(KP_min_d2, torch.zeros_like(KP_min_d2))
 
             ################
             # Repulsive loss
             ################
 
-            # Normalized KP locations
+            # Normalized KP locations [n_points, n_kpoints, dim]
             KP_locs = m.deformed_KP / m.KP_extent
 
             # Point should not be close to each other
-            for i in range(net.K):
+            for i in range(net.K):  # net.K is config.num_kernel_points
+
+                # other_KP is [n_points, n_kpoints - 1, dim]
+                # other_KP is all kernel points of this kernel except point i
+                # other_KP is concatenation of all points before i-th will all points after i-th
                 other_KP = torch.cat([KP_locs[:, :i, :], KP_locs[:, i + 1:, :]], dim=1).detach()
+
+                # distances is [n_points, n_kpoints - 1]
+                # in every kernel location distances from i-th kernel point to each other n_kpoints - 1
                 distances = torch.sqrt(torch.sum((other_KP - KP_locs[:, i:i + 1, :]) ** 2, dim=2))
                 rep_loss = torch.sum(torch.clamp_max(distances - net.repulse_extent, max=0.0) ** 2, dim=1)
                 repulsive_loss += net.l1(rep_loss, torch.zeros_like(rep_loss)) / net.K
