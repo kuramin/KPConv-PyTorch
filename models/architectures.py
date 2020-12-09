@@ -20,6 +20,8 @@ import numpy as np
 
 def p2p_fitting_regularizer(net):
 
+    # Fitting and repulsive loss at some point keep values of distances for every location of kernel.
+    # It doesnt mean that it tries to learn it. It just calculates loss based on them.
     fitting_loss = 0
     repulsive_loss = 0
 
@@ -63,7 +65,19 @@ def p2p_fitting_regularizer(net):
                 # distances is [n_points, n_kpoints - 1]
                 # in every kernel location distances from i-th kernel point to each other n_kpoints - 1
                 distances = torch.sqrt(torch.sum((other_KP - KP_locs[:, i:i + 1, :]) ** 2, dim=2))
+
+                # Function Clamp_max leaves only those values, which are less than argument max, rest turns to max
+                # As a result, (distances - repulse_extent) increases rep_loss only when
+                # distance is less than repulse_extent (1.2).
+                # If kernel points are further from each other, rep_loss is 0
+                # Rep_loss for i-th point of kernel has size n_points and represents
+                # how smaller than repulse_extent (1.2) are distances from i-th point to other points of this kernel
+                # (much smaller -> big loss)
                 rep_loss = torch.sum(torch.clamp_max(distances - net.repulse_extent, max=0.0) ** 2, dim=1)
+
+                # And repulsive_loss after for-loop will become vector of n_points.
+                # repulsive_loss grows when distances from each to each kernel point
+                # in every kernel location go smaller and smaller than repulse_extent (1.2)
                 repulsive_loss += net.l1(rep_loss, torch.zeros_like(rep_loss)) / net.K
 
     return net.deform_fitting_power * (2 * fitting_loss + repulsive_loss)
