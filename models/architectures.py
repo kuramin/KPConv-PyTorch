@@ -398,7 +398,8 @@ class KPFCNN(nn.Module):
             if block_i in self.encoder_skips:
                 print('In for before append: block_i', block_i, 'but we append x to skip_x, x.size() is', x.size())
                 skip_x.append(x)
-            x = block_op(x, batch)  # apply the block to x
+            # apply the block to x (module.__call__ launches blocks.KPConv.forward)
+            x = block_op(x, batch)
             print('In for after if: now block is applied to x, x.size() is', x.size())
             
         print('self.encoder_skips is', self.encoder_skips)

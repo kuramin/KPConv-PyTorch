@@ -250,7 +250,10 @@ class KPConv(nn.Module):
     def forward(self, q_pts, s_pts, neighb_inds, x):
         print('len(q_pts) is', len(q_pts))
         print('len(s_pts) is', len(s_pts))
-
+        print('len(q_pts[0]) is', len(q_pts[0]))
+        print('len(q_pts[1]) is', len(q_pts[1]))
+        print('len(s_pts[0]) is', len(s_pts[0]))
+        print('len(s_pts[1]) is', len(s_pts[1]))
         ###################
         # Offset generation
         ###################
@@ -296,7 +299,8 @@ class KPConv(nn.Module):
 
         # Center every neighborhood
         neighbors = neighbors - q_pts.unsqueeze(1)
-
+        print('len(neighbors) is', len(neighbors))
+        print('neighbors[0] is', neighbors[0])
         # Apply offsets to kernel points [n_points, n_kpoints, dim]
         if self.deformable:
             self.deformed_KP = offsets + self.kernel_points
