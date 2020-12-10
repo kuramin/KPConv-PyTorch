@@ -33,7 +33,7 @@ def p2p_fitting_regularizer(net):
             # Fitting loss
             ##############
 
-            # Get the distance to closest input point and normalize to be independant from layers
+            # Get the distance to closest input point and normalize to be independent from layers
             # m.min_d2 and KP_min_d2 are [n_points, n_kpoints]
             # Every kernel point in every kernel location has one of neighbors as the closest
             KP_min_d2 = m.min_d2 / (m.KP_extent ** 2)
@@ -41,7 +41,7 @@ def p2p_fitting_regularizer(net):
             # Fitting loss will be a sum along net.modules:
             # sum of [n_points, n_kpoints] of squared distances
             # [ every point of kernel in every point location - the closest to it cloud point ]
-            # For some reason, its formulated more complexed
+            # For some reason, its formulation more difficult
             # as a sum of absolute values of differences
             # between [n_points, n_kpoints] of squared distances
             # and zero-tensor of the same shape.
@@ -73,12 +73,12 @@ def p2p_fitting_regularizer(net):
                 # Rep_loss for i-th point of kernel has size n_points and represents
                 # how smaller than repulse_extent (1.2) are distances from i-th point to other points of this kernel
                 # (much smaller -> big loss)
-                rep_loss = torch.sum(torch.clamp_max(distances - net.repulse_extent, max=0.0) ** 2, dim=1)
+                rep_loss_i = torch.sum(torch.clamp_max(distances - net.repulse_extent, max=0.0) ** 2, dim=1)
 
                 # And repulsive_loss after for-loop will become vector of n_points.
                 # repulsive_loss grows when distances from each to each kernel point
                 # in every kernel location go smaller and smaller than repulse_extent (1.2)
-                repulsive_loss += net.l1(rep_loss, torch.zeros_like(rep_loss)) / net.K
+                repulsive_loss += net.l1(rep_loss_i, torch.zeros_like(rep_loss_i)) / net.K
 
     return net.deform_fitting_power * (2 * fitting_loss + repulsive_loss)
 

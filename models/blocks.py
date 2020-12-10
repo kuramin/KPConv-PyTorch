@@ -63,15 +63,16 @@ def gather(x, idx, method=2):
             idx = idx.expand(new_s)
         return x.gather(0, idx)
     else:
-        raise ValueError('Unkown method')
+        raise ValueError('Unknown method')
 
 
 def radius_gaussian(sq_r, sig, eps=1e-9):
     """
     Compute a radius gaussian (gaussian of distance)
-    :param sq_r: input radiuses [dn, ..., d1, d0]
-    :param sig: extents of gaussians [d1, d0] or [d0] or float
-    :return: gaussian of sq_r [dn, ..., d1, d0]
+    :param sq_r: input radiuses [dn, ..., d1, d0] - each radius defines how far a point is from center
+    :param sig: extents of gaussians [d1, d0] or [d0] or float - defines shape of the bell
+    :return: gaussian of sq_r [dn, ..., d1, d0] - each member is a
+    value of gaussian function at corresponding point (provided without coefficient before exp)
     """
     return torch.exp(-sq_r / (2 * sig**2 + eps))
 
@@ -110,27 +111,27 @@ def max_pool(x, inds):
     return max_features
 
 
-def global_average(x, batch_lengths):
-    """
-    Block performing a global average over batch pooling
-    :param x: [N, D] input features
-    :param batch_lengths: [B] list of batch lengths
-    :return: [B, D] averaged features
-    """
-
-    # Loop over the clouds of the batch
-    averaged_features = []
-    i0 = 0
-    for b_i, length in enumerate(batch_lengths):
-
-        # Average features for each batch cloud
-        averaged_features.append(torch.mean(x[i0:i0 + length], dim=0))
-
-        # Increment for next cloud
-        i0 += length
-
-    # Average features in each batch
-    return torch.stack(averaged_features)
+# def global_average(x, batch_lengths):
+#     """
+#     Block performing a global average over batch pooling
+#     :param x: [N, D] input features
+#     :param batch_lengths: [B] list of batch lengths
+#     :return: [B, D] averaged features
+#     """
+#
+#     # Loop over the clouds of the batch
+#     averaged_features = []
+#     i0 = 0
+#     for b_i, length in enumerate(batch_lengths):
+#
+#         # Average features for each batch cloud
+#         averaged_features.append(torch.mean(x[i0:i0 + length], dim=0))
+#
+#         # Increment for next cloud
+#         i0 += length
+#
+#     # Average features in each batch
+#     return torch.stack(averaged_features)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -159,7 +160,15 @@ class KPConv(nn.Module):
         :param deformable: choose deformable or not
         :param modulated: choose if kernel weights are modulated in addition to deformed
         """
+        # initialize an object of class which is parent for KPConv (class nn.Module)
         super(KPConv, self).__init__()
+        # What about the second parameter "self"?
+        # Remember, this is an object that is an instance of the class used as the first parameter.
+        # For an example, isinstance(Cube, Square) must return True.
+        # By including an instantiated object, super() returns a bound method:
+        # a method that is bound to the object, which gives the method the object’s context
+        # such as any instance attributes. If this parameter is not included,
+        # the method returned is just a function, unassociated with an object’s context.
 
         # Save parameters
         self.K = kernel_size
@@ -187,8 +196,11 @@ class KPConv(nn.Module):
         if deformable:
             if modulated:
                 self.offset_dim = (self.p_dim + 1) * self.K
-            else:
+            else:  # S3DIS is not modulated
                 self.offset_dim = self.p_dim * self.K
+            # all parameters already have some defined value
+            # KPConv can call itself because deformable is False by default,
+            # so it will not be an endless recursive process
             self.offset_conv = KPConv(self.K,
                                       self.p_dim,
                                       self.in_channels,
@@ -216,7 +228,7 @@ class KPConv(nn.Module):
     def reset_parameters(self):
         kaiming_uniform_(self.weights, a=math.sqrt(5))
         if self.deformable:
-            nn.init.zeros_(self.offset_bias)
+            nn.init.zeros_(self.offset_bias)  # Fills the Tensor self.offset_bias with the scalar value `0`
         return
 
     def init_KP(self):
@@ -225,7 +237,8 @@ class KPConv(nn.Module):
         :return: the tensor of kernel points
         """
 
-        # Create one kernel disposition (as numpy array). Choose the KP distance to center thanks to the KP extent
+        # Create one kernel disposition (as numpy array).
+        # Choose the KP distance to center thanks to the KP extent
         K_points_numpy = load_kernels(self.radius,
                                       self.K,
                                       dimension=self.p_dim,
@@ -235,6 +248,8 @@ class KPConv(nn.Module):
                          requires_grad=False)
 
     def forward(self, q_pts, s_pts, neighb_inds, x):
+        print('len(q_pts) is', len(q_pts))
+        print('len(s_pts) is', len(s_pts))
 
         ###################
         # Offset generation
@@ -273,7 +288,7 @@ class KPConv(nn.Module):
         # Deformed convolution
         ######################
 
-        # Add a fake point in the last row for shadow neighbors
+        # Add a fake point with 1e6 in X,Y,Z into the last row for shadow neighbors
         s_pts = torch.cat((s_pts, torch.zeros_like(s_pts[:1, :]) + 1e6), 0)
 
         # Get neighbor points [n_points, n_neighbors, dim]
@@ -651,17 +666,17 @@ class ResnetBottleneckBlock(nn.Module):
         return self.leaky_relu(x + shortcut)
 
 
-class GlobalAverageBlock(nn.Module):
-
-    def __init__(self):
-        """
-        Initialize a global average block with its ReLU and BatchNorm.
-        """
-        super(GlobalAverageBlock, self).__init__()
-        return
-
-    def forward(self, x, batch):
-        return global_average(x, batch.lengths[-1])
+# class GlobalAverageBlock(nn.Module):
+#
+#     def __init__(self):
+#         """
+#         Initialize a global average block with its ReLU and BatchNorm.
+#         """
+#         super(GlobalAverageBlock, self).__init__()
+#         return
+#
+#     def forward(self, x, batch):
+#         return global_average(x, batch.lengths[-1])
 
 
 class NearestUpsampleBlock(nn.Module):
@@ -682,16 +697,16 @@ class NearestUpsampleBlock(nn.Module):
                                                                   self.layer_ind - 1)
 
 
-class MaxPoolBlock(nn.Module):
-
-    def __init__(self, layer_ind):
-        """
-        Initialize a max pooling block with its ReLU and BatchNorm.
-        """
-        super(MaxPoolBlock, self).__init__()
-        self.layer_ind = layer_ind
-        return
-
-    def forward(self, x, batch):
-        return max_pool(x, batch.pools[self.layer_ind + 1])
+# class MaxPoolBlock(nn.Module):
+#
+#     def __init__(self, layer_ind):
+#         """
+#         Initialize a max pooling block with its ReLU and BatchNorm.
+#         """
+#         super(MaxPoolBlock, self).__init__()
+#         self.layer_ind = layer_ind
+#         return
+#
+#     def forward(self, x, batch):
+#         return max_pool(x, batch.pools[self.layer_ind + 1])
 

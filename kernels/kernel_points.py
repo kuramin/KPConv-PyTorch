@@ -291,18 +291,21 @@ def kernel_point_optimization_debug(radius, num_points, num_kernels=1, dimension
     # Kernel initialization
     #######################
 
-    # Random kernel points
+    # Randomize kernel points. Gives [num_kernels * num_points - 1] points, each coordinate in (-1, 1)
     kernel_points = np.random.rand(num_kernels * num_points - 1, dimension) * diameter0 - radius0
+
+    # Randomizes a [num_kernels, num_points, p_dim] tensor of points,
+    # which are not further than 1/sqrt(2) from the origin
     while (kernel_points.shape[0] < num_kernels * num_points):
         new_points = np.random.rand(num_kernels * num_points - 1, dimension) * diameter0 - radius0
-        kernel_points = np.vstack((kernel_points, new_points))
-        d2 = np.sum(np.power(kernel_points, 2), axis=1)
+        kernel_points = np.vstack((kernel_points, new_points))  # add randomized points
+        d2 = np.sum(np.power(kernel_points, 2), axis=1)  # calculate squared distance of point from origin
         kernel_points = kernel_points[d2 < 0.5 * radius0 * radius0, :]
     kernel_points = kernel_points[:num_kernels * num_points, :].reshape((num_kernels, num_points, -1))
 
-    # Optionnal fixing
+    # Optional fixing
     if fixed == 'center':
-        kernel_points[:, 0, :] *= 0
+        kernel_points[:, 0, :] *= 0  # sets X,Y,Z-coordinates of the 0-th point to 0 (origin)
     if fixed == 'verticals':
         kernel_points[:, :3, :] *= 0
         kernel_points[:, 1, -1] += 2 * radius0 / 3
@@ -313,7 +316,7 @@ def kernel_point_optimization_debug(radius, num_points, num_kernels=1, dimension
     #####################
 
     # Initialize figure
-    if verbose>1:
+    if verbose > 1:
         fig = plt.figure()
 
     saved_gradient_norms = np.zeros((10000, num_kernels))
@@ -390,6 +393,7 @@ def kernel_point_optimization_debug(radius, num_points, num_kernels=1, dimension
         moving_factor *= continuous_moving_decay
 
     # Rescale radius to fit the wanted ratio of radius
+    # r is [num_kernels, num_points] tensor of distances from origin
     r = np.sqrt(np.sum(np.power(kernel_points, 2), axis=-1))
     kernel_points *= ratio / np.mean(r[:, 1:])
 
@@ -404,16 +408,15 @@ def load_kernels(radius, num_kpoints, dimension, fixed, lloyd=False):
     if not exists(kernel_dir):
         makedirs(kernel_dir)
 
-    # To many points switch to Lloyds
+    # If too many points, then switch to Lloyds
     if num_kpoints > 30:
         lloyd = True
 
     # Kernel_file
     kernel_file = join(kernel_dir, 'k_{:03d}_{:s}_{:d}D.ply'.format(num_kpoints, fixed, dimension))
 
-    # Check if already done
-    if not exists(kernel_file):
-        if lloyd:
+    if not exists(kernel_file):  # If rigid locations are not already calculated
+        if lloyd:  # calculate them with LLoyd (if number of kernel points is very big)
             # Create kernels
             kernel_points = spherical_Lloyd(1.0,
                                             num_kpoints,
@@ -421,7 +424,7 @@ def load_kernels(radius, num_kpoints, dimension, fixed, lloyd=False):
                                             fixed=fixed,
                                             verbose=0)
 
-        else:
+        else:  # or calculate them via attraction-repulse optimisation
             # Create kernels
             kernel_points, grad_norms = kernel_point_optimization_debug(1.0,
                                                                         num_kpoints,
@@ -436,14 +439,14 @@ def load_kernels(radius, num_kpoints, dimension, fixed, lloyd=False):
             # Save points
             kernel_points = kernel_points[best_k, :, :]
 
+        # write found points to the file
         write_ply(kernel_file, kernel_points, ['x', 'y', 'z'])
 
-    else:
+    else:  # otherwise read rigid locations
         data = read_ply(kernel_file)
         kernel_points = np.vstack((data['x'], data['y'], data['z'])).T
 
-    # Random roations for the kernel
-    # N.B. 4D random rotations not supported yet
+    # Random rotations
     R = np.eye(dimension)
     theta = np.random.rand() * 2 * np.pi
     if dimension == 2:
@@ -452,11 +455,11 @@ def load_kernels(radius, num_kpoints, dimension, fixed, lloyd=False):
             R = np.array([[c, -s], [s, c]], dtype=np.float32)
 
     elif dimension == 3:
-        if fixed != 'vertical':
+        if fixed != 'vertical':  # Around axis Z for random angle theta
             c, s = np.cos(theta), np.sin(theta)
             R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float32)
 
-        else:
+        else:  # in 3D based on alpha, theta, phi
             phi = (np.random.rand() - 0.5) * np.pi
 
             # Create the first vector in carthesian coordinates
@@ -476,7 +479,7 @@ def load_kernels(radius, num_kpoints, dimension, fixed, lloyd=False):
     # Scale kernels
     kernel_points = radius * kernel_points
 
-    # Rotate kernels
+    # Rotate kernels by calculated matrix R
     kernel_points = np.matmul(kernel_points, R)
 
     return kernel_points.astype(np.float32)
