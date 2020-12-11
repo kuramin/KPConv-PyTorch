@@ -188,7 +188,7 @@ class KPConv(nn.Module):
         self.deformed_KP = None
         self.offset_features = None
 
-        # Initialize weights
+        # Initialize weights, which will be trained
         self.weights = Parameter(torch.zeros((self.K, in_channels, out_channels), dtype=torch.float32),
                                  requires_grad=True)
 
@@ -248,6 +248,13 @@ class KPConv(nn.Module):
                          requires_grad=False)
 
     def forward(self, q_pts, s_pts, neighb_inds, x):
+        """Passes values forward through KPConv module.
+        :param q_pts: points which will get feature vectors
+        :param s_pts: points which will provide their features
+        :param neighb_inds: indices of neighbors for every point of s_pts
+        :param x: signal which will be passed through
+        """
+
         print('len(q_pts) is', len(q_pts))
         print('len(s_pts) is', len(s_pts))
         print('len(q_pts[0]) is', len(q_pts[0]))
@@ -262,23 +269,20 @@ class KPConv(nn.Module):
 
             # Get offsets with a KPConv that only takes part of the features
             self.offset_features = self.offset_conv(q_pts, s_pts, neighb_inds, x) + self.offset_bias
-
-            if self.modulated:
-
-                # Get offset (in normalized scale) from features
-                unscaled_offsets = self.offset_features[:, :self.p_dim * self.K]
-                unscaled_offsets = unscaled_offsets.view(-1, self.K, self.p_dim)
-
-                # Get modulations
-                modulations = 2 * torch.sigmoid(self.offset_features[:, self.p_dim * self.K:])
-
-            else:
-
+            if not self.modulated:
                 # Get offset (in normalized scale) from features
                 unscaled_offsets = self.offset_features.view(-1, self.K, self.p_dim)
 
                 # No modulations
                 modulations = None
+
+            # else:  # not our case
+            #     # Get offset (in normalized scale) from features
+            #     unscaled_offsets = self.offset_features[:, :self.p_dim * self.K]
+            #     unscaled_offsets = unscaled_offsets.view(-1, self.K, self.p_dim)
+            #
+            #     # Get modulations
+            #     modulations = 2 * torch.sigmoid(self.offset_features[:, self.p_dim * self.K:])
 
             # Rescale offset for this layer
             offsets = unscaled_offsets * self.KP_extent
@@ -361,7 +365,7 @@ class KPConv(nn.Module):
         else:
             new_neighb_inds = neighb_inds
 
-        # Get Kernel point influences [n_points, n_kpoints, n_neighbors]
+        # Get Kernel point influences h(y, Xk) [n_points, n_kpoints, n_neighbors]
         if self.KP_influence == 'constant':
             # Every point get an influence of 1.
             all_weights = torch.ones_like(sq_distances)
@@ -380,13 +384,14 @@ class KPConv(nn.Module):
         else:
             raise ValueError('Unknown influence function type (config.KP_influence)')
 
-        # In case of closest mode, only the closest KP can influence each point
-        if self.aggregation_mode == 'closest':
-            neighbors_1nn = torch.argmin(sq_distances, dim=2)
-            all_weights *= torch.transpose(nn.functional.one_hot(neighbors_1nn, self.K), 1, 2)
-
-        elif self.aggregation_mode != 'sum':
-            raise ValueError("Unknown convolution mode. Should be 'closest' or 'sum'")
+        # Our aggregation mode is 'sum', we sum influences of kernel points in this kernel location
+        # In case of mode 'closest', only the closest KP can influence each point
+        # if self.aggregation_mode == 'closest':
+        #     neighbors_1nn = torch.argmin(sq_distances, dim=2)
+        #     all_weights *= torch.transpose(nn.functional.one_hot(neighbors_1nn, self.K), 1, 2)
+        #
+        # elif self.aggregation_mode != 'sum':
+        #     raise ValueError("Unknown convolution mode. Should be 'closest' or 'sum'")
 
         # Add a zero feature for shadow neighbors
         x = torch.cat((x, torch.zeros_like(x[:1, :])), 0)
@@ -402,10 +407,10 @@ class KPConv(nn.Module):
             weighted_features *= modulations.unsqueeze(2)
 
         # Apply network weights [n_kpoints, n_points, out_fdim]
-        weighted_features = weighted_features.permute((1, 0, 2))
+        weighted_features = weighted_features.permute((1, 0, 2))  # permute is a 3d version of Transpose
         kernel_outputs = torch.matmul(weighted_features, self.weights)
 
-        # Convolution sum [n_points, out_fdim]
+        # Convolution sum (output features from picture 2; sum of kernel responses) [n_points, out_fdim]
         return torch.sum(kernel_outputs, dim=0)
 
     def __repr__(self):
@@ -679,10 +684,18 @@ class ResnetBottleneckBlock(nn.Module):
 
         # First downscaling mlp
         x = self.unary1(features)
+        print('len(x) before kpconv is', len(x))
+        print('len(x[0]) before kpconv is', len(x[0]))
 
         # Convolution
         x = self.KPConv(q_pts, s_pts, neighb_inds, x)
+        print('len(x) before bn-relu is', len(x))
+        print('len(x[0]) before bn-relu is', len(x[0]))
+
         x = self.leaky_relu(self.batch_norm_conv(x))
+
+        print('len(x) before unary2 is', len(x))
+        print('len(x[0]) before unary2 is', len(x[0]))
 
         # Second upscaling mlp
         x = self.unary2(x)
