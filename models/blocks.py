@@ -687,16 +687,17 @@ class ResnetBottleneckBlock(nn.Module):
         # Second upscaling mlp
         x = self.unary2(x)
 
-        # Shortcut
+        # Since KPConv of strided block will perform pooling of points from s_pts to q_pts,
+        # we need to perform pooling of features in the same manner as points were pooled
         if 'strided' in self.block_name:
             print('strided len(features) before is', len(features), 'len(features[0]) before is ', len(features[0]))
             shortcut = max_pool(features, neighb_inds)
             print('strided len(features) after is', len(features), 'len(features[0]) after is ', len(features[0]))
-            print('strided len(shortcut) before is', len(shortcut), 'len(shortcut[0]) before is ', len(shortcut[0]))
+            print('strided len(shortcut) after is', len(shortcut), 'len(shortcut[0]) after is ', len(shortcut[0]))
         else:
             shortcut = features
             print('nonstrided len(features) after is', len(features), 'len(features[0]) after is ', len(features[0]))
-            print('nonstrided len(shortcut) before is', len(shortcut), 'len(shortcut[0]) before is ', len(shortcut[0]))
+            print('nonstrided len(shortcut) after is', len(shortcut), 'len(shortcut[0]) after is ', len(shortcut[0]))
 
         shortcut = self.unary_shortcut(shortcut)
 
