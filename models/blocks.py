@@ -294,20 +294,26 @@ class KPConv(nn.Module):
         # Add a fake point with 1e6 in X,Y,Z into the last row for shadow neighbors
         s_pts = torch.cat((s_pts, torch.zeros_like(s_pts[:1, :]) + 1e6), 0)
 
+        print('neighb_inds is', neighb_inds)
         # Get neighbor points [n_points, n_neighbors, dim]
         neighbors = s_pts[neighb_inds, :]
 
-        # Center every neighborhood
+        print('neighbors[0] before is', neighbors[0])
+        # Center every neighborhood (unsqueeze for subtraction:
+        # q_pts from [n_points, dim] to [n_points, 1, dim])
         neighbors = neighbors - q_pts.unsqueeze(1)
         print('len(neighbors) is', len(neighbors))
-        print('neighbors[0] is', neighbors[0])
+        print('neighbors[0] after is', neighbors[0])
         # Apply offsets to kernel points [n_points, n_kpoints, dim]
         if self.deformable:
             self.deformed_KP = offsets + self.kernel_points
+            print('self.kernel_points is', self.kernel_points)
             deformed_K_points = self.deformed_KP.unsqueeze(1)
         else:
             deformed_K_points = self.kernel_points
 
+        print('len(deformed_K_points) is', len(deformed_K_points))
+        print('deformed_K_points[0] is', deformed_K_points[0])
         # Turn neighbors from [n_points, n_neighbors, dim] to [n_points, n_neighbors, 1, dim]
         neighbors.unsqueeze_(2)
 
@@ -330,11 +336,13 @@ class KPConv(nn.Module):
             # Every kernel point in every kernel location has one of neighbors as the closest
             self.min_d2, _ = torch.min(sq_distances, dim=1)
 
-            # Boolean of the neighbors in range of a kernel point [n_points, n_neighbors]
+            # Boolean of the neighbors within distance KP_extent of a kernel point [n_points, n_neighbors]
             in_range = torch.any(sq_distances < self.KP_extent ** 2, dim=2).type(torch.int32)
 
-            # New value of max neighbors
+            # New value of max neighbors (maximal number of neighs within KP_extent from every point)
             new_max_neighb = torch.max(torch.sum(in_range, dim=1))
+            print('new_max_neighb is', new_max_neighb)
+            print('in_range is', in_range)
 
             # For each row of neighbors, indices of the ones that are in range [n_points, new_max_neighb]
             neighb_row_bool, neighb_row_inds = torch.topk(in_range, new_max_neighb.item(), dim=1)
@@ -413,7 +421,9 @@ class KPConv(nn.Module):
 
 
 def block_decider(block_name, radius, in_dim, out_dim, layer_ind, config):
-
+    """
+    Chooses a block based on provided name and returns it to architectures.KPFCNN.__init__
+    """
     if block_name == 'unary':
         return UnaryBlock(in_dim, out_dim, config.use_batch_norm, config.batch_norm_momentum)
 
@@ -450,10 +460,13 @@ def block_decider(block_name, radius, in_dim, out_dim, layer_ind, config):
 
 
 class BatchNormBlock(nn.Module):
-
+    """
+    Describes initialization and forward passing for BatchNormModule
+    """
     def __init__(self, in_dim, use_bn, bn_momentum):
         """
-        Initialize a batch normalization block. If network does not use batch normalization, replace with biases.
+        Initialize a batch normalization block. If network does not use batch normalization,
+        replace with biases.
         :param in_dim: dimension input features
         :param use_bn: boolean indicating if we use Batch Norm
         :param bn_momentum: Batch norm momentum
@@ -494,24 +507,32 @@ class UnaryBlock(nn.Module):
         """
         Initialize a standard unary block with its ReLU and BatchNorm.
         :param in_dim: dimension input features
-        :param out_dim: dimension input features
+        :param out_dim: dimension output features
         :param use_bn: boolean indicating if we use Batch Norm
         :param bn_momentum: Batch norm momentum
         """
 
-        super(UnaryBlock, self).__init__()
+        super(UnaryBlock, self).__init__()  # initialize an object of parent-class (Module)
         self.bn_momentum = bn_momentum
         self.use_bn = use_bn
         self.no_relu = no_relu
         self.in_dim = in_dim
         self.out_dim = out_dim
+
+        # set mlp as a 1-layer network with 1 matrix of weights and without bias
         self.mlp = nn.Linear(in_dim, out_dim, bias=False)
+
+        # add batch_normalisation of the output
         self.batch_norm = BatchNormBlock(out_dim, self.use_bn, self.bn_momentum)
+
+        # add activation function
         if not no_relu:
             self.leaky_relu = nn.LeakyReLU(0.1)
         return
 
     def forward(self, x, batch=None):
+        """Passes x forward through mlp, batch_norm and leakyReLU
+        """
         x = self.mlp(x)
         x = self.batch_norm(x)
         if not self.no_relu:
@@ -529,7 +550,7 @@ class SimpleBlock(nn.Module):
 
     def __init__(self, block_name, in_dim, out_dim, radius, layer_ind, config):
         """
-        Initialize a simple convolution block with its ReLU and BatchNorm.
+        Initialize a simple convolution block (KPConv, BatchNorm and leakyReLU.
         :param in_dim: dimension input features
         :param out_dim: dimension input features
         :param radius: current radius of convolution
@@ -538,7 +559,7 @@ class SimpleBlock(nn.Module):
         super(SimpleBlock, self).__init__()
 
         # get KP_extent from current radius
-        current_extent = radius * config.KP_extent / config.conv_radius
+        current_KP_extent = config.KP_extent * radius / config.conv_radius
 
         # Get other parameters
         self.bn_momentum = config.batch_norm_momentum
@@ -548,12 +569,12 @@ class SimpleBlock(nn.Module):
         self.in_dim = in_dim
         self.out_dim = out_dim
 
-        # Define the KPConv class
+        # Define KPConv of the block. Out_dim is set to first_feat_dim = 128, so hear its out_dim // 2
         self.KPConv = KPConv(config.num_kernel_points,
                              config.in_points_dim,
                              in_dim,
                              out_dim // 2,
-                             current_extent,
+                             current_KP_extent,
                              radius,
                              fixed_kernel_points=config.fixed_kernel_points,
                              KP_influence=config.KP_influence,
@@ -568,7 +589,10 @@ class SimpleBlock(nn.Module):
         return
 
     def forward(self, x, batch):
+        """Passes x forward through KPConv, batch_norm and leakyReLU
+        """
 
+        # Choose point for q_pts and s_pts from batch
         if 'strided' in self.block_name:
             q_pts = batch.points[self.layer_ind + 1]
             s_pts = batch.points[self.layer_ind]
@@ -578,6 +602,7 @@ class SimpleBlock(nn.Module):
             s_pts = batch.points[self.layer_ind]
             neighb_inds = batch.neighbors[self.layer_ind]
 
+        # Apply KPConv described in SimpleBlock.__init__ to chosen points
         x = self.KPConv(q_pts, s_pts, neighb_inds, x)
         return self.leaky_relu(self.batch_norm(x))
 
@@ -595,7 +620,7 @@ class ResnetBottleneckBlock(nn.Module):
         super(ResnetBottleneckBlock, self).__init__()
 
         # get KP_extent from current radius
-        current_extent = radius * config.KP_extent / config.conv_radius
+        current_KP_extent = config.KP_extent * radius / config.conv_radius
 
         # Get other parameters
         self.bn_momentum = config.batch_norm_momentum
@@ -616,7 +641,7 @@ class ResnetBottleneckBlock(nn.Module):
                              config.in_points_dim,
                              out_dim // 4,
                              out_dim // 4,
-                             current_extent,
+                             current_KP_extent,
                              radius,
                              fixed_kernel_points=config.fixed_kernel_points,
                              KP_influence=config.KP_influence,
@@ -628,10 +653,10 @@ class ResnetBottleneckBlock(nn.Module):
         # Second upscaling mlp
         self.unary2 = UnaryBlock(out_dim // 4, out_dim, self.use_bn, self.bn_momentum, no_relu=True)
 
-        # Shortcut optional mpl
-        if in_dim != out_dim:
+        # Shortcut optional mlp
+        if in_dim != out_dim:  # when block in beginning of layer requires increase in number of features
             self.unary_shortcut = UnaryBlock(in_dim, out_dim, self.use_bn, self.bn_momentum, no_relu=True)
-        else:
+        else:  # direct shortcut
             self.unary_shortcut = nn.Identity()
 
         # Other operations
@@ -640,6 +665,8 @@ class ResnetBottleneckBlock(nn.Module):
         return
 
     def forward(self, features, batch):
+        """Passes features forward through ResnetBottleneckBlock
+        """
 
         if 'strided' in self.block_name:
             q_pts = batch.points[self.layer_ind + 1]
@@ -662,9 +689,15 @@ class ResnetBottleneckBlock(nn.Module):
 
         # Shortcut
         if 'strided' in self.block_name:
+            print('strided len(features) before is', len(features), 'len(features[0]) before is ', len(features[0]))
             shortcut = max_pool(features, neighb_inds)
+            print('strided len(features) after is', len(features), 'len(features[0]) after is ', len(features[0]))
+            print('strided len(shortcut) before is', len(shortcut), 'len(shortcut[0]) before is ', len(shortcut[0]))
         else:
             shortcut = features
+            print('nonstrided len(features) after is', len(features), 'len(features[0]) after is ', len(features[0]))
+            print('nonstrided len(shortcut) before is', len(shortcut), 'len(shortcut[0]) before is ', len(shortcut[0]))
+
         shortcut = self.unary_shortcut(shortcut)
 
         return self.leaky_relu(x + shortcut)
@@ -689,11 +722,15 @@ class NearestUpsampleBlock(nn.Module):
         """
         Initialize a nearest upsampling block with its ReLU and BatchNorm.
         """
-        super(NearestUpsampleBlock, self).__init__()
+        super(NearestUpsampleBlock, self).__init__()  # Initialize an object of parenting class (Module)
         self.layer_ind = layer_ind
         return
 
     def forward(self, x, batch):
+        # arguments are [n_points, d_feat] of features of points of this layer
+        # and [n_points, neigh_lim[self.layer_ind - 1]] of upsampling neighbors of points of lower layer
+        # for every of n_points : derive its features based on indices
+        # of its upsampling neighbors and already known features of those neighbors
         return closest_pool(x, batch.upsamples[self.layer_ind - 1])
 
     def __repr__(self):

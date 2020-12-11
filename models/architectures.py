@@ -269,7 +269,8 @@ class KPFCNN(nn.Module):
                 # sets in_dim for next block equal to out_dim of current block
                 in_dim = out_dim
 
-            # In the end of every encoder layer update number of layer, radius and out_dim for next layer
+            # In the end of every encoder layer update number of layer,
+            # radius and out_dim for next layer
             if 'strided' in block:
                 layer += 1
                 r *= 2
