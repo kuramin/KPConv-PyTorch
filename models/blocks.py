@@ -595,6 +595,7 @@ class SimpleBlock(nn.Module):
 
     def forward(self, x, batch):
         """Passes x forward through KPConv, batch_norm and leakyReLU
+        Takes points and neighbors from batch
         """
 
         # Choose point for q_pts and s_pts from batch
@@ -670,7 +671,9 @@ class ResnetBottleneckBlock(nn.Module):
         return
 
     def forward(self, features, batch):
-        """Passes features forward through ResnetBottleneckBlock
+        """
+        Passes features forward through ResnetBottleneckBlock.
+        Takes points and neighbors from batch
         """
 
         if 'strided' in self.block_name:
