@@ -237,8 +237,7 @@ class KPConv(nn.Module):
         :return: the tensor of kernel points
         """
 
-        # Create one kernel disposition (as numpy array).
-        # Choose the KP distance to center thanks to the KP extent
+        # Create one kernel disposition inside a sphere of self.radius (as numpy array)
         K_points_numpy = load_kernels(self.radius,
                                       self.K,
                                       dimension=self.p_dim,
@@ -372,7 +371,7 @@ class KPConv(nn.Module):
             all_weights = torch.transpose(all_weights, 1, 2)
 
         elif self.KP_influence == 'linear':
-            # Influence decrease linearly with the distance, and get to zero when d = KP_extent.
+            # Influence decrease linearly with the distance, and get to zero when distance = KP_extent.
             all_weights = torch.clamp(1 - torch.sqrt(sq_distances) / self.KP_extent, min=0.0)
             all_weights = torch.transpose(all_weights, 1, 2)
 
