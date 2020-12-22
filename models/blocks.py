@@ -191,6 +191,7 @@ class KPConv(nn.Module):
         # Initialize weights, which will be trained
         self.weights = Parameter(torch.zeros((self.K, in_channels, out_channels), dtype=torch.float32),
                                  requires_grad=True)
+        print('self.weights in init before reset is', self.weights)
 
         # Initiate weights for offsets
         if deformable:
@@ -217,11 +218,21 @@ class KPConv(nn.Module):
             self.offset_conv = None
             self.offset_bias = None
 
+        print('self.offset_dim in init before reset is', self.offset_dim)
+        print('self.offset_conv in init before reset is', self.offset_conv)
+        print('self.offset_bias in init before reset is', self.offset_bias)
+
         # Reset parameters
         self.reset_parameters()
 
+        print('self.weights in init after reset is', self.weights)
+        print('self.offset_dim in init after reset is', self.offset_dim)
+        print('self.offset_conv in init after reset is', self.offset_conv)
+        print('self.offset_bias in init after reset is', self.offset_bias)
+
         # Initialize kernel points
         self.kernel_points = self.init_KP()
+        print('self.kernel_points in init after init_KP is', self.kernel_points)
 
         return
 
@@ -268,6 +279,8 @@ class KPConv(nn.Module):
 
             # Get offsets with a KPConv that only takes part of the features
             self.offset_features = self.offset_conv(q_pts, s_pts, neighb_inds, x) + self.offset_bias
+            print('self.offset_features is', self.offset_features)
+
             if not self.modulated:
                 # Get offset (in normalized scale) from features
                 unscaled_offsets = self.offset_features.view(-1, self.K, self.p_dim)
@@ -283,8 +296,9 @@ class KPConv(nn.Module):
             #     # Get modulations
             #     modulations = 2 * torch.sigmoid(self.offset_features[:, self.p_dim * self.K:])
 
-            # Rescale offset for this layer
+            # Rescale offset for this layer: now its a scaled matrix [self.K, self.p_dim]
             offsets = unscaled_offsets * self.KP_extent
+            print('offsets is', offsets)
 
         else:
             offsets = None

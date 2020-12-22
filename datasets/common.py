@@ -521,7 +521,7 @@ class PointCloudDataset(Dataset):
             else:
                 r = r_normal
             # now lets build neighborhoods based on radius r.
-            # neigh_indices are indices of neighors for every point in stacked_points (not only barycenters)
+            # neigh_indices are indices of neighbors for every point in stacked_points (not only barycenters)
             print('r before neigh_indices', r)
             neigh_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
 
