@@ -191,7 +191,7 @@ class KPConv(nn.Module):
         # Initialize weights, which will be trained
         self.weights = Parameter(torch.zeros((self.K, in_channels, out_channels), dtype=torch.float32),
                                  requires_grad=True)
-        print('self.weights in init before reset is', self.weights)
+        print(self.weights.shape, 'self.weights in init before reset is', self.weights)
 
         # Initiate weights for offsets
         if deformable:
@@ -217,22 +217,28 @@ class KPConv(nn.Module):
             self.offset_dim = None
             self.offset_conv = None
             self.offset_bias = None
-
-        print('self.offset_dim in init before reset is', self.offset_dim)
-        print('self.offset_conv in init before reset is', self.offset_conv)
-        print('self.offset_bias in init before reset is', self.offset_bias)
+            
+        if not (self.offset_dim == None):
+            print('self.offset_dim in init before reset is', self.offset_dim)
+            print('self.offset_conv in init before reset is', self.offset_conv)
+            print(self.offset_bias.shape, 'self.offset_bias in init before reset is', self.offset_bias)
+        else:
+            print('self.offset_dim in init before reset is None')
 
         # Reset parameters
         self.reset_parameters()
-
-        print('self.weights in init after reset is', self.weights)
-        print('self.offset_dim in init after reset is', self.offset_dim)
-        print('self.offset_conv in init after reset is', self.offset_conv)
-        print('self.offset_bias in init after reset is', self.offset_bias)
+        
+        print(self.weights.shape, 'self.weights in init after reset is', self.weights)
+        if not (self.offset_dim == None):
+            print('self.offset_dim in init after reset is', self.offset_dim)
+            print('self.offset_conv in init after reset is', self.offset_conv)
+            print(self.offset_bias.shape, 'self.offset_bias in init after reset is', self.offset_bias)
+        else:
+            print('self.offset_dim in init after reset is None')
 
         # Initialize kernel points
         self.kernel_points = self.init_KP()
-        print('self.kernel_points in init after init_KP is', self.kernel_points)
+        print(self.kernel_points.shape, 'self.kernel_points in init after init_KP is', self.kernel_points)
 
         return
 
@@ -279,7 +285,8 @@ class KPConv(nn.Module):
 
             # Get offsets with a KPConv that only takes part of the features
             self.offset_features = self.offset_conv(q_pts, s_pts, neighb_inds, x) + self.offset_bias
-            print('self.offset_features is', self.offset_features)
+            print(self.offset_features.shape, 'self.offset_features is', self.offset_features)
+            print(self.offset_bias.shape, 'self.offset_bias is', self.offset_bias)
 
             if not self.modulated:
                 # Get offset (in normalized scale) from features
@@ -298,7 +305,7 @@ class KPConv(nn.Module):
 
             # Rescale offset for this layer: now its a scaled matrix [self.K, self.p_dim]
             offsets = unscaled_offsets * self.KP_extent
-            print('offsets is', offsets)
+            print(offsets.shape, 'offsets is', offsets)
 
         else:
             offsets = None
@@ -307,30 +314,30 @@ class KPConv(nn.Module):
         ######################
         # Deformed convolution
         ######################
-
+        
         # Add a fake point with 1e6 in X,Y,Z into the last row for shadow neighbors
         s_pts = torch.cat((s_pts, torch.zeros_like(s_pts[:1, :]) + 1e6), 0)
 
-        print('neighb_inds is', neighb_inds)
+        #print('neighb_inds is', neighb_inds)
         # Get neighbor points [n_points, n_neighbors, dim]
         neighbors = s_pts[neighb_inds, :]
 
-        print('neighbors[0] before is', neighbors[0])
+        #print('neighbors[0] before is', neighbors[0])
         # Center every neighborhood (unsqueeze for subtraction:
         # q_pts from [n_points, dim] to [n_points, 1, dim])
         neighbors = neighbors - q_pts.unsqueeze(1)
-        print('len(neighbors) is', len(neighbors))
-        print('neighbors[0] after is', neighbors[0])
+        #print('len(neighbors) is', len(neighbors))
+        #print('neighbors[0] after is', neighbors[0])
         # Apply offsets to kernel points [n_points, n_kpoints, dim]
         if self.deformable:
             self.deformed_KP = offsets + self.kernel_points
-            print('self.kernel_points is', self.kernel_points)
+            #print('self.kernel_points is', self.kernel_points)
             deformed_K_points = self.deformed_KP.unsqueeze(1)
         else:
             deformed_K_points = self.kernel_points
 
-        print('len(deformed_K_points) is', len(deformed_K_points))
-        print('deformed_K_points[0] is', deformed_K_points[0])
+        #print('len(deformed_K_points) is', len(deformed_K_points))
+        #print('deformed_K_points[0] is', deformed_K_points[0])
         # Turn neighbors from [n_points, n_neighbors, dim] to [n_points, n_neighbors, 1, dim]
         neighbors.unsqueeze_(2)
 
@@ -358,8 +365,8 @@ class KPConv(nn.Module):
 
             # New value of max neighbors (maximal number of neighs within KP_extent from every point)
             new_max_neighb = torch.max(torch.sum(in_range, dim=1))
-            print('new_max_neighb is', new_max_neighb)
-            print('in_range is', in_range)
+            #print('new_max_neighb is', new_max_neighb)
+            #print('in_range is', in_range)
 
             # For each row of neighbors, indices of the ones that are in range [n_points, new_max_neighb]
             neighb_row_bool, neighb_row_inds = torch.topk(in_range, new_max_neighb.item(), dim=1)
