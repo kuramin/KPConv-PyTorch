@@ -109,7 +109,7 @@ class ModelTrainer:
                 net.train()
                 print("Model and training state restored.")
 
-        # Path of the result folder
+        # Path of the results/Log folder
         if config.saving:
             if config.saving_path is None:
                 config.saving_path = time.strftime('results/Log_%Y-%m-%d_%H-%M-%S', time.gmtime())
@@ -191,9 +191,10 @@ class ModelTrainer:
 
                 t += [time.time()]
 
-                # Backward + optimize
+                # Backward
                 loss.backward()
 
+                # Perform an optimizer step
                 if config.grad_clip_norm > 0:
                     #torch.nn.utils.clip_grad_norm_(net.parameters(), config.grad_clip_norm)
                     torch.nn.utils.clip_grad_value_(net.parameters(), config.grad_clip_norm)
