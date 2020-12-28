@@ -338,7 +338,7 @@ class KPFCNN(nn.Module):
         if len(config.class_w) > 0:
             class_w = torch.from_numpy(np.array(config.class_w, dtype=np.float32))
             self.criterion = torch.nn.CrossEntropyLoss(weight=class_w, ignore_index=-1)
-            print('class_w is', class_w)
+            #print('class_w is', class_w)
         else:
             self.criterion = torch.nn.CrossEntropyLoss(ignore_index=-1)
         self.deform_fitting_mode = config.deform_fitting_mode
@@ -374,42 +374,42 @@ class KPFCNN(nn.Module):
         # Get input features
         x = batch.features.clone().detach()
 
-        print('len(batch.points)', len(batch.points))
-        print('len(batch.points[0])', len(batch.points[0]))
-        print('len(batch.points[1])', len(batch.points[1]))
-        print('len(batch.points[2])', len(batch.points[2]))
-        print('len(batch.points[3])', len(batch.points[3]))   
-        print('len(batch.points[4])', len(batch.points[4]))       
+        #print('len(batch.points)', len(batch.points))
+        #print('len(batch.points[0])', len(batch.points[0]))
+        #print('len(batch.points[1])', len(batch.points[1]))
+        #print('len(batch.points[2])', len(batch.points[2]))
+        #print('len(batch.points[3])', len(batch.points[3]))   
+        #print('len(batch.points[4])', len(batch.points[4]))       
 
-        print('x.size() before for', x.size())
-        print('len(batch.features)', len(batch.features))
-        print('len(batch.features[0])', len(batch.features[0]))
-        print('len(batch.features[1])', len(batch.features[1]))
-        print('len(batch.features[2])', len(batch.features[2]))
-        print('len(batch.features[3])', len(batch.features[3]))   
-        print('len(batch.features[4])', len(batch.features[4]))   
-        print('len(batch.features[5])', len(batch.features[5]))   
+        #print('x.size() before for', x.size())
+        #print('len(batch.features)', len(batch.features))
+        #print('len(batch.features[0])', len(batch.features[0]))
+        #print('len(batch.features[1])', len(batch.features[1]))
+        #print('len(batch.features[2])', len(batch.features[2]))
+        #print('len(batch.features[3])', len(batch.features[3]))   
+        #print('len(batch.features[4])', len(batch.features[4]))   
+        #print('len(batch.features[5])', len(batch.features[5]))   
 
         # Loop over consecutive blocks
         skip_x = []
         # self.encoder_skips is [2, 5, 8, 11, 14] (all strided blocks and the first upsample block)
         for block_i, block_op in enumerate(self.encoder_blocks):
-            print()
-            print('In for before if: block_i', block_i, 'will apply block_op', block_op, 'to x, where x.size() is', x.size())
+            #print() kuramin_print
+            #print('In for before if: block_i', block_i, 'will apply block_op', block_op, 'to x, where x.size() is', x.size())  kuramin_print
             if block_i in self.encoder_skips:
-                print('In for before append: block_i', block_i, 'but we append x to skip_x, x.size() is', x.size())
+                #print('In for before append: block_i', block_i, 'but we append x to skip_x, x.size() is', x.size())  kuramin_print
                 skip_x.append(x)
             # apply the block to x (module.__call__ launches blocks.KPConv.forward)
             x = block_op(x, batch)
-            print('In for after if: now block is applied to x, x.size() is', x.size())
+            #print('In for after if: now block is applied to x, x.size() is', x.size())  kuramin_print
             
-        print('self.encoder_skips is', self.encoder_skips)
-        print('skip_x is', skip_x)
-        print('skip_x size is', len(skip_x))
-        print('skip_x[0] len is', len(skip_x[0]))
-        print('skip_x[1] len is', len(skip_x[1]))
-        print('skip_x[2] len is', len(skip_x[2]))
-        print('skip_x[3] len is', len(skip_x[3]))
+        #print('self.encoder_skips is', self.encoder_skips)
+        #print('skip_x is', skip_x)
+        #print('skip_x size is', len(skip_x))
+        #print('skip_x[0] len is', len(skip_x[0]))
+        #print('skip_x[1] len is', len(skip_x[1]))
+        #print('skip_x[2] len is', len(skip_x[2]))
+        #print('skip_x[3] len is', len(skip_x[3]))
         
 #         print('skip_x[0][0] len is', len(skip_x[0][0]))
 #         print('skip_x[0][1] len is', len(skip_x[0][1]))

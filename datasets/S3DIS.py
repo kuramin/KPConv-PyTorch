@@ -120,7 +120,7 @@ class S3DISDataset(PointCloudDataset):
         #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
         #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2_remarked']
 
-        self.cloud_names = ['Area_1', 'Area_3']
+        self.cloud_names = ['Area_1_fake_rgb_scalar_Classification', 'Area_3_fake_rgb_scalar_Classification']
         self.all_splits = [0, 1]
         self.validation_split = 1
 
@@ -505,12 +505,12 @@ class S3DISDataset(PointCloudDataset):
                                               labels,
                                               stack_lengths)
         
-        print('len(input_list)',len(input_list))
-        print('len(input_list[0])',len(input_list[0]))
-        print('len(input_list[1])',len(input_list[1]))
-        print('len(input_list[2])',len(input_list[2]))
-        print('len(input_list[3])',len(input_list[3]))
-        print('len(input_list[4])',len(input_list[4]))
+        #print('len(input_list)',len(input_list))
+        #print('len(input_list[0])',len(input_list[0]))
+        #print('len(input_list[1])',len(input_list[1]))
+        #print('len(input_list[2])',len(input_list[2]))
+        #print('len(input_list[3])',len(input_list[3]))
+        #print('len(input_list[4])',len(input_list[4]))
 
         t += [time.time()]
 
@@ -834,8 +834,8 @@ class S3DISDataset(PointCloudDataset):
                 points = np.vstack((data['x'], data['y'], data['z'])).T
                 #colors = np.vstack((data['scalar_NumberOfReturns'], data['scalar_ReturnNumber'], data['scalar_Intensity'])).T  # kuramin changed
                 colors = np.vstack((data['red'], data['green'], data['blue'])).T
-                #labels_float = data['scalar_Classification']  # kuramin class
-                labels_float = data['class']
+                labels_float = data['scalar_Classification']  # kuramin class fake_rgb
+                #labels_float = data['class']
                 labels = []
                 for label_float in labels_float:
                     labels.append(int(label_float))
@@ -955,11 +955,11 @@ class S3DISDataset(PointCloudDataset):
                     #print(data['class'].shape)
                     #labels = data['class']
 
-                    print(data.shape)
+                    #print(data.shape)
                     #print(data['scalar_Classification'].shape)
-                    #labels_float = data['scalar_Classification']
-                    print(data['class'].shape)  # kuramin class
-                    labels_float = data['class']  # kuramin class
+                    labels_float = data['scalar_Classification']
+                    #print(data['class'].shape)  # kuramin class fake_rgb
+                    #labels_float = data['class']  # kuramin class fake_rgb
                     labels = []
                     for label_float in labels_float:
                         label = int(label_float)

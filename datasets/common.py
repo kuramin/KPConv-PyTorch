@@ -522,7 +522,7 @@ class PointCloudDataset(Dataset):
                 r = r_normal
             # now lets build neighborhoods based on radius r.
             # neigh_indices are indices of neighbors for every point in stacked_points (not only barycenters)
-            print('r before neigh_indices', r)
+            #print('r before neigh_indices', r)  kuramin_print
             neigh_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
 
             # else: #kuramin commented (indentation ends)
@@ -538,8 +538,8 @@ class PointCloudDataset(Dataset):
                 # Set new subsampling length
                 dl = 2 * r_normal / self.config.conv_radius
 
-                print('r before pooled_points', r)
-                print('dl before pooled_points', dl)
+                #print('r before pooled_points', r)  kuramin_print
+                #print('dl before pooled_points', dl)  kuramin_print
                 # And perform grid subsampling with this new value of dl
                 pooled_points, pooled_batches = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
 
@@ -550,7 +550,7 @@ class PointCloudDataset(Dataset):
                 else:
                     r = r_normal
 
-                print('r before indices_of_neighs_of_pooled', r)
+                #print('r before indices_of_neighs_of_pooled', r) kuramin_print
                 # Subsample indices
                 indices_of_neighs_of_pooled = batch_neighbors(pooled_points, stacked_points, pooled_batches, stack_lengths, r)
 
