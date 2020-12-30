@@ -325,7 +325,7 @@ class AHNDataset(PointCloudDataset):
 
                 # Update potentials (Tukey weights)
                 if self.set != 'ERF':
-                    tukeys = np.square(1 - d2s / np.square(self.config.in_radius))
+                    tukeys = torch.Tensor(np.square(1 - d2s / np.square(self.config.in_radius)))
                     tukeys[d2s > np.square(self.config.in_radius)] = 0
                     self.potentials[cloud_ind][pot_inds] += tukeys
                     min_ind = torch.argmin(self.potentials[cloud_ind])

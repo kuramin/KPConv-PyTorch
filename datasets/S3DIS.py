@@ -121,7 +121,12 @@ class S3DISDataset(PointCloudDataset):
         #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2_remarked']
 
         #self.cloud_names = ['Area_1', 'Area_3']
-        self.cloud_names = ['1_rgb', '2_rgb']
+        if config.dataset == 'S3DIS':
+            print('Process S3DIS dataset')
+            self.cloud_names = ['Area_1', 'Area_3']
+        else:    
+            print('Process AHN dataset')
+            self.cloud_names = ['1_rgb', '2_rgb']
         self.all_splits = [0, 1]
         self.validation_split = 1
 
@@ -789,6 +794,12 @@ class S3DISDataset(PointCloudDataset):
 
     def load_subsampled_clouds(self):
 
+        # kuramin defined value to distinguish between AHN and S3DIS
+        if self.config.dataset == 'S3DIS':
+            name_of_class_property = 'class'
+        else:
+            name_of_class_property = 'scalar_Classification'
+        
         # Parameter
         dl = self.config.first_subsampling_dl
 
@@ -821,7 +832,8 @@ class S3DISDataset(PointCloudDataset):
                 data = read_ply(sub_ply_file)
                 sub_colors = np.vstack((data['red'], data['green'], data['blue'])).T
                 #sub_labels = data['scalar_Classification']
-                sub_labels = data['class']
+                #sub_labels = data['class']
+                sub_labels = data[name_of_class_property]
 
                 # Read pkl with search tree
                 with open(KDTree_file, 'rb') as f:
@@ -835,8 +847,9 @@ class S3DISDataset(PointCloudDataset):
                 points = np.vstack((data['x'], data['y'], data['z'])).T
                 #colors = np.vstack((data['scalar_NumberOfReturns'], data['scalar_ReturnNumber'], data['scalar_Intensity'])).T  # kuramin changed
                 colors = np.vstack((data['red'], data['green'], data['blue'])).T
-                labels_float = data['scalar_Classification']  # kuramin class fake_rgb
+                #labels_float = data['scalar_Classification']  # kuramin class fake_rgb
                 #labels_float = data['class']
+                labels_float = data[name_of_class_property]
                 labels = []
                 for label_float in labels_float:
                     labels.append(int(label_float))
@@ -958,7 +971,8 @@ class S3DISDataset(PointCloudDataset):
 
                     #print(data.shape)
                     #print(data['scalar_Classification'].shape)
-                    labels_float = data['scalar_Classification']
+                    #labels_float = data['scalar_Classification']
+                    labels_float = data[name_of_class_property]
                     #print(data['class'].shape)  # kuramin class fake_rgb
                     #labels_float = data['class']  # kuramin class fake_rgb
                     labels = []
