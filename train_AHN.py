@@ -7,7 +7,7 @@
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      Callable script to start a training on S3DIS dataset
+#      Callable script to start a training on AHN dataset
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
@@ -26,7 +26,7 @@ import signal
 import os
 
 # Dataset
-from datasets.S3DIS import *
+from datasets.AHN import *
 from torch.utils.data import DataLoader
 
 from utils.config import Config
@@ -41,7 +41,7 @@ import subprocess
 #       \******************/
 #
 
-class S3DISConfig(Config):
+class AHNConfig(Config):
     """
     Override the parameters you want to modify for this dataset
     Inherit methods __init__, load and save from class Config
@@ -52,7 +52,7 @@ class S3DISConfig(Config):
     ####################
 
     # Dataset name
-    dataset = 'S3DIS'
+    dataset = 'AHN'
 
     # Number of classes in the dataset (This value is overwritten by dataset class when Initializating dataset).
     num_classes = None
@@ -96,13 +96,13 @@ class S3DISConfig(Config):
     ###################
 
     # Radius of the input sphere
-    in_radius = 1.5
+    in_radius = 15  # was 1.5 for s3dis
 
     # Number of kernel points
     num_kernel_points = 15  # kuramin changed back from 9
 
     # Size of the first subsampling grid in meter
-    first_subsampling_dl = 0.03
+    first_subsampling_dl = 2.0   # was 0.03 for s3dis
 
     # Radius of convolution in "number grid cell". (2.5 is the standard value)
     conv_radius = 2.5
@@ -254,7 +254,7 @@ if __name__ == '__main__':
     print('****************')
 
     # Initialize configuration class
-    config = S3DISConfig()
+    config = AHNConfig()
     if previous_training_path:
         config.load(os.path.join('results', previous_training_path))
         config.saving_path = None
@@ -265,12 +265,12 @@ if __name__ == '__main__':
         print('config.saving_path is', config.saving_path)
 
     # Initialize datasets
-    training_dataset = S3DISDataset(config, set='training', use_potentials=True)  # kuramin commented
-    test_dataset = S3DISDataset(config, set='validation', use_potentials=True)
+    training_dataset = AHNDataset(config, set='training', use_potentials=True)  # kuramin commented
+    test_dataset = AHNDataset(config, set='validation', use_potentials=True)
 
     # Initialize samplers
-    training_sampler = S3DISSampler(training_dataset)  # defines the strategy to draw samples from the dataset
-    test_sampler = S3DISSampler(test_dataset)
+    training_sampler = AHNSampler(training_dataset)  # defines the strategy to draw samples from the dataset
+    test_sampler = AHNSampler(test_dataset)
 
     # Initialize the dataloader
     r"""
@@ -307,13 +307,13 @@ if __name__ == '__main__':
     training_loader = DataLoader(training_dataset,
                                  batch_size=1,
                                  sampler=training_sampler,
-                                 collate_fn=S3DISCollate,
+                                 collate_fn=AHNCollate,
                                  num_workers=config.input_threads,
                                  pin_memory=True)
     test_loader = DataLoader(test_dataset,
                              batch_size=1,
                              sampler=test_sampler,
-                             collate_fn=S3DISCollate,
+                             collate_fn=AHNCollate,
                              num_workers=config.input_threads,
                              pin_memory=True)
 

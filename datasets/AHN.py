@@ -7,7 +7,7 @@
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      Class handling S3DIS dataset.
+#      Class handling AHN dataset.
 #      Implements a Dataset, a Sampler, and a collate_fn
 #
 # ----------------------------------------------------------------------------------------------------------------------
@@ -50,14 +50,14 @@ from utils.config import bcolors
 #       \******************************/
 
 
-class S3DISDataset(PointCloudDataset):
-    """Class to handle S3DIS dataset."""
+class AHNDataset(PointCloudDataset):
+    """Class to handle AHN dataset."""
 
     def __init__(self, config, set='training', use_potentials=True, load_data=True):
         """
         This dataset is small enough to be stored in-memory, so load all point clouds here
         """
-        PointCloudDataset.__init__(self, 'S3DIS')
+        PointCloudDataset.__init__(self, 'AHN')
 
         ############
         # Parameters
@@ -127,7 +127,7 @@ class S3DISDataset(PointCloudDataset):
         elif self.set in ['validation', 'test', 'ERF']:
             self.epoch_n = config.validation_size * config.batch_num
         else:
-            raise ValueError('Unknown set for S3DIS data: ', self.set)
+            raise ValueError('Unknown set for AHN data: ', self.set)
 
         # Stop data is not needed
         if not load_data:
@@ -137,7 +137,7 @@ class S3DISDataset(PointCloudDataset):
         # Prepare ply files
         ###################
 
-        self.prepare_S3DIS_ply()
+        self.prepare_AHN_ply()
 
         ################
         # Load ply files
@@ -153,7 +153,7 @@ class S3DISDataset(PointCloudDataset):
                 if self.all_splits[i] == self.validation_split:
                     self.files += [join(ply_path, f + '.ply')]
             else:
-                raise ValueError('Unknown set for S3DIS data: ', self.set)
+                raise ValueError('Unknown set for AHN data: ', self.set)
 
         if self.set == 'training':
             self.cloud_names = [f for i, f in enumerate(self.cloud_names)
@@ -624,7 +624,7 @@ class S3DISDataset(PointCloudDataset):
 
         return input_list
 
-    def prepare_S3DIS_ply(self):
+    def prepare_AHN_ply(self):
 
         print('\nPreparing ply files')
         t0 = time.time()
@@ -671,7 +671,7 @@ class S3DISDataset(PointCloudDataset):
                         else:
                             raise ValueError('Unknown object name: ' + str(tmp))
 
-                        # Correct bug in S3DIS dataset
+                        # Correct bug in AHN dataset
                         if object_name == 'ceiling_1.txt':
                             with open(object_file, 'r') as f:
                                 lines = f.readlines()
@@ -904,10 +904,10 @@ class S3DISDataset(PointCloudDataset):
 #       \********************************/
 
 
-class S3DISSampler(Sampler):
-    """Sampler for S3DIS"""
+class AHNSampler(Sampler):
+    """Sampler for AHN"""
 
-    def __init__(self, dataset: S3DISDataset):
+    def __init__(self, dataset: AHNDataset):
         Sampler.__init__(self, dataset)
 
         # Dataset used by the sampler (no copy is made in memory)
@@ -1310,8 +1310,8 @@ class S3DISSampler(Sampler):
         return
 
 
-class S3DISCustomBatch:
-    """Custom batch definition with memory pinning for S3DIS"""
+class AHNCustomBatch:
+    """Custom batch definition with memory pinning for AHN"""
 
     def __init__(self, input_list):
 
@@ -1450,7 +1450,7 @@ class S3DISCustomBatch:
 
 
 
-def S3DISCollate(batch_data):
+def AHNCollate(batch_data):
     '''
         Collate_fn is your callable/function that processes the batch you want to return from your dataloader
         Hereof, what is PyTorch DataLoader? Combines a dataset and a sampler, and provides an iterable over the given dataset.
@@ -1458,7 +1458,7 @@ def S3DISCollate(batch_data):
         Variable num_workers , which denotes the number of processes that generate batches in parallel.
         DataLoader is a python iterator that will return elements from your dataset batch by batch. This allows you to use it as for data in train_loader.
     '''
-    return S3DISCustomBatch(batch_data)
+    return AHNCustomBatch(batch_data)
 
 
 # ----------------------------------------------------------------------------------------------------------------------

@@ -199,7 +199,7 @@ class KPConv(nn.Module):
         if deformable:
             if modulated:
                 self.offset_dim = (self.p_dim + 1) * self.K
-            else:  # S3DIS is not modulated
+            else:  # S3DIS or AHN is not modulated
                 self.offset_dim = self.p_dim * self.K
             # all parameters already have some defined value
             # KPConv can call itself because deformable is False by default,
