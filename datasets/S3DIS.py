@@ -120,7 +120,7 @@ class S3DISDataset(PointCloudDataset):
         #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
         #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2_remarked']
 
-        self.cloud_names = ['1_rgb', '2_rgb']
+        self.cloud_names = ['Area_1', 'Area_3']
         self.all_splits = [0, 1]
         self.validation_split = 1
 

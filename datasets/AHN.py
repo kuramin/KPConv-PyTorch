@@ -85,8 +85,8 @@ class AHNDataset(PointCloudDataset):
         self.ignored_labels = np.array([])
 
         # Dataset folder
-        #self.path = '../datasets/Stanford3dDataset_v1.2'
-        self.path = '../datasets/Vaihingen'  # kuramin changed
+        self.path = '../datasets/AHN'
+        #self.path = '../datasets/Vaihingen'  # kuramin changed
 
         # Type of task conducted on this dataset
         self.dataset_task = 'cloud_segmentation'
@@ -117,7 +117,7 @@ class AHNDataset(PointCloudDataset):
 
         #self.cloud_names = ['cloud7 - Cloud2', 'cloud7 - Cloud2']
         #self.cloud_names = ['Area_1', 'Area_2']
-        self.cloud_names = ['Vaihingen3D_Training_rgb', 'Vaihingen3D_Evaluation_rgb']
+        self.cloud_names = ['1_rgb', '2_rgb']
         self.all_splits = [0, 1]
         self.validation_split = 1
 
