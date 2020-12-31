@@ -64,8 +64,7 @@ class AHNDataset(PointCloudDataset):
         ############
 
         # Dict from labels to names
-        self.label_to_names = {0: 'ceiling',
-                               1: 'floor',
+        self.label_to_names = {1: 'floor',
                                2: 'wall',
                                3: 'beam',
                                4: 'column',
@@ -73,10 +72,7 @@ class AHNDataset(PointCloudDataset):
                                6: 'door',
                                7: 'chair',
                                8: 'table',
-                               9: 'bookcase',
-                               10: 'sofa',
-                               11: 'board',
-                               12: 'clutter'}
+                               9: 'bookcase'}
 
         # Initialize a bunch of variables concerning class labels
         self.init_labels()
