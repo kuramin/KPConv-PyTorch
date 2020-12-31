@@ -79,6 +79,8 @@ def p2p_fitting_regularizer(net):
                 # repulsive_loss grows when distances from each to each kernel point
                 # in every kernel location go smaller and smaller than repulse_extent (1.2)
                 repulsive_loss += net.l1(rep_loss_i, torch.zeros_like(rep_loss_i)) / net.K
+                
+            print('repulsive_loss', repulsive_loss, 'fitting_loss', fitting_loss)
 
     return net.deform_fitting_power * (2 * fitting_loss + repulsive_loss)
 
@@ -470,6 +472,7 @@ class KPFCNN(nn.Module):
             raise ValueError('Unknown fitting mode: ' + self.deform_fitting_mode)
 
         # Combined loss
+        print('self.output_loss=', self.output_loss, 'self.reg_loss=', self.reg_loss)
         return self.output_loss + self.reg_loss
 
     def accuracy(self, outputs, labels):

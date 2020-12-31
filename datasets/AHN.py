@@ -133,7 +133,7 @@ class AHNDataset(PointCloudDataset):
         # Prepare ply files
         ###################
 
-        self.prepare_AHN_ply()
+        #self.prepare_AHN_ply()
 
         ################
         # Load ply files
@@ -746,6 +746,8 @@ class AHNDataset(PointCloudDataset):
                 for label_float in labels_float:
                     label = int(label_float)
                     labels.append(label)
+                    
+                print('labels has size', len(labels), 'hist is', np.histogram(labels, bins = [1,2,3,4,5,6,7,8,9,10]))    
 
                 # Subsample cloud
                 sub_points, sub_colors, sub_labels = grid_subsampling(points,
