@@ -143,7 +143,7 @@ class S3DISConfig(Config):
     #####################
 
     # Maximal number of epochs
-    max_epoch = 100  # 500  kuramin changed
+    max_epoch = 10  # 500  kuramin changed
 
     # Learning rate management
     learning_rate = 1e-2
@@ -157,7 +157,7 @@ class S3DISConfig(Config):
     batch_num = 6  # target_aver_batch_size will be set equal to it
 
     # Number of steps per epoch (how many batches will be created from dataloader by enumerate(dataloader))
-    steps_per_epoch = 500  # kuramin changed back from 100
+    steps_per_epoch = 50  # kuramin changed back from 100
 
     # Number of validation examples per epoch
     validation_size = 50
