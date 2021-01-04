@@ -350,7 +350,12 @@ class AHNDataset(PointCloudDataset):
                 input_labels = np.zeros(input_points.shape[0])
             else:
                 input_labels = self.input_labels[cloud_ind][input_inds]
-                input_labels = np.array([self.label_to_idx[l] for l in input_labels])
+                input_labels_list = []
+                for l in input_labels:
+                    input_labels_list.append(self.label_to_idx[l])
+                print('input_labels_list', input_labels_list)
+                input_labels = np.array(input_labels_list)
+                #input_labels = np.array([self.label_to_idx[l] for l in input_labels])
 
             t += [time.time()]
 
