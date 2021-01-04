@@ -80,7 +80,7 @@ def p2p_fitting_regularizer(net):
                 # in every kernel location go smaller and smaller than repulse_extent (1.2)
                 repulsive_loss += net.l1(rep_loss_i, torch.zeros_like(rep_loss_i)) / net.K
                 
-            print('repulsive_loss', repulsive_loss, 'fitting_loss', fitting_loss)
+            #print('repulsive_loss', repulsive_loss, 'fitting_loss', fitting_loss)
 
     return net.deform_fitting_power * (2 * fitting_loss + repulsive_loss)
 
