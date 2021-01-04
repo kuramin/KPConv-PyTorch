@@ -123,12 +123,17 @@ class S3DISDataset(PointCloudDataset):
         #self.cloud_names = ['Area_1', 'Area_3']
         if config.dataset == 'S3DIS':
             print('Process S3DIS dataset')
-            self.cloud_names = ['Area_1', 'Area_3']
+            #self.cloud_names = ['Area_1', 'Area_3']
+            #self.all_splits = [0, 1]
+            #self.validation_split = 1
+            self.cloud_names = ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6']
+            self.all_splits = [0, 1, 2, 3, 4, 5]
+            self.validation_split = 5
         else:    
             print('Process AHN dataset')
             self.cloud_names = ['1_rgb', '2_rgb']
-        self.all_splits = [0, 1]
-        self.validation_split = 1
+            self.all_splits = [0, 1]
+            self.validation_split = 1
 
         # Number of models used per epoch (used only during visualization)
         if self.set == 'training':
@@ -461,11 +466,11 @@ class S3DISDataset(PointCloudDataset):
         ###################
 
         # print("p_list is full, its size is", len(p_list))  # kuramins print
-        inp_filename = '/home/kuramin/Downloads/stacked_points/stacked_points'  # kuramin added
-        for i, inp in enumerate(p_list):
-            # print('p_list member', i, 'has size', p_list[i].shape[0])  # kuramins print
-            inp_filename += '_' + str(p_list[i].shape[0])
-            p_list[i] += pot_points[pi_list[i], :]
+        # inp_filename = '/home/kuramin/Downloads/stacked_points/stacked_points'  # kuramin added
+        # for i, inp in enumerate(p_list):
+        #     # print('p_list member', i, 'has size', p_list[i].shape[0])  # kuramins print
+        #     inp_filename += '_' + str(p_list[i].shape[0])
+        #     p_list[i] += pot_points[pi_list[i], :]
 
         stacked_points = np.concatenate(p_list, axis=0)
         features = np.concatenate(f_list, axis=0)
@@ -1286,7 +1291,8 @@ class S3DISSampler(Sampler):
                     v = '?'
                 print('{:}\"{:s}\": {:s}{:}'.format(color, key, v, bcolors.ENDC))
 
-        # all the contents of this IF might be just calculation of self.batch_limit and self.neighborhood_limits
+        # all the contents of this IF are just calculation histogram and
+        # values of self.batch_limit and self.neighborhood_limits from it.
         # These values will define break when enough number of balls are collected during method "potential item"
         # which will be used inside Calibration (somehow it is used inside it too)
         if redo:
@@ -1311,7 +1317,7 @@ class S3DISSampler(Sampler):
 
             # Calibration parameters
             low_pass_T = 10
-            Kp = 100.0
+            Kp = 100.0  # defines which number of points will be added to current value of batch_limit (is multiplied by ERROR)
             finer = False
 
             # Convergence parameters
@@ -1327,7 +1333,7 @@ class S3DISSampler(Sampler):
             # Perform calibration
             #####################
             print('Before range10')
-            for epoch in range(10):
+            for epoch in range(10):  # kuramin changed from 10 to 100 instead of increasing steps_per_epoch
                 print('Begin iter o range10. Before enumerate(dataloader)')
                 for batch_i, batch in enumerate(dataloader):
 
@@ -1342,9 +1348,9 @@ class S3DISSampler(Sampler):
                     # print('epoch', epoch, 'batch_i', batch_i, 'end')
 
                     # Update neighborhood histogram
-                    for neighb_mat in batch.neighbors:
-                        print('neighb_mat.numpy())', neighb_mat.numpy())
-                        print('neighb_mat.shape[0])', neighb_mat.shape[0])
+                    #for neighb_mat in batch.neighbors:
+                    #    print('neighb_mat.numpy())', neighb_mat.numpy())
+                    #    print('neighb_mat.shape[0])', neighb_mat.shape[0])
 
                     # number of neighbors of each point on every layer (5 layers)
                     counts = [np.sum(neighb_mat.numpy() < neighb_mat.shape[0], axis=1) for neighb_mat in batch.neighbors]
@@ -1358,7 +1364,7 @@ class S3DISSampler(Sampler):
                     # print('counts', counts)
                     # print('neighb_hists', neighb_hists)
 
-                    # batch length
+                    # batch length is number of balls collected now within current value of batch_limit
                     b = len(batch.cloud_inds)
 
                     # Update estim_aver_bat_size (low pass filter)
@@ -1389,13 +1395,23 @@ class S3DISSampler(Sampler):
                     t = time.time()
 
                     # Console display (only one per second)
-                    if verbose and (t - last_display) > 1.0:
+                    if verbose:
+                    #if verbose and (t - last_display) > 1.0: # kuramin commented
                         last_display = t
-                        message = 'For-loop through batches during calibration: Step {:5d} - estim_aver_bat_size ={:5.2f} batch_limit ={:7d}'
+                        #message = 'For-loop through batches during calibration: Step {:5d} - estim_aver_bat_size ={:5.2f}, b ={:3d}, batch_limit ={:7d}, max_a_sm_err = {:3.7f}'
+                        message = 'Step {:5d} - estim_aver_bat_size ={:5.2f}, b ={:3d}, bat_lim ={:7d}, error = {:2d}, sm_append = {:5.5f}, lets_finer ={:5.5f}, max_a_sm_err = {:3.7f}, low_pass = {:3d}, finer = {:1d}'
                         print(message.format(i,
                                              estim_aver_bat_size,
-                                             int(self.dataset.batch_limit)))
-                    print('Last step of enumerate(dataloader), breaking is ', breaking)
+                                             b,
+                                             int(self.dataset.batch_limit),
+                                             error,
+                                             target_aver_bat_size - estim_aver_bat_size,
+                                             np.abs(estim_aver_bat_size - target_aver_bat_size),
+                                             np.max(np.abs(smooth_errors)),
+                                             low_pass_T,
+                                             finer))
+                        #print('smooth errors is', smooth_errors)
+                    #print('Last step of enumerate(dataloader), breaking is ', breaking)
                 print('After enumerate(dataloader), breaking is ', breaking)
                 if breaking:
                     break

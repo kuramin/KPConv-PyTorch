@@ -61,7 +61,7 @@ class AHNConfig(Config):
     dataset_task = ''
 
     # Number of CPU threads for the input pipeline
-    input_threads = 10  # 10 kuramin changed
+    input_threads = 0  # 10 kuramin changed
 
     #########################
     # Architecture definition
@@ -102,7 +102,7 @@ class AHNConfig(Config):
     num_kernel_points = 15  # kuramin changed back from 9
 
     # Size of the first subsampling grid in meter
-    first_subsampling_dl = 2.0   # was 0.03 for s3dis
+    first_subsampling_dl = 0.5  # was 2.0 before   # was 0.03 for s3dis
 
     # Radius of convolution in "number grid cell". (2.5 is the standard value)
     conv_radius = 2.5

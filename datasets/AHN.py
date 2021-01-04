@@ -1234,13 +1234,20 @@ class AHNSampler(Sampler):
                     t = time.time()
 
                     # Console display (only one per second)
-                    if verbose and (t - last_display) > 1.0:
+                    if verbose:
+                    #if verbose and (t - last_display) > 1.0:
                         last_display = t
-                        message = 'Step {:5d}  estim_aver_bat_size ={:5.2f} batch_limit ={:7d}'
+                        message = 'Step {:5d}, estim_aver_bat_size ={:5.2f}, b ={:3d}, bat_lim ={:7d}, error = {:2d}, sm_append = {:5.5f}, lets_finer ={:5.5f}, max_a_sm_err = {:3.7f}, low_pass = {:3d}, finer = {:1d}'
                         print(message.format(i,
                                              estim_aver_bat_size,
-                                             int(self.dataset.batch_limit)))
-
+                                             b,
+                                             int(self.dataset.batch_limit),
+                                             error,
+                                             target_aver_bat_size - estim_aver_bat_size,
+                                             np.abs(estim_aver_bat_size - target_aver_bat_size),
+                                             np.max(np.abs(smooth_errors)),
+                                             low_pass_T,
+                                             finer))
                 if breaking:
                     break
 
