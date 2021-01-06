@@ -349,13 +349,20 @@ class AHNDataset(PointCloudDataset):
             if self.set in ['test', 'ERF']:
                 input_labels = np.zeros(input_points.shape[0])
             else:
-                input_labels = self.input_labels[cloud_ind][input_inds]
+                #input_labels = self.input_labels[cloud_ind][input_inds]
+                #input_labels_list = []
+                #for l in input_labels:
+                #    if l not in [1,2,3,4,5,6,7,8,9]:
+                #        print('weird val of l', l, 'cloud_ind', cloud_ind, 'input_inds', input_inds)
+                #    else:    
+                #        input_labels_list.append(self.label_to_idx[l])
                 input_labels_list = []
-                for l in input_labels:
-                    if l not in [1,2,3,4,5,6,7,8,9]:
-                        print('weird val of l', l)
+                for inde in input_inds:
+                    if self.input_labels[cloud_ind][inde] not in [1,2,3,4,5,6,7,8,9]:
+                        print('weird val of l', self.input_labels[cloud_ind][inde], 'cloud_ind', cloud_ind, 'input_ind', inde)
                     else:    
-                        input_labels_list.append(self.label_to_idx[l])
+                        input_labels_list.append(self.label_to_idx[self.input_labels[cloud_ind][inde]])
+                        
                 #print('input_labels', input_labels)
                 #print('input_labels_list', input_labels_list)
                 #print('len(input_labels_list)', len(input_labels_list))

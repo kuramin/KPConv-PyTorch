@@ -134,7 +134,7 @@ class ModelTrainer:
         if config.saving:
             # Training log file
             with open(join(config.saving_path, 'training.txt'), "w") as file:
-                file.write('epochs steps out_loss offset_loss train_accuracy time\n')
+                file.write('epochs steps out_loss reg_loss train_accuracy time\n')
 
             # Killing file (simply delete this file when you want to stop the training)
             PID_file = join(config.saving_path, 'running_PID.txt')
