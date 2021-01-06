@@ -44,10 +44,9 @@ from models.architectures import KPFCNN
 #
 
 
-
 if __name__ == '__main__':
 
-   ############################
+    ############################
     # Initialize the environment
     ############################
 
@@ -63,7 +62,7 @@ if __name__ == '__main__':
     # Set GPU visible device
     os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
 
-    train_AHN_on_hyperparameters(0.5)
+    train_AHN_on_hyperparameters(1.7)
     
     
 #     ###############
@@ -92,4 +91,3 @@ if __name__ == '__main__':
 #     else:
 #         chosen_chkp = None
 
-    

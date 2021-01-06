@@ -41,7 +41,7 @@ import subprocess
 #       \******************/
 #
 
-class AHNConfig(Config, param_fsd):
+class AHNConfig(Config):
     """
     Override the parameters you want to modify for this dataset
     Inherit methods __init__, load and save from class Config
@@ -102,7 +102,7 @@ class AHNConfig(Config, param_fsd):
     num_kernel_points = 15  # kuramin changed back from 9
 
     # Size of the first subsampling grid in meter
-    first_subsampling_dl = param_fsd  # 0.5  # was 2.0 before   # was 0.03 for s3dis
+    first_subsampling_dl = 0.5  # was 2.0 before   # was 0.03 for s3dis
 
     # Radius of convolution in "number grid cell". (2.5 is the standard value)
     conv_radius = 2.5
@@ -249,6 +249,7 @@ class AHNConfig(Config, param_fsd):
     # Prepare Data
     ##############
 
+
 def train_AHN_on_hyperparameters(value_of_param_fsd):
     
     print()
@@ -256,8 +257,9 @@ def train_AHN_on_hyperparameters(value_of_param_fsd):
     print('****************')
 
     # Initialize configuration class
-    config = AHNConfig(value_of_param_fsd)
-    print(config)
+    config = AHNConfig()
+    config.first_subsampling_dl = value_of_param_fsd
+    print(config.first_subsampling_dl)
     
 #     if previous_training_path:
 #         config.load(os.path.join('results', previous_training_path))
