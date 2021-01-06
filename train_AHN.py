@@ -44,7 +44,6 @@ import subprocess
 class AHNConfig(Config):
     """
     Override the parameters you want to modify for this dataset
-    Inherit methods __init__, load and save from class Config
     """
 
     ####################
@@ -61,7 +60,7 @@ class AHNConfig(Config):
     dataset_task = ''
 
     # Number of CPU threads for the input pipeline
-    input_threads = 0  # 10 kuramin changed
+    input_threads = 10  # 10 kuramin changed
 
     #########################
     # Architecture definition
@@ -96,13 +95,13 @@ class AHNConfig(Config):
     ###################
 
     # Radius of the input sphere
-    in_radius = 15  # was 1.5 for s3dis
+    in_radius = 15 #1.5 kuramin changed from s3dis to ahn
 
     # Number of kernel points
     num_kernel_points = 15  # kuramin changed back from 9
 
     # Size of the first subsampling grid in meter
-    first_subsampling_dl = 0.5  # was 2.0 before   # was 0.03 for s3dis
+    first_subsampling_dl = 0.3 # was 2.0 #0.03 kuramin changed from s3dis to ahn
 
     # Radius of convolution in "number grid cell". (2.5 is the standard value)
     conv_radius = 2.5
@@ -136,31 +135,29 @@ class AHNConfig(Config):
     deform_fitting_mode = 'point2point'
     deform_fitting_power = 1.0              # Multiplier for the fitting/repulsive loss
     deform_lr_factor = 0.1                  # Multiplier for learning rate applied to the deformations
-    repulse_extent = 1.2                    # Distance of repulsion for deformed kernel points (repulsive regularisation)
+    repulse_extent = 1.2                    # Distance of repulsion for deformed kernel points
 
     #####################
     # Training parameters
     #####################
 
     # Maximal number of epochs
-    max_epoch = 100  # 500  kuramin changed
+    max_epoch = 10  # 500  kuramin changed
 
     # Learning rate management
     learning_rate = 1e-2
     momentum = 0.98
-    # Dictionary of all decay values with their epoch {epoch: decay}.
     lr_decays = {i: 0.1 ** (1 / 150) for i in range(1, max_epoch)}
-    # Gradient clipping value (negative means no clipping)
     grad_clip_norm = 100.0
 
     # Number of batch
     batch_num = 6  # target_aver_batch_size will be set equal to it
 
     # Number of steps per epoch (how many batches will be created from dataloader by enumerate(dataloader))
-    steps_per_epoch = 500  # kuramin changed back from 100
+    steps_per_epoch = 100 # 50  # kuramin changed back from 100
 
     # Number of validation examples per epoch
-    validation_size = 50
+    validation_size = 100 # 50
 
     # Number of epoch between each checkpoint
     checkpoint_gap = 50
@@ -184,22 +181,6 @@ class AHNConfig(Config):
     saving = True
     saving_path = None
 
-    # kuramin copied from config.py
-    # Regularization loss importance
-    weight_decay = 1e-3
-
-    # Fixed points in the kernel : 'none', 'center' or 'verticals'
-    fixed_kernel_points = 'center'
-
-    # Choose weights for class (used in segmentation loss). Empty list for no weights
-    class_w = []
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-#
-#           Main Call
-#       \***************/
-#
 
 if __name__ == '__main__':
 
@@ -215,6 +196,7 @@ if __name__ == '__main__':
         GPU_ID = '0'
     else:
         GPU_ID = '3'
+    print('GPU_ID is', GPU_ID)
 
     # Set GPU visible device
     os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
@@ -261,7 +243,7 @@ if __name__ == '__main__':
 
     # Get path from argument if given
     if len(sys.argv) > 1:
-        config.saving_path = sys.argv[1]
+        config.saving_path = None  #sys.argv[1]
         print('config.saving_path is', config.saving_path)
 
     # Initialize datasets
