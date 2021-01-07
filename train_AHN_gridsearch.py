@@ -61,9 +61,49 @@ if __name__ == '__main__':
 
     # Set GPU visible device
     os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
-
-    train_AHN_on_hyperparameters(1.7)
     
+    gridsearch_filename = time.strftime('results/train_AHN_gridsearch_%Y-%m-%d_%H-%M-%S.txt', time.gmtime())
+    
+    fsd = 0.4
+    in_radius = 15
+    conv_radius = 2.5
+    deform_radius = 6.0
+    repulse_extent = 1.2
+    KP_extent = 1.2
+    num_kernel_points = 15
+    deform_fitting_power = 1.0
+    max_epoch = 4
+    steps_per_epoch = 10
+    input_threads = 0
+    
+    train_AHN_on_hyperparameters(fsd, 
+                                 in_radius, 
+                                 conv_radius, 
+                                 deform_radius, 
+                                 repulse_extent, 
+                                 KP_extent, 
+                                 num_kernel_points, 
+                                 deform_fitting_power, 
+                                 max_epoch, 
+                                 steps_per_epoch, 
+                                 input_threads, 
+                                 gridsearch_filename)
+    
+    print("we are in main between funcs now")
+    fsd = 1.5
+    in_radius = 20
+    train_AHN_on_hyperparameters(fsd, 
+                                 in_radius, 
+                                 conv_radius, 
+                                 deform_radius, 
+                                 repulse_extent, 
+                                 KP_extent, 
+                                 num_kernel_points, 
+                                 deform_fitting_power, 
+                                 max_epoch, 
+                                 steps_per_epoch, 
+                                 input_threads, 
+                                 gridsearch_filename)
     
 #     ###############
 #     # Previous chkp

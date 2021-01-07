@@ -24,6 +24,7 @@
 # Common libs
 import signal
 import os
+import time
 
 # Dataset
 from datasets.AHN import *
@@ -143,7 +144,7 @@ class AHNConfig(Config):
     #####################
 
     # Maximal number of epochs
-    max_epoch = 100  # 500  kuramin changed
+    max_epoch = 10  # 500  kuramin changed
 
     # Learning rate management
     learning_rate = 1e-2
@@ -193,173 +194,158 @@ class AHNConfig(Config):
 
     # Choose weights for class (used in segmentation loss). Empty list for no weights
     class_w = []
+    
+    acc_aver = None
+    acc_var = None
 
 
-# ----------------------------------------------------------------------------------------------------------------------
-#
-#           Main Call
-#       \***************/
-#
-
-# if __name__ == '__main__':
-
-#     ############################
-#     # Initialize the environment
-#     ############################
-
-#     # Set which gpu is going to be used
-#     number_of_gpus = str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
-#     print('Number of GPUs is', number_of_gpus)
-
-#     if number_of_gpus == 1:
-#         GPU_ID = '0'
-#     else:
-#         GPU_ID = '3'
-
-#     # Set GPU visible device
-#     os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
-
-#     ###############
-#     # Previous chkp
-#     ###############
-
-#     # Choose here if you want to start training from a previous snapshot (None for new training)
-#     # previous_training_path = 'Log_2020-03-19_19-53-27'
-#     previous_training_path = ''
-
-#     # Choose index of checkpoint to start from. If None, uses the latest chkp
-#     chkp_idx = None
-#     if previous_training_path:
-
-#         # Find all snapshot in the chosen training folder
-#         chkp_path = os.path.join('results', previous_training_path, 'checkpoints')
-#         chkps = [f for f in os.listdir(chkp_path) if f[:4] == 'chkp']
-
-#         # Find which snapshot to restore
-#         if chkp_idx is None:
-#             chosen_chkp = 'current_chkp.tar'
-#         else:
-#             chosen_chkp = np.sort(chkps)[chkp_idx]
-#         chosen_chkp = os.path.join('results', previous_training_path, 'checkpoints', chosen_chkp)
-
-#     else:
-#         chosen_chkp = None
-
-    ##############
-    # Prepare Data
-    ##############
-
-
-def train_AHN_on_hyperparameters(value_of_param_fsd):
+def train_AHN_on_hyperparameters(fsd, 
+                                 in_radius, 
+                                 conv_radius, 
+                                 deform_radius, 
+                                 repulse_extent, 
+                                 KP_extent, 
+                                 num_kernel_points, 
+                                 deform_fitting_power, 
+                                 max_epoch, 
+                                 steps_per_epoch, 
+                                 input_threads, 
+                                 gridsearch_filename):
     
     print()
-    print('Data Preparation')
+    print('Start new train_AHN_on_hyperparameters')
     print('****************')
 
     # Initialize configuration class
     config = AHNConfig()
-    config.first_subsampling_dl = value_of_param_fsd
-    print(config.first_subsampling_dl)
+    #message_ok_string = 'config.first_subsampling_dl is {:.3f}\n'
+    message_error_string = 'Got exception '
     
-#     if previous_training_path:
-#         config.load(os.path.join('results', previous_training_path))
-#         config.saving_path = None
+    try:
+        config.first_subsampling_dl = fsd
+        config.in_radius = in_radius
+        config.conv_radius = conv_radius
+        config.deform_radius = deform_radius
+        config.repulse_extent = repulse_extent
+        config.KP_extent = KP_extent
+        config.num_kernel_points = num_kernel_points
+        config.deform_fitting_power = deform_fitting_power
+        config.max_epoch = max_epoch
+        config.steps_per_epoch = steps_per_epoch
+        config.input_threads = input_threads
+        
+        message_OK_string = 'Config set to' + str(config.first_subsampling_dl) +
+              str(config.in_radius) + str(config.conv_radius) + str(config.deform_radius) + str(config.repulse_extent) + 
+              str(config.KP_extent) + str(config.num_kernel_points) + str(config.deform_fitting_power) + str(config.max_epoch) + str(config.steps_per_epoch) + str(config.input_threads)
+            
+        print(message_OK_string)
+        
+        # Initialize datasets
+        training_dataset = AHNDataset(config, set='training', use_potentials=True)  # kuramin commented
+        test_dataset = AHNDataset(config, set='validation', use_potentials=True)
 
-#     # Get path from argument if given
-#     if len(sys.argv) > 1:
-#         config.saving_path = sys.argv[1]
-#         print('config.saving_path is', config.saving_path)
+        # Initialize samplers
+        training_sampler = AHNSampler(training_dataset)  # defines the strategy to draw samples from the dataset
+        test_sampler = AHNSampler(test_dataset)
 
-#     # Initialize datasets
-#     training_dataset = AHNDataset(config, set='training', use_potentials=True)  # kuramin commented
-#     test_dataset = AHNDataset(config, set='validation', use_potentials=True)
+        # Initialize the dataloader
+        r"""
+            dataset (Dataset): dataset from which to load the data.
+            batch_size (int, optional): how many samples per batch to load
+                (default: ``1``).
+            shuffle (bool, optional): set to ``True`` to have the data reshuffled
+                at every epoch (default: ``False``).
+            sampler (Sampler, optional): defines the strategy to draw samples from
+                the dataset. If specified, :attr:`shuffle` must be ``False``.
+            batch_sampler (Sampler, optional): like :attr:`sampler`, but returns a batch of
+                indices at a time. Mutually exclusive with :attr:`batch_size`,
+                :attr:`shuffle`, :attr:`sampler`, and :attr:`drop_last`.
+            num_workers (int, optional): how many subprocesses to use for data
+                loading. ``0`` means that the data will be loaded in the main process.
+                (default: ``0``)
+            collate_fn (callable, optional): merges a list of samples to form a
+                mini-batch of Tensor(s).  Used when using batched loading from a
+                map-style dataset.
+            pin_memory (bool, optional): If ``True``, the data loader will copy Tensors
+                into CUDA pinned memory before returning them.  If your data elements
+                are a custom type, or your :attr:`collate_fn` returns a batch that is a custom type,
+                see the example below.
+            drop_last (bool, optional): set to ``True`` to drop the last incomplete batch,
+                if the dataset size is not divisible by the batch size. If ``False`` and
+                the size of dataset is not divisible by the batch size, then the last batch
+                will be smaller. (default: ``False``)
+            timeout (numeric, optional): if positive, the timeout value for collecting a batch
+                from workers. Should always be non-negative. (default: ``0``)
+            worker_init_fn (callable, optional): If not ``None``, this will be called on each
+                worker subprocess with the worker id (an int in ``[0, num_workers - 1]``) as
+                input, after seeding and before data loading. (default: ``None``)
+        """
+        training_loader = DataLoader(training_dataset,
+                                     batch_size=1,
+                                     sampler=training_sampler,
+                                     collate_fn=AHNCollate,
+                                     num_workers=config.input_threads,
+                                     pin_memory=True)
+        test_loader = DataLoader(test_dataset,
+                                 batch_size=1,
+                                 sampler=test_sampler,
+                                 collate_fn=AHNCollate,
+                                 num_workers=config.input_threads,
+                                 pin_memory=True)
 
-#     # Initialize samplers
-#     training_sampler = AHNSampler(training_dataset)  # defines the strategy to draw samples from the dataset
-#     test_sampler = AHNSampler(test_dataset)
+        # Calibrate samplers
+        training_sampler.calibration(training_loader, verbose=True)
+        test_sampler.calibration(test_loader, verbose=True)
 
-#     # Initialize the dataloader
-#     r"""
-#         dataset (Dataset): dataset from which to load the data.
-#         batch_size (int, optional): how many samples per batch to load
-#             (default: ``1``).
-#         shuffle (bool, optional): set to ``True`` to have the data reshuffled
-#             at every epoch (default: ``False``).
-#         sampler (Sampler, optional): defines the strategy to draw samples from
-#             the dataset. If specified, :attr:`shuffle` must be ``False``.
-#         batch_sampler (Sampler, optional): like :attr:`sampler`, but returns a batch of
-#             indices at a time. Mutually exclusive with :attr:`batch_size`,
-#             :attr:`shuffle`, :attr:`sampler`, and :attr:`drop_last`.
-#         num_workers (int, optional): how many subprocesses to use for data
-#             loading. ``0`` means that the data will be loaded in the main process.
-#             (default: ``0``)
-#         collate_fn (callable, optional): merges a list of samples to form a
-#             mini-batch of Tensor(s).  Used when using batched loading from a
-#             map-style dataset.
-#         pin_memory (bool, optional): If ``True``, the data loader will copy Tensors
-#             into CUDA pinned memory before returning them.  If your data elements
-#             are a custom type, or your :attr:`collate_fn` returns a batch that is a custom type,
-#             see the example below.
-#         drop_last (bool, optional): set to ``True`` to drop the last incomplete batch,
-#             if the dataset size is not divisible by the batch size. If ``False`` and
-#             the size of dataset is not divisible by the batch size, then the last batch
-#             will be smaller. (default: ``False``)
-#         timeout (numeric, optional): if positive, the timeout value for collecting a batch
-#             from workers. Should always be non-negative. (default: ``0``)
-#         worker_init_fn (callable, optional): If not ``None``, this will be called on each
-#             worker subprocess with the worker id (an int in ``[0, num_workers - 1]``) as
-#             input, after seeding and before data loading. (default: ``None``)
-#     """
-#     training_loader = DataLoader(training_dataset,
-#                                  batch_size=1,
-#                                  sampler=training_sampler,
-#                                  collate_fn=AHNCollate,
-#                                  num_workers=config.input_threads,
-#                                  pin_memory=True)
-#     test_loader = DataLoader(test_dataset,
-#                              batch_size=1,
-#                              sampler=test_sampler,
-#                              collate_fn=AHNCollate,
-#                              num_workers=config.input_threads,
-#                              pin_memory=True)
+        # Optional debug functions
+        # debug_timing(training_dataset, training_loader)
+        # debug_timing(test_dataset, test_loader)
+        # debug_upsampling(training_dataset, training_loader)
 
-#     # Calibrate samplers
-#     training_sampler.calibration(training_loader, verbose=True)
-#     test_sampler.calibration(test_loader, verbose=True)
+        print('\nModel Preparation')
+        print('*****************')
 
-#     # Optional debug functions
-#     # debug_timing(training_dataset, training_loader)
-#     # debug_timing(test_dataset, test_loader)
-#     # debug_upsampling(training_dataset, training_loader)
+        # Define network model
+        t1 = time.time()
+        net = KPFCNN(config, training_dataset.label_values, training_dataset.ignored_labels)
 
-#     print('\nModel Preparation')
-#     print('*****************')
+        # debug = False
+        # if debug:
+        #     print('\n*************************************\n')
+        #     print(net)
+        #     print('\n*************************************\n')
+        #     for param in net.parameters():
+        #         if param.requires_grad:
+        #             print(param.shape)
+        #     print('\n*************************************\n')
+        #     print("Model size %i" % sum(param.numel() for param in net.parameters() if param.requires_grad))
+        #     print('\n*************************************\n')
 
-#     # Define network model
-#     t1 = time.time()
-#     net = KPFCNN(config, training_dataset.label_values, training_dataset.ignored_labels)
+        # Define a trainer class
+        trainer = ModelTrainer(net, config, chkp_path=chosen_chkp)
+        print('Done in {:.1f}s\n'.format(time.time() - t1))
 
-#     # debug = False
-#     # if debug:
-#     #     print('\n*************************************\n')
-#     #     print(net)
-#     #     print('\n*************************************\n')
-#     #     for param in net.parameters():
-#     #         if param.requires_grad:
-#     #             print(param.shape)
-#     #     print('\n*************************************\n')
-#     #     print("Model size %i" % sum(param.numel() for param in net.parameters() if param.requires_grad))
-#     #     print('\n*************************************\n')
+        print('\nStart training')
+        print('**************')
 
-#     # Define a trainer class
-#     trainer = ModelTrainer(net, config, chkp_path=chosen_chkp)
-#     print('Done in {:.1f}s\n'.format(time.time() - t1))
+        # Training
+        trainer.train(net, training_loader, test_loader, config)
 
-#     print('\nStart training')
-#     print('**************')
+        print('Forcing exit now')
+        os.kill(os.getpid(), signal.SIGINT)
 
-#     # Training
-#     trainer.train(net, training_loader, test_loader, config)
+    except Exception as e:
+        message = 'Got exception ' + str(e) + '\n'
+    else:
+        acc_string = 'acc_aver and acc_var are {:1.4f} {:1.4f}'
+        acc_string = acc_string.format(config.acc_aver, config.acc_var)
+        message = message_ok_string + acc_string
+    finally:
+        time.sleep(5)
+        print(message)
+    
+        with open(gridsearch_filename, "a") as file:
+            file.write(message)
 
-#     print('Forcing exit now')
-#     os.kill(os.getpid(), signal.SIGINT)
+        print('End of finally part of exception')
+    print('End of program')

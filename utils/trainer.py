@@ -156,6 +156,8 @@ class ModelTrainer:
         last_display = time.time()
         mean_dt = np.zeros(1)
 
+        acc_smooth = []
+        
         # Start training loop
         for epoch in range(config.max_epoch):
 
@@ -208,7 +210,7 @@ class ModelTrainer:
                     mean_dt = np.array(t[1:]) - np.array(t[:-1])
                 else:
                     mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
-
+             
                 # Console display (only one per second)
                 if (t[-1] - last_display) > 1.0:
                     last_display = t[-1]
@@ -230,8 +232,12 @@ class ModelTrainer:
                                                   net.reg_loss,
                                                   acc,
                                                   t[-1] - t0))
-
-
+                
+                # Write acc to gridsearch file (kuramin added)
+                acc_smooth.append(acc)
+                if len(acc_smooth) > 100:
+                    acc_smooth = acc_smooth[1:]
+                
                 self.step += 1
                 torch.cuda.empty_cache()
 
@@ -273,6 +279,14 @@ class ModelTrainer:
             self.validation(net, val_loader, config)
             net.train()
 
+        # kuramin added
+        acc_aver = sum(acc_smooth) / len(acc_smooth)
+        acc_var = np.var(acc_smooth)
+        print('acc_aver from inside is', acc_aver)
+        print('acc_var from inside is', acc_var)
+        config.acc_aver = acc_aver
+        config.acc_var = acc_var
+        
         print('Finished Training')
         return
 
