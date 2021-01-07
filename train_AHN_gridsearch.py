@@ -62,48 +62,45 @@ if __name__ == '__main__':
     # Set GPU visible device
     os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
     
+    input_threads = 10
+    max_epoch = 10
+    steps_per_epoch = 100
+    
     gridsearch_filename = time.strftime('results/train_AHN_gridsearch_%Y-%m-%d_%H-%M-%S.txt', time.gmtime())
     
-    fsd = 0.4
-    in_radius = 15
-    conv_radius = 2.5
-    deform_radius = 6.0
-    repulse_extent = 1.2
-    KP_extent = 1.2
-    num_kernel_points = 15
-    deform_fitting_power = 1.0
-    max_epoch = 4
-    steps_per_epoch = 10
-    input_threads = 0
+    range_fsd = [0.2, 0.5, 1.0, 1.5]
+    range_in_radius = [15, 25, 35]
+    range_conv_radius = [1.5, 2.5, 3.5]
+    range_deform_radius = [5.0, 6.0, 7.0]
+    range_repulse_extent = [1.2]
+    range_KP_extent = [1.2]
+    range_num_kernel_points = [15]
+    range_deform_fitting_power = [0.1, 0.5, 1.0]
     
-    train_AHN_on_hyperparameters(fsd, 
-                                 in_radius, 
-                                 conv_radius, 
-                                 deform_radius, 
-                                 repulse_extent, 
-                                 KP_extent, 
-                                 num_kernel_points, 
-                                 deform_fitting_power, 
-                                 max_epoch, 
-                                 steps_per_epoch, 
-                                 input_threads, 
-                                 gridsearch_filename)
-    
-    print("we are in main between funcs now")
-    fsd = 1.5
-    in_radius = 20
-    train_AHN_on_hyperparameters(fsd, 
-                                 in_radius, 
-                                 conv_radius, 
-                                 deform_radius, 
-                                 repulse_extent, 
-                                 KP_extent, 
-                                 num_kernel_points, 
-                                 deform_fitting_power, 
-                                 max_epoch, 
-                                 steps_per_epoch, 
-                                 input_threads, 
-                                 gridsearch_filename)
+    # Lets loop
+    for fsd in range_fsd:
+        for in_radius in range_in_radius:
+            for conv_radius in range_conv_radius:
+                for deform_radius in range_deform_radius:
+                    for repulse_extent in range_repulse_extent:
+                        for KP_extent in range_KP_extent:
+                            for num_kernel_points in range_num_kernel_points:
+                                for deform_fitting_power in range_deform_fitting_power:
+                                    print('Start new training')
+                                    train_AHN_on_hyperparameters(fsd, 
+                                                                 in_radius, 
+                                                                 conv_radius, 
+                                                                 deform_radius, 
+                                                                 repulse_extent, 
+                                                                 KP_extent, 
+                                                                 num_kernel_points, 
+                                                                 deform_fitting_power, 
+                                                                 max_epoch, 
+                                                                 steps_per_epoch, 
+                                                                 input_threads, 
+                                                                 gridsearch_filename)
+                                    print('End this training')
+    print('End of all ranges')
     
 #     ###############
 #     # Previous chkp

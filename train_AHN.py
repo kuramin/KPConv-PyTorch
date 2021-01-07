@@ -142,7 +142,7 @@ class AHNConfig(Config):
     #####################
 
     # Maximal number of epochs
-    max_epoch = 10  # 500  kuramin changed
+    max_epoch = 2  # 10 # 500  kuramin changed
 
     # Learning rate management
     learning_rate = 1e-2
@@ -154,7 +154,7 @@ class AHNConfig(Config):
     batch_num = 6  # target_aver_batch_size will be set equal to it
 
     # Number of steps per epoch (how many batches will be created from dataloader by enumerate(dataloader))
-    steps_per_epoch = 100 # 50  # kuramin changed back from 100
+    steps_per_epoch = 50 # 100 # 50  # kuramin changed back from 100
 
     # Number of validation examples per epoch
     validation_size = 100 # 50
@@ -337,5 +337,6 @@ if __name__ == '__main__':
     # Training
     trainer.train(net, training_loader, test_loader, config)
 
-    print('Forcing exit now')
-    os.kill(os.getpid(), signal.SIGINT)
+    print('Exit without forcing')
+    #print('Forcing exit now')
+    #os.kill(os.getpid(), signal.SIGINT)

@@ -278,10 +278,12 @@ class KPFCNN(nn.Module):
                 r *= 2
                 out_dim *= 2
 
-        print('encoder_blocks is calculated as', self.encoder_blocks)
-        print('layer after encoder is', layer)
-        print('r after encoder is', r)
-        print('out_dim after encoder is', out_dim)
+         
+        # Print network structure (encoding part)
+        #print('encoder_blocks is calculated as', self.encoder_blocks)
+        #print('layer after encoder is', layer)
+        #print('r after encoder is', r)
+        #print('out_dim after encoder is', out_dim)
 
         #####################
         # List Decoder blocks
@@ -320,10 +322,11 @@ class KPFCNN(nn.Module):
                 r *= 0.5
                 out_dim = out_dim // 2
 
-        print('decoder.blocks is', self.decoder_blocks)
-        print('layer after decoder is', layer)
-        print('r after decoder is', r)
-        print('out_dim after decoder is', out_dim)
+        # Print network structure (decoding part)
+        #print('decoder.blocks is', self.decoder_blocks)
+        #print('layer after decoder is', layer)
+        #print('r after decoder is', r)
+        #print('out_dim after decoder is', out_dim)
 
         # head of network is the end
         self.head_mlp = UnaryBlock(out_dim, config.first_features_dim, False, 0)
@@ -351,7 +354,7 @@ class KPFCNN(nn.Module):
         self.reg_loss = 0
         self.l1 = nn.L1Loss()
 
-        print('Initialized the following KPFCNN architecture', self)
+        #print('Initialized the following KPFCNN architecture', self)
 
         return
 
@@ -472,7 +475,7 @@ class KPFCNN(nn.Module):
             raise ValueError('Unknown fitting mode: ' + self.deform_fitting_mode)
 
         # Combined loss
-        print('self.output_loss=', self.output_loss, 'self.reg_loss=', self.reg_loss)
+        #print('self.output_loss=', self.output_loss, 'self.reg_loss=', self.reg_loss)
         return self.output_loss + self.reg_loss
 
     def accuracy(self, outputs, labels):

@@ -197,6 +197,7 @@ class AHNConfig(Config):
     
     acc_aver = None
     acc_var = None
+    save_potentials = False
 
 
 def train_AHN_on_hyperparameters(fsd, 
@@ -215,6 +216,7 @@ def train_AHN_on_hyperparameters(fsd,
     print()
     print('Start new train_AHN_on_hyperparameters')
     print('****************')
+    time.sleep(5)
 
     # Initialize configuration class
     config = AHNConfig()
@@ -233,12 +235,8 @@ def train_AHN_on_hyperparameters(fsd,
         config.max_epoch = max_epoch
         config.steps_per_epoch = steps_per_epoch
         config.input_threads = input_threads
-        
-        message_OK_string = 'Config set to' + str(config.first_subsampling_dl) +
-              str(config.in_radius) + str(config.conv_radius) + str(config.deform_radius) + str(config.repulse_extent) + 
-              str(config.KP_extent) + str(config.num_kernel_points) + str(config.deform_fitting_power) + str(config.max_epoch) + str(config.steps_per_epoch) + str(config.input_threads)
             
-        print(message_OK_string)
+        chosen_chkp = None
         
         # Initialize datasets
         training_dataset = AHNDataset(config, set='training', use_potentials=True)  # kuramin commented
@@ -330,18 +328,32 @@ def train_AHN_on_hyperparameters(fsd,
 
         # Training
         trainer.train(net, training_loader, test_loader, config)
-
-        print('Forcing exit now')
-        os.kill(os.getpid(), signal.SIGINT)
+        
+        message_OK_string = 'Config set to {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2d} {:2.3f} {:3d} {:3d} {:2d} {} '
+        message_OK_string = message_OK_string.format(config.first_subsampling_dl, 
+                                                     config.in_radius,
+                                                     config.conv_radius,
+                                                     config.deform_radius,
+                                                     config.repulse_extent,
+                                                     config.KP_extent,
+                                                     config.num_kernel_points,
+                                                     config.deform_fitting_power,
+                                                     config.max_epoch,
+                                                     config.steps_per_epoch,
+                                                     config.input_threads,
+                                                     config.saving_path)
+        print(message_OK_string)
+        print('End attempt without forcing')
+        #print('Forcing exit now')
+        #os.kill(os.getpid(), signal.SIGINT)
 
     except Exception as e:
         message = 'Got exception ' + str(e) + '\n'
     else:
-        acc_string = 'acc_aver and acc_var are {:1.4f} {:1.4f}'
+        acc_string = 'acc_aver and acc_var are {:1.4f} {:1.4f}\n'
         acc_string = acc_string.format(config.acc_aver, config.acc_var)
-        message = message_ok_string + acc_string
+        message = message_OK_string + acc_string
     finally:
-        time.sleep(5)
         print(message)
     
         with open(gridsearch_filename, "a") as file:

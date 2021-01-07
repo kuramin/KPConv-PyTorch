@@ -235,7 +235,7 @@ class ModelTrainer:
                 
                 # Write acc to gridsearch file (kuramin added)
                 acc_smooth.append(acc)
-                if len(acc_smooth) > 100:
+                if len(acc_smooth) > 30:
                     acc_smooth = acc_smooth[1:]
                 
                 self.step += 1
@@ -465,18 +465,19 @@ class ModelTrainer:
                     text_file.write(line)
 
             # Save potentials
-            pot_path = join(config.saving_path, 'potentials')
-            if not exists(pot_path):
-                makedirs(pot_path)
-            files = val_loader.dataset.files
-            for i, file_path in enumerate(files):
-                pot_points = np.array(val_loader.dataset.pot_trees[i].data, copy=False)
-                cloud_name = file_path.split('/')[-1]
-                pot_name = join(pot_path, cloud_name)
-                pots = val_loader.dataset.potentials[i].numpy().astype(np.float32)
-                write_ply(pot_name,
-                          [pot_points.astype(np.float32), pots],
-                          ['x', 'y', 'z', 'pots'])
+            if config.save_potentials:
+                pot_path = join(config.saving_path, 'potentials')
+                if not exists(pot_path):
+                    makedirs(pot_path)
+                files = val_loader.dataset.files
+                for i, file_path in enumerate(files):
+                    pot_points = np.array(val_loader.dataset.pot_trees[i].data, copy=False)
+                    cloud_name = file_path.split('/')[-1]
+                    pot_name = join(pot_path, cloud_name)
+                    pots = val_loader.dataset.potentials[i].numpy().astype(np.float32)
+                    write_ply(pot_name,
+                              [pot_points.astype(np.float32), pots],
+                              ['x', 'y', 'z', 'pots'])
 
         t6 = time.time()
 
