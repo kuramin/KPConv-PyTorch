@@ -173,7 +173,7 @@ class ModelTester:
     #
     #     return
 
-    def cloud_segmentation_test(self, net, test_loader, config, num_votes=100, debug=False):
+    def cloud_segmentation_test(self, net, test_loader, config, num_votes=5, debug=False):
         """
         Test method for cloud segmentation models
         """

@@ -102,7 +102,7 @@ if __name__ == '__main__':
     chkp_idx = None
 
     # Choose to test on validation or test split
-    on_val = True
+    on_val = False #True
 
     # Deal with 'last_XXXXXX' choices
     chosen_log = model_choice(chosen_log)
