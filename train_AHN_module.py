@@ -164,7 +164,7 @@ class AHNConfig(Config):
     validation_size = 50
 
     # Number of epoch between each checkpoint
-    checkpoint_gap = 50
+    checkpoint_gap = 7  # 50
 
     # Augmentations
     augment_scale_anisotropic = True
