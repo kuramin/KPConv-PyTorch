@@ -305,11 +305,11 @@ class ModelTrainer:
         # Initialize
         ############
 
-        t0 = time.time()
-
         # Choose validation smoothing parameter (0 for no smoоthing, 0.99 for big smoothing)
         val_smooth = 0.95
         softmax = torch.nn.Softmax(1)
+
+        t0 = time.time()
 
         # Do not validate if dataset has no validation cloud
         if val_loader.dataset.validation_split not in val_loader.dataset.all_splits:
@@ -320,9 +320,6 @@ class ModelTrainer:
 
         # Number of classes predicted by the model
         nc_model = config.num_classes
-
-        #print(nc_tot)
-        #print(nc_model)
 
         # Initiate global prediction over validation clouds
         if not hasattr(self, 'validation_probs'):
@@ -387,7 +384,7 @@ class ModelTrainer:
                 self.validation_probs[c_i][inds] = val_smooth * self.validation_probs[c_i][inds] \
                                                    + (1 - val_smooth) * probs
 
-                # Stack all prediction for this epoch
+                # Stack all predictions and targets for this epoch
                 predictions.append(probs)
                 targets.append(target)
                 i0 += length
@@ -399,7 +396,7 @@ class ModelTrainer:
             # Display
             if (t[-1] - last_display) > 1.0:
                 last_display = t[-1]
-                message = 'Validation : {:.1f}% (timings : {:4.2f} {:4.2f})'
+                message = 'Validation is ready for {:.1f}% (timings : {:4.2f} {:4.2f})'
                 print(message.format(100 * i / config.validation_size,
                                      1000 * (mean_dt[0]),
                                      1000 * (mean_dt[1])))

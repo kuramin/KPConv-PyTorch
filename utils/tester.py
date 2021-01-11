@@ -242,8 +242,8 @@ class ModelTester:
                 t = t[-1:]
                 t += [time.time()]
 
-                if i == 0:
-                    print('Done in {:.1f}s'.format(t[1] - t[0]))
+                # if i == 0:
+                #     print('Done in {:.1f}s'.format(t[1] - t[0]))
 
                 if 'cuda' in self.device.type:
                     batch.to(self.device)
@@ -253,7 +253,7 @@ class ModelTester:
 
                 t += [time.time()]
 
-                # Get probs and labels
+                # Get probs and s_points
                 stacked_probs = softmax(outputs).cpu().detach().numpy()
                 s_points = batch.points[0].cpu().numpy()
                 lengths = batch.lengths[0].cpu().numpy()
@@ -273,6 +273,7 @@ class ModelTester:
                     inds = in_inds[i0:i0 + length]
                     c_i = cloud_inds[b_i]
 
+                    # Leave inds and probs of only those points which are within test_radius_ratio
                     if 0 < test_radius_ratio < 1:
                         mask = np.sum(points ** 2, axis=1) < (test_radius_ratio * config.in_radius) ** 2
                         inds = inds[mask]
@@ -292,7 +293,7 @@ class ModelTester:
                 # Display
                 if (t[-1] - last_display) > 1.0:
                     last_display = t[-1]
-                    message = 'e{:03d}-i{:04d} => {:.1f}% (timings : {:4.2f} {:4.2f} {:4.2f})'
+                    message = 'e{:03d}-i{:04d} => testing is ready for {:.1f}% (timings : {:4.2f} {:4.2f} {:4.2f})'
                     print(message.format(test_epoch, i,
                                          100 * i / config.validation_size,
                                          1000 * (mean_dt[0]),
