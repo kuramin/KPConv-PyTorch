@@ -13,7 +13,7 @@
 #
 #      Hugues THOMAS - 06/03/2020
 #
-
+#
 
 # ----------------------------------------------------------------------------------------------------------------------
 #
@@ -220,22 +220,36 @@ def train_AHN_on_hyperparameters(fsd,
 
     # Initialize configuration class
     config = AHNConfig()
-    #message_ok_string = 'config.first_subsampling_dl is {:.3f}\n'
-    message_error_string = 'Got exception '
-    
+
+    config.first_subsampling_dl = fsd
+    config.in_radius = in_radius
+    config.conv_radius = conv_radius
+    config.deform_radius = deform_radius
+    config.repulse_extent = repulse_extent
+    config.KP_extent = KP_extent
+    config.num_kernel_points = num_kernel_points
+    config.deform_fitting_power = deform_fitting_power
+    config.max_epoch = max_epoch
+    config.steps_per_epoch = steps_per_epoch
+    config.input_threads = input_threads
+
+    message_param_string = 'Config set to {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2d} {:2.3f} {:3d} {:3d} {:2d} '
+    message_param_string = message_param_string.format(config.first_subsampling_dl,
+                                                       config.in_radius,
+                                                       config.conv_radius,
+                                                       config.deform_radius,
+                                                       config.repulse_extent,
+                                                       config.KP_extent,
+                                                       config.num_kernel_points,
+                                                       config.deform_fitting_power,
+                                                       config.max_epoch,
+                                                       config.steps_per_epoch,
+                                                       config.input_threads)
+    print(message_param_string)
+    message_path_string = ''
+    message = ''
+
     try:
-        config.first_subsampling_dl = fsd
-        config.in_radius = in_radius
-        config.conv_radius = conv_radius
-        config.deform_radius = deform_radius
-        config.repulse_extent = repulse_extent
-        config.KP_extent = KP_extent
-        config.num_kernel_points = num_kernel_points
-        config.deform_fitting_power = deform_fitting_power
-        config.max_epoch = max_epoch
-        config.steps_per_epoch = steps_per_epoch
-        config.input_threads = input_threads
-            
         chosen_chkp = None
         
         # Initialize datasets
@@ -322,37 +336,24 @@ def train_AHN_on_hyperparameters(fsd,
         # Define a trainer class
         trainer = ModelTrainer(net, config, chkp_path=chosen_chkp)
         print('Done in {:.1f}s\n'.format(time.time() - t1))
+        message_path_string = str(config.saving_path)
 
         print('\nStart training')
         print('**************')
 
         # Training
         trainer.train(net, training_loader, test_loader, config)
-        
-        message_OK_string = 'Config set to {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2d} {:2.3f} {:3d} {:3d} {:2d} {} '
-        message_OK_string = message_OK_string.format(config.first_subsampling_dl, 
-                                                     config.in_radius,
-                                                     config.conv_radius,
-                                                     config.deform_radius,
-                                                     config.repulse_extent,
-                                                     config.KP_extent,
-                                                     config.num_kernel_points,
-                                                     config.deform_fitting_power,
-                                                     config.max_epoch,
-                                                     config.steps_per_epoch,
-                                                     config.input_threads,
-                                                     config.saving_path)
-        print(message_OK_string)
+
         print('End attempt without forcing')
         #print('Forcing exit now')
         #os.kill(os.getpid(), signal.SIGINT)
 
     except Exception as e:
-        message = 'Got exception ' + str(e) + '\n'
+        message = message_param_string + message_path_string + ' Got exception ' + str(e) + '\n'
     else:
         acc_string = 'acc_aver and acc_var are {:1.4f} {:1.4f}\n'
         acc_string = acc_string.format(config.acc_aver, config.acc_var)
-        message = message_OK_string + acc_string
+        message = message_param_string + message_path_string + acc_string
     finally:
         print(message)
     

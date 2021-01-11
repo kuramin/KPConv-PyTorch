@@ -307,7 +307,7 @@ class ModelTrainer:
 
         t0 = time.time()
 
-        # Choose validation smoothing parameter (0 for no smothing, 0.99 for big smoothing)
+        # Choose validation smoothing parameter (0 for no smoоthing, 0.99 for big smoothing)
         val_smooth = 0.95
         softmax = torch.nn.Softmax(1)
 
