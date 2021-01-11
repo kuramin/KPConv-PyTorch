@@ -31,13 +31,13 @@ import torch
 # Dataset
 from datasets.ModelNet40 import *
 #from datasets.S3DIS import *       # kuramin changed
-from datasets.Vaihingen import *
+from datasets.AHN import *
 from datasets.SemanticKitti import *
 from torch.utils.data import DataLoader
 
 from utils.config import Config
 from utils.tester import ModelTester
-from models.architectures import KPCNN, KPFCNN
+from models.architectures import KPFCNN
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     #       > 'last_XXX': Automatically retrieve the last trained model on dataset XXX
     #       > '(old_)results/Log_YYYY-MM-DD_HH-MM-SS': Directly provide the path of a trained model
 
-    chosen_log = 'results/Log_2020-09-03_21-53-20'  # => ModelNet40
+    chosen_log = 'results/Log_2021-01-07_17-27-38'  # kuramin changed
 
     # Choose the index of the checkpoint to load OR None if you want to load the current checkpoint
     chkp_idx = None
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     ############################
 
     # Set which gpu is going to be used
-    GPU_ID = '0'
+    GPU_ID = '3'
 
     # Set GPU visible device
     os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
@@ -162,21 +162,25 @@ if __name__ == '__main__':
     else:
         set = 'test'
 
+    test_dataset = AHNDataset(config, set='validation', use_potentials=True)
+    test_sampler = AHNSampler(test_dataset)
+    collate_fn = AHNCollate
+
     # Initiate dataset
-    if config.dataset == 'ModelNet40':
-        test_dataset = ModelNet40Dataset(config, train=False)
-        test_sampler = ModelNet40Sampler(test_dataset)
-        collate_fn = ModelNet40Collate
-    elif config.dataset == 'S3DIS':
-        test_dataset = S3DISDataset(config, set='validation', use_potentials=True)
-        test_sampler = S3DISSampler(test_dataset)
-        collate_fn = S3DISCollate
-    elif config.dataset == 'SemanticKitti':
-        test_dataset = SemanticKittiDataset(config, set=set, balance_classes=False)
-        test_sampler = SemanticKittiSampler(test_dataset)
-        collate_fn = SemanticKittiCollate
-    else:
-        raise ValueError('Unsupported dataset : ' + config.dataset)
+    # if config.dataset == 'ModelNet40':
+    #     test_dataset = ModelNet40Dataset(config, train=False)
+    #     test_sampler = ModelNet40Sampler(test_dataset)
+    #     collate_fn = ModelNet40Collate
+    # elif config.dataset == 'S3DIS':
+    #     test_dataset = S3DISDataset(config, set='validation', use_potentials=True)
+    #     test_sampler = S3DISSampler(test_dataset)
+    #     collate_fn = S3DISCollate
+    # elif config.dataset == 'SemanticKitti':
+    #     test_dataset = SemanticKittiDataset(config, set=set, balance_classes=False)
+    #     test_sampler = SemanticKittiSampler(test_dataset)
+    #     collate_fn = SemanticKittiCollate
+    # else:
+    #     raise ValueError('Unsupported dataset : ' + config.dataset)
 
     # Data loader
     test_loader = DataLoader(test_dataset,
@@ -194,12 +198,14 @@ if __name__ == '__main__':
 
     # Define network model
     t1 = time.time()
-    if config.dataset_task == 'classification':
-        net = KPCNN(config)
-    elif config.dataset_task in ['cloud_segmentation', 'slam_segmentation']:
-        net = KPFCNN(config, test_dataset.label_values, test_dataset.ignored_labels)
-    else:
-        raise ValueError('Unsupported dataset_task for testing: ' + config.dataset_task)
+    net = KPFCNN(config, test_dataset.label_values, test_dataset.ignored_labels)
+
+    # if config.dataset_task == 'classification':
+    #     net = KPCNN(config)
+    # elif config.dataset_task in ['cloud_segmentation', 'slam_segmentation']:
+    #     net = KPFCNN(config, test_dataset.label_values, test_dataset.ignored_labels)
+    # else:
+    #     raise ValueError('Unsupported dataset_task for testing: ' + config.dataset_task)
 
     # Define a visualizer class
     tester = ModelTester(net, chkp_path=chosen_chkp)
