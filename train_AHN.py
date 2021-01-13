@@ -53,7 +53,7 @@ class AHNConfig(Config):
     # Dataset name
     dataset = 'AHN'
 
-    # Number of classes in the dataset (This value is overwritten by dataset class when Initializating dataset).
+    # Number of classes in the dataset (This value is overwritten by dataset class during its initialisation).
     num_classes = None
 
     # Type of task performed on this dataset (also overwritten)

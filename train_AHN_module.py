@@ -62,7 +62,7 @@ class AHNConfig(Config):
     dataset_task = ''
 
     # Number of CPU threads for the input pipeline
-    input_threads = 0  # 10 kuramin changed
+    input_threads = 10  # 10 kuramin changed
 
     #########################
     # Architecture definition
@@ -158,13 +158,13 @@ class AHNConfig(Config):
     batch_num = 6  # target_aver_batch_size will be set equal to it
 
     # Number of steps per epoch (how many batches will be created from dataloader by enumerate(dataloader))
-    steps_per_epoch = 500  # kuramin changed back from 100
+    steps_per_epoch = 100  # kuramin changed back from 100
 
     # Number of validation examples per epoch
     validation_size = 50
 
     # Number of epoch between each checkpoint
-    checkpoint_gap = 7  # 50
+    checkpoint_gap = 3  # 50
 
     # Augmentations
     augment_scale_anisotropic = True

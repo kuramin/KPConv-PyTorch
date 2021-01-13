@@ -113,9 +113,10 @@ class AHNDataset(PointCloudDataset):
 
         #self.cloud_names = ['cloud7 - Cloud2', 'cloud7 - Cloud2']
         #self.cloud_names = ['Area_1', 'Area_2']
-        self.cloud_names = ['1_rgb', '2_rgb']
-        self.all_splits = [0, 1]
-        self.validation_split = 1
+        #self.cloud_names = ['1_rgb', '2_rgb']
+        self.cloud_names = ['Venlo_1', 'Venlo_2', 'Venlo_3', 'Venlo_4', 'Venlo_5', 'Venlo_6']
+        self.all_splits = [0, 1, 2, 3, 4, 5]
+        self.validation_split = 5
 
         # Number of models used per epoch
         if self.set == 'training':
