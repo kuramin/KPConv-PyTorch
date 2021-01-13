@@ -54,7 +54,7 @@ class AHNConfig(Config):
     dataset = 'AHN'
 
     # Number of classes in the dataset (This value is overwritten by dataset class during its initialisation).
-    num_classes = None
+    num_classes = 3  # None      kuramin changed
 
     # Type of task performed on this dataset (also overwritten)
     dataset_task = ''
