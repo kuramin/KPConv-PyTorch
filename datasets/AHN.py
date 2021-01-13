@@ -759,7 +759,7 @@ class AHNDataset(PointCloudDataset):
                     label = int(label_float)
                     labels.append(label)
                     
-                print('labels has size', len(labels), 'hist is', np.histogram(labels, bins = [1,2,3,4,5,6,7,8,9,10]))    
+                print('labels has size', len(labels), 'hist is', np.histogram(labels, bins = [0,1,2,3,4,5,6,7,8,9,10]))
 
                 # Subsample cloud
                 sub_points, sub_colors, sub_labels = grid_subsampling(points,
