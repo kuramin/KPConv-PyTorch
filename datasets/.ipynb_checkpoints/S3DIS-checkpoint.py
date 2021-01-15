@@ -7,7 +7,7 @@
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      Class handling AHN dataset.
+#      Class handling S3DIS dataset.
 #      Implements a Dataset, a Sampler, and a collate_fn
 #
 # ----------------------------------------------------------------------------------------------------------------------
@@ -28,8 +28,8 @@ import numpy as np
 import pickle
 import torch
 import math
-from multiprocessing import Lock
-
+#from multiprocessing import Lock
+import multiprocessing
 
 # OS functions
 from os import listdir
@@ -50,33 +50,33 @@ from utils.config import bcolors
 #       \******************************/
 
 
-class AHNDataset(PointCloudDataset):
-    """Class to handle AHN dataset."""
+class S3DISDataset(PointCloudDataset):
+    """Class to handle S3DIS dataset."""
 
     def __init__(self, config, set='training', use_potentials=True, load_data=True):
         """
         This dataset is small enough to be stored in-memory, so load all point clouds here
         """
-        PointCloudDataset.__init__(self, 'AHN')
+        PointCloudDataset.__init__(self, 'S3DIS')
 
         ############
         # Parameters
         ############
 
         # Dict from labels to names
-#         self.label_to_names = {1: 'other',
-#                                2: 'ground',
-#                                3: 'fake_class_1',
-#                                4: 'fake_class_2',
-#                                5: 'fake_class_3',
-#                                6: 'building',
-#                                7: 'fake_class_4',
-#                                8: 'fake_class_5',
-#                                9: 'fake_class_6'}
-        
-        self.label_to_names = {1: 'other',
-                               2: 'ground',
-                               3: 'building'}
+        self.label_to_names = {0: 'ceiling',
+                               1: 'floor',
+                               2: 'wall',
+                               3: 'beam',
+                               4: 'column',
+                               5: 'window',
+                               6: 'door',
+                               7: 'chair',
+                               8: 'table',
+                               9: 'bookcase',
+                               10: 'sofa',
+                               11: 'board',
+                               12: 'clutter'}
 
         # Initialize a bunch of variables concerning class labels
         self.init_labels()
@@ -85,7 +85,7 @@ class AHNDataset(PointCloudDataset):
         self.ignored_labels = np.array([])
 
         # Dataset folder
-        self.path = '../datasets/AHN'
+        self.path = '../datasets/Stanford3dDataset_v1.2'
         #self.path = '../datasets/Vaihingen'  # kuramin changed
 
         # Type of task conducted on this dataset
@@ -111,36 +111,39 @@ class AHNDataset(PointCloudDataset):
         ply_path = join(self.path, self.train_path)
 
         # Proportion of validation scenes
-        #self.cloud_names = ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6']
-        #self.all_splits = [0, 1, 2, 3, 4, 5]
-        #self.validation_split = 4     kuramin changed
+        # self.cloud_names = ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6']
+        # self.all_splits = [0, 1, 2, 3, 4, 5]
+        # self.validation_split = 5    # kuramin changed
 
+        #self.cloud_names = ['Vaihingen3D_Training_rgb', 'Vaihingen3D_Evaluation_rgb']
         #self.cloud_names = ['cloud7 - Cloud2', 'cloud7 - Cloud2']
-        #self.cloud_names = ['Area_1', 'Area_2']
-        #self.cloud_names = ['1_rgb', '2_rgb']
-        
-        #self.cloud_names = ['Venlo_1', 'Venlo_2', 'Venlo_3', 'Venlo_4', 'Venlo_5', 'Venlo_6']
-        #self.all_splits = [0, 1, 2, 3, 4, 5]
-        #self.validation_split = 5
-        
-        #self.cloud_names = ['Venlo_1', 'Venlo_2']
-        #self.all_splits = [0, 1]
-        #self.validation_split = 1
-        
-        self.cloud_names = ['logClass_Lelystad', 'logClass_Duindorp', 'logClass_Katwijk', 'logClass_Maastricht', 'logClass_Vissingen', 'logClass_Hellevoetsluis']
-        self.all_splits = [0, 1, 2, 3, 4, 5]
-        self.validation_split = 5
-        
+        #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
+        #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2_remarked']
 
-        # Number of models used per epoch
+        #self.cloud_names = ['Area_1', 'Area_3']
+        if config.dataset == 'S3DIS':
+            print('Process S3DIS dataset')
+            #self.cloud_names = ['Area_1', 'Area_3']
+            #self.all_splits = [0, 1]
+            #self.validation_split = 1
+            self.cloud_names = ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6']
+            self.all_splits = [0, 1, 2, 3, 4, 5]
+            self.validation_split = 5
+        else:    
+            print('Process AHN dataset')
+            self.cloud_names = ['1_rgb', '2_rgb']
+            self.all_splits = [0, 1]
+            self.validation_split = 1
+
+        # Number of models used per epoch (used only during visualization)
         if self.set == 'training':
             self.epoch_n = config.steps_per_epoch * config.batch_num
         elif self.set in ['validation', 'test', 'ERF']:
             self.epoch_n = config.validation_size * config.batch_num
         else:
-            raise ValueError('Unknown set for AHN data: ', self.set)
+            raise ValueError('Unknown set for S3DIS data: ', self.set)
 
-        # Stop data is not needed
+        # Stop, data is not needed
         if not load_data:
             return
 
@@ -148,24 +151,33 @@ class AHNDataset(PointCloudDataset):
         # Prepare ply files
         ###################
 
-        #self.prepare_AHN_ply()
+        #ply_path = join(self.path, self.train_path)
+        if not exists(ply_path):
+            print("No folder", ply_path, "with ply-files was found, let's create ply-files from txt-files")
+            makedirs(ply_path)
+            self.prepare_S3DIS_ply(ply_path)
+        else:
+            print("Ply-files are already created based on txt-files")
 
         ################
         # Load ply files
         ################
 
-        # List of training files
+        # Fill in the list of training (or validation) files
         self.files = []
         for i, f in enumerate(self.cloud_names):
             if self.set == 'training':
+                # if training, self.files collects all full paths based on cloud_names which are for training
                 if self.all_splits[i] != self.validation_split:
                     self.files += [join(ply_path, f + '.ply')]
             elif self.set in ['validation', 'test', 'ERF']:
+                # if validation or test, self.files collects all full paths based on cloud_names which are for validation (or test)
                 if self.all_splits[i] == self.validation_split:
                     self.files += [join(ply_path, f + '.ply')]
             else:
-                raise ValueError('Unknown set for AHN data: ', self.set)
+                raise ValueError('Unknown set for S3DIS data: ', self.set)
 
+        # leave only those cloud_names which are relevant for current procedure
         if self.set == 'training':
             self.cloud_names = [f for i, f in enumerate(self.cloud_names)
                                 if self.all_splits[i] != self.validation_split]
@@ -185,7 +197,7 @@ class AHNDataset(PointCloudDataset):
         self.test_proj = []
         self.validation_labels = []
 
-        # Start loading
+        # Load data from self.files to self.pot_trees
         self.load_subsampled_clouds()
 
         ############################
@@ -201,6 +213,17 @@ class AHNDataset(PointCloudDataset):
             self.potentials = []
             self.min_potentials = []
             self.argmin_potentials = []
+
+            # for every training/validation point cloud create a list of potentials - list of random values
+            # in range (0, 1e-3) of the same size as pot_tree of this cloud
+            # When list of potentials for current cloud is created, append it to self.potentials,
+            # then find an index of minimal potential for last appended cloud,
+            # and append this index to self.argmin_potentials.
+            # The value of minimal potential of current cloud is appended to self.min_potentials
+            # create lists of minimal values of potentials and their indexes
+            # So, self.potentials[i] contains list of potentials for i-th cloud,
+            # self.argmin_potentials[i] - index of point with minimal potential within this cloud
+            # self.min_potentials[i] - value of minimal potential within this cloud
             for i, tree in enumerate(self.pot_trees):
                 self.potentials += [torch.from_numpy(np.random.rand(tree.data.shape[0]) * 1e-3)]
                 min_ind = int(torch.argmin(self.potentials[-1]))
@@ -224,13 +247,12 @@ class AHNDataset(PointCloudDataset):
             self.potentials = None
             self.min_potentials = None
             self.argmin_potentials = None
-            N = config.steps_per_epoch * config.batch_num
-            self.epoch_inds = torch.from_numpy(np.zeros((2, N), dtype=np.int64))
+            self.epoch_inds = torch.from_numpy(np.zeros((2, config.steps_per_epoch * config.batch_num), dtype=np.int64))
             self.epoch_i = torch.from_numpy(np.zeros((1,), dtype=np.int64))
             self.epoch_i.share_memory_()
             self.epoch_inds.share_memory_()
 
-        self.worker_lock = Lock()
+        self.worker_lock = multiprocessing.Lock()  # Create a lock which will be used later inside
 
         # For ERF visualization, we want only one cloud per batch and no randomness
         if self.set == 'ERF':
@@ -253,15 +275,18 @@ class AHNDataset(PointCloudDataset):
         """
 
         if self.use_potentials:
+            # kuramins print
+            # print('get_item')
+            # print('Threading batch_i', batch_i)
             return self.potential_item(batch_i)
         else:
             return self.random_item(batch_i)
 
     def potential_item(self, batch_i, debug_workers=False):
-
+        # print('Start potential item')  # kuramins print
         t = [time.time()]
 
-        # Initiate concatanation lists
+        # Initiate concatеnation lists
         p_list = []
         f_list = []
         l_list = []
@@ -271,73 +296,77 @@ class AHNDataset(PointCloudDataset):
         s_list = []
         R_list = []
         batch_n = 0
+        # inp_counter = 0
 
-        info = get_worker_info()
-        if info is not None:
-            wid = info.id
-        else:
-            wid = None
+        # info = get_worker_info()
+        # if info is not None:
+        #     wid = info.id
+        # else:
+        #     wid = None
 
         while True:
-
+            # print('Begin new iteration of while')  # kuramins print
             t += [time.time()]
 
-            if debug_workers:
-                message = ''
-                for wi in range(info.num_workers):
-                    if wi == wid:
-                        message += ' {:}X{:} '.format(bcolors.FAIL, bcolors.ENDC)
-                    elif self.worker_waiting[wi] == 0:
-                        message += '   '
-                    elif self.worker_waiting[wi] == 1:
-                        message += ' | '
-                    elif self.worker_waiting[wi] == 2:
-                        message += ' o '
-                print(message)
-                self.worker_waiting[wid] = 0
+            # if debug_workers:
+            #     message = ''
+            #     for wi in range(info.num_workers):
+            #         if wi == wid:
+            #             message += ' {:}X{:} '.format(bcolors.FAIL, bcolors.ENDC)
+            #         elif self.worker_waiting[wi] == 0:
+            #             message += '   '
+            #         elif self.worker_waiting[wi] == 1:
+            #             message += ' | '
+            #         elif self.worker_waiting[wi] == 2:
+            #             message += ' o '
+            #     print(message)
+            #     self.worker_waiting[wid] = 0  #kuramin commented
 
             with self.worker_lock:
 
-                if debug_workers:
-                    message = ''
-                    for wi in range(info.num_workers):
-                        if wi == wid:
-                            message += ' {:}v{:} '.format(bcolors.OKGREEN, bcolors.ENDC)
-                        elif self.worker_waiting[wi] == 0:
-                            message += '   '
-                        elif self.worker_waiting[wi] == 1:
-                            message += ' | '
-                        elif self.worker_waiting[wi] == 2:
-                            message += ' o '
-                    print(message)
-                    self.worker_waiting[wid] = 1
+                # if debug_workers:
+                #     message = ''
+                #     for wi in range(info.num_workers):
+                #         if wi == wid:
+                #             message += ' {:}v{:} '.format(bcolors.OKGREEN, bcolors.ENDC)
+                #         elif self.worker_waiting[wi] == 0:
+                #             message += '   '
+                #         elif self.worker_waiting[wi] == 1:
+                #             message += ' | '
+                #         elif self.worker_waiting[wi] == 2:
+                #             message += ' o '
+                #     print(message)
+                #     self.worker_waiting[wid] = 1
 
-                # Get potential minimum
-                cloud_ind = int(torch.argmin(self.min_potentials))
-                point_ind = int(self.argmin_potentials[cloud_ind])
+                # Get potential minimum  #kuramin commented
+                cloud_ind = int(torch.argmin(self.min_potentials))  # cloud_ind is number of cloud, comes from whichever clouds minimal potential is randomized to be smaller
+                point_ind = int(self.argmin_potentials[cloud_ind])  # index of the smallest potential in this cloud, which are assigned randomly
 
                 # Get potential points from tree structure
                 pot_points = np.array(self.pot_trees[cloud_ind].data, copy=False)
 
-                # Center point of input region
+                # Start creation of ball by assigning a Center point (taken as cloud point with minimal random potential)
                 center_point = pot_points[point_ind, :].reshape(1, -1)
 
                 # Add a small noise to center point
                 if self.set != 'ERF':
                     center_point += np.random.normal(scale=self.config.in_radius / 10, size=center_point.shape)
 
-                # Indices of points in input region
+                # Indices of points of potential trees which are inside ball around center point
+                # Result allows to increase potentials of these points
                 pot_inds, dists = self.pot_trees[cloud_ind].query_radius(center_point,
                                                                          r=self.config.in_radius,
                                                                          return_distance=True)
 
                 d2s = np.square(dists[0])
-                pot_inds = pot_inds[0]
+                #pot_inds = torch.tensor(pot_inds[0])  # query radius returns pot_inds wrapped in extra dimension
+                pot_inds = pot_inds[0]  # kuramin returned it back to this
 
-                # Update potentials (Tukey weights)
+                # Update potentials (Tukey weights plot is -|x|+1 inside [-in_radius, in_radius] and 0 everywhere outside)
                 if self.set != 'ERF':
-                    tukeys = torch.Tensor(np.square(1 - d2s / np.square(self.config.in_radius)))
+                    tukeys = np.square(1 - d2s / np.square(self.config.in_radius))
                     tukeys[d2s > np.square(self.config.in_radius)] = 0
+                    tukeys = torch.tensor(tukeys)  # kuramin added when it didnt work on Hulk
                     self.potentials[cloud_ind][pot_inds] += tukeys
                     min_ind = torch.argmin(self.potentials[cloud_ind])
                     self.min_potentials[[cloud_ind]] = self.potentials[cloud_ind][min_ind]
@@ -345,239 +374,31 @@ class AHNDataset(PointCloudDataset):
 
             t += [time.time()]
 
-            # Get points from tree structure
+            # Get points of once-sampled cloud from tree structure
             points = np.array(self.input_trees[cloud_ind].data, copy=False)
 
-
-            # Indices of points in input region
+            # Indices of points of once-sampled original cloud which are inside ball around center point
+            # Result is the ball of points which is used later
             input_inds = self.input_trees[cloud_ind].query_radius(center_point,
                                                                   r=self.config.in_radius)[0]
 
             t += [time.time()]
 
             # Number collected
-            n = input_inds.shape[0]
+            number_of_inball_points = input_inds.shape[0]
 
-            # Collect labels and colors
-            input_points = (points[input_inds] - center_point).astype(np.float32)
-            input_colors = self.input_colors[cloud_ind][input_inds]
-            if self.set in ['test', 'ERF']:
-                input_labels = np.zeros(input_points.shape[0])
-            else:
-                #input_labels = self.input_labels[cloud_ind][input_inds]
-                #input_labels_list = []
-                #for l in input_labels:
-                #    if l not in [1,2,3,4,5,6,7,8,9]:
-                #        print('weird val of l', l, 'cloud_ind', cloud_ind, 'input_inds', input_inds)
-                #    else:    
-                #        input_labels_list.append(self.label_to_idx[l])
-                input_labels_list = []
-                for inde in input_inds:
-                    if self.input_labels[cloud_ind][inde] not in [1,2,3,4,5,6,7,8,9]:
-                        print('weird val of l', self.input_labels[cloud_ind][inde], 'cloud_ind', cloud_ind, 'input_ind', inde)
-                    else:    
-                        input_labels_list.append(self.label_to_idx[self.input_labels[cloud_ind][inde]])
-                        
-                #print('input_labels', input_labels)
-                #print('input_labels_list', input_labels_list)
-                #print('len(input_labels_list)', len(input_labels_list))
-                input_labels = np.array(input_labels_list)
-                #input_labels = np.array([self.label_to_idx[l] for l in input_labels])
-
-            t += [time.time()]
-
-            # Data augmentation
-            input_points, scale, R = self.augmentation_transform(input_points)
-
-            # Color augmentation
-            if np.random.rand() > self.config.augment_color:
-                input_colors *= 0
-
-            # Get original height as additional feature
-            input_features = np.hstack((input_colors, input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
-
-            t += [time.time()]
-
-            # Stack batch
-            p_list += [input_points]
-            f_list += [input_features]
-            l_list += [input_labels]
-            i_list += [input_inds]
-            pi_list += [point_ind]
-            ci_list += [cloud_ind]
-            s_list += [scale]
-            R_list += [R]
-
-            # Update batch size
-            batch_n += n
-
-            # In case batch is full, stop
-            if batch_n > int(self.batch_limit):
-                break
-
-            # Randomly drop some points (act as an augmentation process and a safety for GPU memory consumption)
-            # if n > int(self.batch_limit):
-            #    input_inds = np.random.choice(input_inds, size=int(self.batch_limit) - 1, replace=False)
-            #    n = input_inds.shape[0]
-
-        ###################
-        # Concatenate batch
-        ###################
-
-        stacked_points = np.concatenate(p_list, axis=0)
-        features = np.concatenate(f_list, axis=0)
-        labels = np.concatenate(l_list, axis=0)
-        point_inds = np.array(pi_list, dtype=np.int32)
-        cloud_inds = np.array(ci_list, dtype=np.int32)
-        input_inds = np.concatenate(i_list, axis=0)
-        stack_lengths = np.array([pp.shape[0] for pp in p_list], dtype=np.int32)
-        scales = np.array(s_list, dtype=np.float32)
-        rots = np.stack(R_list, axis=0)
-
-        # Input features
-        stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
-        if self.config.in_features_dim == 1:
-            pass
-        elif self.config.in_features_dim == 4:
-            stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
-            stacked_features = np.hstack((stacked_features, features))
-        else:
-            raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)')
-
-        #######################
-        # Create network inputs
-        #######################
-        #
-        #   Points, neighbors, pooling indices for each layers
-        #
-
-        t += [time.time()]
-
-        # Get the whole input list
-        input_list = self.segmentation_inputs(stacked_points,
-                                              stacked_features,
-                                              labels,
-                                              stack_lengths)
-
-        t += [time.time()]
-
-        # Add scale and rotation for testing
-        input_list += [scales, rots, cloud_inds, point_inds, input_inds]
-
-        if debug_workers:
-            message = ''
-            for wi in range(info.num_workers):
-                if wi == wid:
-                    message += ' {:}0{:} '.format(bcolors.OKBLUE, bcolors.ENDC)
-                elif self.worker_waiting[wi] == 0:
-                    message += '   '
-                elif self.worker_waiting[wi] == 1:
-                    message += ' | '
-                elif self.worker_waiting[wi] == 2:
-                    message += ' o '
-            print(message)
-            self.worker_waiting[wid] = 2
-
-        t += [time.time()]
-
-        # Display timings
-        debugT = False
-        if debugT:
-            print('\n************************\n')
-            print('Timings:')
-            ti = 0
-            N = 5
-            mess = 'Init ...... {:5.1f}ms /'
-            loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-            for dt in loop_times:
-                mess += ' {:5.1f}'.format(dt)
-            print(mess.format(np.sum(loop_times)))
-            ti += 1
-            mess = 'Pots ...... {:5.1f}ms /'
-            loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-            for dt in loop_times:
-                mess += ' {:5.1f}'.format(dt)
-            print(mess.format(np.sum(loop_times)))
-            ti += 1
-            mess = 'Sphere .... {:5.1f}ms /'
-            loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-            for dt in loop_times:
-                mess += ' {:5.1f}'.format(dt)
-            print(mess.format(np.sum(loop_times)))
-            ti += 1
-            mess = 'Collect ... {:5.1f}ms /'
-            loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-            for dt in loop_times:
-                mess += ' {:5.1f}'.format(dt)
-            print(mess.format(np.sum(loop_times)))
-            ti += 1
-            mess = 'Augment ... {:5.1f}ms /'
-            loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-            for dt in loop_times:
-                mess += ' {:5.1f}'.format(dt)
-            print(mess.format(np.sum(loop_times)))
-            ti += N * (len(stack_lengths) - 1) + 1
-            print('concat .... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
-            ti += 1
-            print('input ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
-            ti += 1
-            print('stack ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
-            ti += 1
-            print('\n************************\n')
-        return input_list
-
-    def random_item(self, batch_i):
-
-        # Initiate concatanation lists
-        p_list = []
-        f_list = []
-        l_list = []
-        pi_list = []
-        i_list = []
-        ci_list = []
-        s_list = []
-        R_list = []
-        batch_n = 0
-
-        while True:
-
-            with self.worker_lock:
-
-                # Get potential minimum
-                cloud_ind = int(self.epoch_inds[0, self.epoch_i])
-                point_ind = int(self.epoch_inds[1, self.epoch_i])
-
-                # Update epoch indice
-                self.epoch_i += 1
-
-            # Get points from tree structure
-            points = np.array(self.input_trees[cloud_ind].data, copy=False)
-
-            # Center point of input region
-            center_point = points[point_ind, :].reshape(1, -1)
-
-            # Add a small noise to center point
-            if self.set != 'ERF':
-                center_point += np.random.normal(scale=self.config.in_radius / 10, size=center_point.shape)
-
-            # Indices of points in input region
-            input_inds = self.input_trees[cloud_ind].query_radius(center_point,
-                                                                  r=self.config.in_radius)[0]
-
-            # Number collected
-            n = input_inds.shape[0]
-
-            # Collect labels and colors
+            # Collect points, labels and colors
             input_points = (points[input_inds] - center_point).astype(np.float32)
             input_colors = self.input_colors[cloud_ind][input_inds]
             if self.set in ['test', 'ERF']:
                 input_labels = np.zeros(input_points.shape[0])
             else:
                 input_labels = self.input_labels[cloud_ind][input_inds]
-                input_labels = np.array([self.label_to_idx[l] for l in input_labels])
+                input_labels = np.array([float(self.label_to_idx[l]) for l in input_labels])
 
-            # Data augmentation
+            t += [time.time()]
+
+            # Data augmentation. Returns result of application of some random transformation and parameters of this transformation
             input_points, scale, R = self.augmentation_transform(input_points)
 
             # Color augmentation
@@ -586,6 +407,28 @@ class AHNDataset(PointCloudDataset):
 
             # Get original height as additional feature
             input_features = np.hstack((input_colors, input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
+
+            t += [time.time()]
+
+            # kuramins print
+            # print('input_points.shape', input_points.shape)
+            # print('input_features.shape', input_features.shape)
+            # print('input_labels.shape', input_labels.shape)
+            # print('input_inds.shape', input_inds.shape)
+            # print('point_ind is', point_ind)
+            # print('cloud_ind is ', cloud_ind)
+            # print('scale.shape', scale.shape)
+            # print('R.shape', R.shape)
+
+            # inp_filename = '/home/kuramin/Downloads/input'
+            # inp_counter += 1
+            # print(str(inp_filename)+str(inp_counter)+'.ply')
+            # write_ply('/home/kuramin/Downloads/input.ply',
+            #               [input_points, input_colors, input_labels],
+            #               ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
+
+            # as a result, input_points is a ball of radius 1.3 m
+            # and p_list is a set of such balls. Number of balls is limited by current value of self.batch_limit
 
             # Stack batch
             p_list += [input_points]
@@ -597,21 +440,37 @@ class AHNDataset(PointCloudDataset):
             s_list += [scale]
             R_list += [R]
 
+            # kuramins print
+            # print('len(p_list)', len(p_list))
+            # for i in range(len(p_list)):
+            #     print('p_list[', i, '].shape', p_list[i].shape)
+
             # Update batch size
-            batch_n += n
+            batch_n += number_of_inball_points
+            # kuramins print
+            # print('batch_n is', batch_n)
+            # print('batch_limit is', self.batch_limit)
 
             # In case batch is full, stop
             if batch_n > int(self.batch_limit):
+                # print('break out from while, cause batch_limit is', self.batch_limit)  # kuramins print
                 break
 
             # Randomly drop some points (act as an augmentation process and a safety for GPU memory consumption)
-            # if n > int(self.batch_limit):
+            # if number_of_inball_points > int(self.batch_limit):
             #    input_inds = np.random.choice(input_inds, size=int(self.batch_limit) - 1, replace=False)
-            #    n = input_inds.shape[0]
+            #    number_of_inball_points = input_inds.shape[0]
 
         ###################
         # Concatenate batch
         ###################
+
+        # print("p_list is full, its size is", len(p_list))  # kuramins print
+        # inp_filename = '/home/kuramin/Downloads/stacked_points/stacked_points'  # kuramin added
+        # for i, inp in enumerate(p_list):
+        #     # print('p_list member', i, 'has size', p_list[i].shape[0])  # kuramins print
+        #     inp_filename += '_' + str(p_list[i].shape[0])
+        #     p_list[i] += pot_points[pi_list[i], :]
 
         stacked_points = np.concatenate(p_list, axis=0)
         features = np.concatenate(f_list, axis=0)
@@ -623,16 +482,24 @@ class AHNDataset(PointCloudDataset):
         scales = np.array(s_list, dtype=np.float32)
         rots = np.stack(R_list, axis=0)
 
-        # Input features
+        #write_ply(str(inp_filename)+'.ply', [stacked_points, features, labels], ['x', 'y', 'z', 'red', 'green', 'blue', 'height', 'class'])  # kuramin added
+
+        # inp_filename = '/home/kuramin/Downloads/stacked_points_xyz_'
+        # for i, inp in enumerate(p_list):
+        #     write_ply(str(inp_filename)+str(i)+'.ply',
+        #                   [p_list[i], f_list[i][:,0:3], l_list[i]],
+        #                   ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
+
+        # Input features (feature with constant value 1 means that this point is real member of original cloud)
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
         if self.config.in_features_dim == 1:
             pass
-        elif self.config.in_features_dim == 4:
+        elif self.config.in_features_dim == 4:  # without original height of point
             stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
+        elif self.config.in_features_dim == 5:  # with original height of point
             stacked_features = np.hstack((stacked_features, features))
         else:
-            raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)')
+            raise ValueError('Only accepted input dimensions are 1, 4 and 5 (without and with XYZ)')  # Kuramin fixed typo: was 7, now 5
 
         #######################
         # Create network inputs
@@ -641,32 +508,236 @@ class AHNDataset(PointCloudDataset):
         #   Points, neighbors, pooling indices for each layers
         #
 
-        # Get the whole input list
+        t += [time.time()]
+
+        # Perform several batch_grid_samplings to get 5 levels of sampling of cloud stacked_points
         input_list = self.segmentation_inputs(stacked_points,
                                               stacked_features,
                                               labels,
                                               stack_lengths)
+        
+        #print('len(input_list)',len(input_list))
+        #print('len(input_list[0])',len(input_list[0]))
+        #print('len(input_list[1])',len(input_list[1]))
+        #print('len(input_list[2])',len(input_list[2]))
+        #print('len(input_list[3])',len(input_list[3]))
+        #print('len(input_list[4])',len(input_list[4]))
+
+        t += [time.time()]
 
         # Add scale and rotation for testing
         input_list += [scales, rots, cloud_inds, point_inds, input_inds]
 
+        # if debug_workers:
+        #     message = ''
+        #     for wi in range(info.num_workers):
+        #         if wi == wid:
+        #             message += ' {:}0{:} '.format(bcolors.OKBLUE, bcolors.ENDC)
+        #         elif self.worker_waiting[wi] == 0:
+        #             message += '   '
+        #         elif self.worker_waiting[wi] == 1:
+        #             message += ' | '
+        #         elif self.worker_waiting[wi] == 2:
+        #             message += ' o '
+        #     print(message)
+        #     self.worker_waiting[wid] = 2  #kuramin commented
+
+        t += [time.time()]
+
+        # Display timings
+        #debugT = False  #kuramin commented
+        # if debugT:
+        #     print('\n************************\n')
+        #     print('Timings:')
+        #     ti = 0
+        #     N = 5
+        #     mess = 'Init ...... {:5.1f}ms /'
+        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
+        #     for dt in loop_times:
+        #         mess += ' {:5.1f}'.format(dt)
+        #     print(mess.format(np.sum(loop_times)))
+        #     ti += 1
+        #     mess = 'Pots ...... {:5.1f}ms /'
+        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
+        #     for dt in loop_times:
+        #         mess += ' {:5.1f}'.format(dt)
+        #     print(mess.format(np.sum(loop_times)))
+        #     ti += 1
+        #     mess = 'Sphere .... {:5.1f}ms /'
+        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
+        #     for dt in loop_times:
+        #         mess += ' {:5.1f}'.format(dt)
+        #     print(mess.format(np.sum(loop_times)))
+        #     ti += 1
+        #     mess = 'Collect ... {:5.1f}ms /'
+        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
+        #     for dt in loop_times:
+        #         mess += ' {:5.1f}'.format(dt)
+        #     print(mess.format(np.sum(loop_times)))
+        #     ti += 1
+        #     mess = 'Augment ... {:5.1f}ms /'
+        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
+        #     for dt in loop_times:
+        #         mess += ' {:5.1f}'.format(dt)
+        #     print(mess.format(np.sum(loop_times)))
+        #     ti += N * (len(stack_lengths) - 1) + 1
+        #     print('concat .... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
+        #     ti += 1
+        #     print('input ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
+        #     ti += 1
+        #     print('stack ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
+        #     ti += 1
+        #     print('\n************************\n')
+        # print('End of potential item')  # kuramins print
         return input_list
 
-    def prepare_AHN_ply(self):
+#    def random_item(self, batch_i):
+#
+#         # Initiate concatenation lists
+#         p_list = []
+#         f_list = []
+#         l_list = []
+#         pi_list = []
+#         i_list = []
+#         ci_list = []
+#         s_list = []
+#         R_list = []
+#         batch_n = 0
+#
+#         while True:
+#
+#             with self.worker_lock:  # with the lock acquired
+#
+#                 print('self.epoch_i', self.epoch_i)
+#                 print('self.epoch_inds', self.epoch_inds)
+#                 # Get potential minimum
+#                 cloud_ind = int(self.epoch_inds[0, self.epoch_i])
+#                 point_ind = int(self.epoch_inds[1, self.epoch_i])
+#
+#                 # Update epoch indice
+#                 self.epoch_i += 1
+#
+#             # Get points from tree structure
+#             points = np.array(self.input_trees[cloud_ind].data, copy=False)
+#
+#             # Center point of input region
+#             center_point = points[point_ind, :].reshape(1, -1)
+#
+#             # Add a small noise to center point
+#             if self.set != 'ERF':
+#                 center_point += np.random.normal(scale=self.config.in_radius / 10, size=center_point.shape)
+#
+#             #################################
+#             #  Fill in input_points, input_features, input_labels, input_inds,
+#             #  point_ind, cloud_ind, scale, R
+#             #################################
+#
+#             # Indices of points in input region
+#             input_inds = self.input_trees[cloud_ind].query_radius(center_point,
+#                                                                   r=self.config.in_radius)[0]
+#
+#             # Number collected
+#             number_of_inball_points = input_inds.shape[0]
+#
+#             # Collect labels and colors
+#             input_points = (points[input_inds] - center_point).astype(np.float32)
+#             input_colors = self.input_colors[cloud_ind][input_inds]
+#             if self.set in ['test', 'ERF']:
+#                 input_labels = np.zeros(input_points.shape[0])
+#             else:
+#                 input_labels = self.input_labels[cloud_ind][input_inds]
+#                 input_labels = np.array([self.label_to_idx[l] for l in input_labels])
+#
+#             # Data augmentation
+#             input_points, scale, R = self.augmentation_transform(input_points)
+#
+#             # Color augmentation
+#             if np.random.rand() > self.config.augment_color:
+#                 input_colors *= 0
+#
+#             # Get original height as additional feature
+#             input_features = np.hstack((input_colors, input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
+#
+#             # Put those collected inputs into lists
+#             # Stack batch
+#             p_list += [input_points]
+#             f_list += [input_features]
+#             l_list += [input_labels]
+#             i_list += [input_inds]
+#             pi_list += [point_ind]
+#             ci_list += [cloud_ind]
+#             s_list += [scale]
+#             R_list += [R]
+#
+#             # Update batch size
+#             batch_n += n
+#
+#             # In case batch is full, stop
+#             if batch_n > int(self.batch_limit):
+#                 break
+#
+#             # Randomly drop some points (act as an augmentation process and a safety for GPU memory consumption)
+#             # if number_of_inball_points > int(self.batch_limit):
+#             #    input_inds = np.random.choice(input_inds, size=int(self.batch_limit) - 1, replace=False)
+#             #    number_of_inball_points = input_inds.shape[0]
+#
+#         ###################
+#         # Concatenate batch
+#         ###################
+#
+#         stacked_points = np.concatenate(p_list, axis=0)
+#         features = np.concatenate(f_list, axis=0)
+#         labels = np.concatenate(l_list, axis=0)
+#         point_inds = np.array(pi_list, dtype=np.int32)
+#         cloud_inds = np.array(ci_list, dtype=np.int32)
+#         input_inds = np.concatenate(i_list, axis=0)
+#         stack_lengths = np.array([pp.shape[0] for pp in p_list], dtype=np.int32)
+#         scales = np.array(s_list, dtype=np.float32)
+#         rots = np.stack(R_list, axis=0)
+#
+#         # Input features
+#         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
+#         if self.config.in_features_dim == 1:
+#             pass
+#         elif self.config.in_features_dim == 4:
+#             stacked_features = np.hstack((stacked_features, features[:, :3]))
+#         elif self.config.in_features_dim == 5:
+#             stacked_features = np.hstack((stacked_features, features))
+#         else:
+#             raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)')
+#
+#         #######################
+#         # Create network inputs
+#         #######################
+#         #
+#         #   Points, neighbors, pooling indices for each layers
+#         #
+#
+#         # Get the whole input list
+#         input_list = self.segmentation_inputs(stacked_points,
+#                                               stacked_features,
+#                                               labels,
+#                                               stack_lengths)
+#
+#         # Add scale and rotation for testing
+#         input_list += [scales, rots, cloud_inds, point_inds, input_inds]
+#
+#         return input_list
+
+    def prepare_S3DIS_ply(self, ply_path):
 
         print('\nPreparing ply files')
         t0 = time.time()
 
         # Folder for the ply files
-        ply_path = join(self.path, self.train_path)
-        if not exists(ply_path):
-            makedirs(ply_path)
+        #ply_path = join(self.path, self.train_path)
 
         for cloud_name in self.cloud_names:
 
             # Pass if the cloud has already been computed
             cloud_file = join(ply_path, cloud_name + '.ply')
             if exists(cloud_file):
+                print("Cloud_file", cloud_file, "already exists, dont use txt files")
                 continue
 
             # Get rooms of the current cloud
@@ -699,7 +770,7 @@ class AHNDataset(PointCloudDataset):
                         else:
                             raise ValueError('Unknown object name: ' + str(tmp))
 
-                        # Correct bug in AHN dataset
+                        # Correct bug in S3DIS dataset
                         if object_name == 'ceiling_1.txt':
                             with open(object_file, 'r') as f:
                                 lines = f.readlines()
@@ -728,6 +799,12 @@ class AHNDataset(PointCloudDataset):
 
     def load_subsampled_clouds(self):
 
+        # kuramin defined value to distinguish between AHN and S3DIS
+        if self.config.dataset == 'S3DIS':
+            name_of_class_property = 'class'
+        else:
+            name_of_class_property = 'scalar_Classification'
+        
         # Parameter
         dl = self.config.first_subsampling_dl
 
@@ -754,32 +831,33 @@ class AHNDataset(PointCloudDataset):
 
             # Check if inputs have already been computed
             if exists(KDTree_file):
-                print('\nFound KDTree for cloud {:s}, subsampled at {:.3f}'.format(cloud_name, dl))
+                print('\nFound KDTree {:s} for cloud {:s} with path {:s}, subsampled at {:.3f}'.format(KDTree_file, cloud_name, sub_ply_file, dl))
 
                 # read ply with data
                 data = read_ply(sub_ply_file)
                 sub_colors = np.vstack((data['red'], data['green'], data['blue'])).T
-                sub_labels = data['class']
+                #sub_labels = data['scalar_Classification']
+                #sub_labels = data['class']
+                sub_labels = data[name_of_class_property]
 
                 # Read pkl with search tree
                 with open(KDTree_file, 'rb') as f:
                     search_tree = pickle.load(f)
 
             else:
-                print('\nPreparing KDTree for cloud {:s}, subsampled at {:.3f}'.format(cloud_name, dl))
+                print('\nPreparing KDTree {:s} for cloud {:s} with path {:s}, subsampled at {:.3f}'.format(KDTree_file, cloud_name, sub_ply_file, dl))
 
                 # Read ply file
                 data = read_ply(file_path)
                 points = np.vstack((data['x'], data['y'], data['z'])).T
                 #colors = np.vstack((data['scalar_NumberOfReturns'], data['scalar_ReturnNumber'], data['scalar_Intensity'])).T  # kuramin changed
                 colors = np.vstack((data['red'], data['green'], data['blue'])).T
-                labels_float = data['scalar_Classification']
+                #labels_float = data['scalar_Classification']  # kuramin class fake_rgb
+                #labels_float = data['class']
+                labels_float = data[name_of_class_property]
                 labels = []
                 for label_float in labels_float:
-                    label = int(label_float)
-                    labels.append(label)
-                    
-                print('labels has size', len(labels), 'hist is', np.histogram(labels, bins = [0,1,2,3,4,5,6,7,8,9,10]))
+                    labels.append(int(label_float))
 
                 # Subsample cloud
                 sub_points, sub_colors, sub_labels = grid_subsampling(points,
@@ -824,9 +902,10 @@ class AHNDataset(PointCloudDataset):
             # Restart timer
             t0 = time.time()
 
-            pot_dl = self.config.in_radius / 10
+            pot_dl = self.config.in_radius / 10  # current value of pot_dl will be 0.15
             cloud_ind = 0
 
+            # in this loop kuramin renamed search_tree to coarse_search_tree and sub_points - to search_tree
             for i, file_path in enumerate(self.files):
 
                 # Get cloud name
@@ -839,22 +918,23 @@ class AHNDataset(PointCloudDataset):
                 if exists(coarse_KDTree_file):
                     # Read pkl with search tree
                     with open(coarse_KDTree_file, 'rb') as f:
-                        search_tree = pickle.load(f)
+                        coarse_search_tree = pickle.load(f)
 
                 else:
                     # Subsample cloud
-                    sub_points = np.array(self.input_trees[cloud_ind].data, copy=False)
-                    coarse_points = grid_subsampling(sub_points.astype(np.float32), sampleDl=pot_dl)
+                    search_tree = np.array(self.input_trees[cloud_ind].data, copy=False)
+                    print('Lets find coarse poiints with pot_dl =', pot_dl)
+                    coarse_points = grid_subsampling(search_tree.astype(np.float32), sampleDl=pot_dl)
 
                     # Get chosen neighborhoods
-                    search_tree = KDTree(coarse_points, leaf_size=10)
+                    coarse_search_tree = KDTree(coarse_points, leaf_size=10)
 
                     # Save KDTree
                     with open(coarse_KDTree_file, 'wb') as f:
-                        pickle.dump(search_tree, f)
+                        pickle.dump(coarse_search_tree, f)
 
                 # Fill data containers
-                self.pot_trees += [search_tree]
+                self.pot_trees += [coarse_search_tree]
                 cloud_ind += 1
 
             print('Done in {:.1f}s'.format(time.time() - t0))
@@ -894,15 +974,20 @@ class AHNDataset(PointCloudDataset):
                     #print(data['class'].shape)
                     #labels = data['class']
 
-                    print(data.shape)
-                    print(data['scalar_Classification'].shape)
-                    labels_float = data['scalar_Classification']
+                    #print(data.shape)
+                    #print(data['scalar_Classification'].shape)
+                    #labels_float = data['scalar_Classification']
+                    labels_float = data[name_of_class_property]
+                    #print(data['class'].shape)  # kuramin class fake_rgb
+                    #labels_float = data['class']  # kuramin class fake_rgb
                     labels = []
                     for label_float in labels_float:
                         label = int(label_float)
                         labels.append(label)
+                        if len(labels) % 100000 == 0:
+                            print('Transforming labels of whole cloud to int in order to fill self.test_proj. Number of processed members is', len(labels))
 
-                    # Compute projection inds
+                    # Compute projection indices - which members of input_trees[i] is closest to every member of points
                     idxs = self.input_trees[i].query(points, return_distance=False)
                     #dists, idxs = self.input_trees[i_cloud].kneighbors(points)
                     proj_inds = np.squeeze(idxs).astype(np.int32)
@@ -934,10 +1019,10 @@ class AHNDataset(PointCloudDataset):
 #       \********************************/
 
 
-class AHNSampler(Sampler):
-    """Sampler for AHN"""
+class S3DISSampler(Sampler):
+    """Sampler for S3DIS"""
 
-    def __init__(self, dataset: AHNDataset):
+    def __init__(self, dataset: S3DISDataset):
         Sampler.__init__(self, dataset)
 
         # Dataset used by the sampler (no copy is made in memory)
@@ -957,6 +1042,7 @@ class AHNSampler(Sampler):
         (input sphere) in epoch instead of the list of point indices
         """
 
+        # not used in our case, go to Generator loop
         if not self.dataset.use_potentials:
 
             # Initiate current epoch ind
@@ -1010,89 +1096,105 @@ class AHNSampler(Sampler):
         """
         return self.N
 
-    def fast_calib(self):
-        """
-        This method calibrates the batch sizes while ensuring the potentials are well initialized. Indeed on a dataset
-        like Semantic3D, before potential have been updated over the dataset, there are cahnces that all the dense area
-        are picked in the begining and in the end, we will have very large batch of small point clouds
-        :return:
-        """
-
-        # Estimated average batch size and target value
-        estim_aver_bat_size = 0
-        target_aver_bat_size = self.dataset.config.batch_num
-
-        # Calibration parameters
-        low_pass_T = 10
-        Kp = 100.0
-        finer = False
-        breaking = False
-
-        # Convergence parameters
-        smooth_errors = []
-        converge_threshold = 0.1
-
-        t = [time.time()]
-        last_display = time.time()
-        mean_dt = np.zeros(2)
-
-        for epoch in range(10):
-            for i, test in enumerate(self):
-
-                # New time
-                t = t[-1:]
-                t += [time.time()]
-
-                # batch length
-                b = len(test)
-
-                # Update estim_aver_bat_size (low pass filter)
-                estim_aver_bat_size += (b - estim_aver_bat_size) / low_pass_T
-
-                # Estimate error (noisy)
-                error = target_aver_bat_size - b
-
-                # Save smooth errors for convergene check
-                smooth_errors.append(target_aver_bat_size - estim_aver_bat_size)
-                if len(smooth_errors) > 10:
-                    smooth_errors = smooth_errors[1:]
-
-                # Update batch limit with P controller
-                self.dataset.batch_limit += Kp * error
-
-                # finer low pass filter when closing in
-                if not finer and np.abs(estim_aver_bat_size - target_aver_bat_size) < 1:
-                    low_pass_T = 100
-                    finer = True
-
-                # Convergence
-                if finer and np.max(np.abs(smooth_errors)) < converge_threshold:
-                    breaking = True
-                    break
-
-                # Average timing
-                t += [time.time()]
-                mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
-
-                # Console display (only one per second)
-                if (t[-1] - last_display) > 1.0:
-                    last_display = t[-1]
-                    message = 'Step {:5d}  estim_aver_bat_size ={:5.2f} batch_limit ={:7d},  //  {:.1f}ms {:.1f}ms'
-                    print(message.format(i,
-                                         estim_aver_bat_size,
-                                         int(self.dataset.batch_limit),
-                                         1000 * mean_dt[0],
-                                         1000 * mean_dt[1]))
-
-            if breaking:
-                break
+    # def fast_calib(self):
+    #     """
+    #     This method calibrates the batch sizes while ensuring the potentials are well initialized. Indeed on a dataset
+    #     like Semantic3D, before potential have been updated over the dataset, there are chances that all the dense area
+    #     are picked in the beginning and in the end, we will have very large batch of small point clouds
+    #     :return:
+    #     """
+    #
+    #     # Estimated average batch size and target value
+    #     estim_aver_bat_size = 0
+    #     target_aver_bat_size = self.dataset.config.batch_num
+    #
+    #     # Calibration parameters
+    #     low_pass_T = 10
+    #     Kp = 100.0
+    #     finer = False
+    #     breaking = False
+    #
+    #     # Convergence parameters
+    #     smooth_errors = []
+    #     converge_threshold = 0.1
+    #
+    #     t = [time.time()]
+    #     last_display = time.time()
+    #     mean_dt = np.zeros(2)
+    #
+    #     for epoch in range(10):
+    #         for i, test in enumerate(self):
+    #
+    #             # New time
+    #             t = t[-1:]
+    #             t += [time.time()]
+    #
+    #             # batch length
+    #             b = len(test)
+    #
+    #             # Update estim_aver_bat_size (low pass filter)
+    #             estim_aver_bat_size += (b - estim_aver_bat_size) / low_pass_T
+    #
+    #             # Estimate error (noisy)
+    #             error = target_aver_bat_size - b
+    #
+    #             # Save smooth errors for convergene check
+    #             smooth_errors.append(target_aver_bat_size - estim_aver_bat_size)
+    #             if len(smooth_errors) > 10:
+    #                 smooth_errors = smooth_errors[1:]
+    #
+    #             # Update batch limit with P controller
+    #             self.dataset.batch_limit += Kp * error
+    #
+    #             # finer low pass filter when closing in
+    #             if not finer and np.abs(estim_aver_bat_size - target_aver_bat_size) < 1:
+    #                 low_pass_T = 100
+    #                 finer = True
+    #
+    #             # Convergence
+    #             if finer and np.max(np.abs(smooth_errors)) < converge_threshold:
+    #                 breaking = True
+    #                 break
+    #
+    #             # Average timing
+    #             t += [time.time()]
+    #             mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
+    #
+    #             # Console display (only one per second)
+    #             if (t[-1] - last_display) > 1.0:
+    #                 last_display = t[-1]
+    #                 message = 'Step {:5d}  estim_aver_bat_size ={:5.2f} batch_limit ={:7d},  //  {:.1f}ms {:.1f}ms'
+    #                 print(message.format(i,
+    #                                      estim_aver_bat_size,
+    #                                      int(self.dataset.batch_limit),
+    #                                      1000 * mean_dt[0],
+    #                                      1000 * mean_dt[1]))
+    #
+    #         if breaking:
+    #             break
 
     def calibration(self, dataloader, untouched_ratio=0.9, verbose=False, force_redo=False):
         """
-        Method performing batch and neighbors calibration.
-            Batch calibration: Set "batch_limit" (the maximum number of points allowed in every batch) so that the
+            The neighborhood calibration function is here to control the number of neighbors.
+            As we preferred radius neighborhood (for geometrical consistency),
+            some of the neighborhoods (in the dense areas like vegetation) can contain a lot of points.
+            For an input batch, the neighborhood matrix size is [N, n_max]
+            where n_max is the maximum number of neighbors.
+            As we have big batches, there is often a dense area among the points, forcing n_max to be large.
+            Furthermore, in the case the density is not controlled with a grid, we could end up with very large n_max,
+            causing an OOM crash. The neighborhood calibration function sets a limit for n_max,
+            by checking some input batches.
+            The limit (set for each layer of the network in the self.neighborhood_limits variable of the dataset class)
+            is set as the 90th percentile of the distribution of neighbor numbers.
+            It means that 90% of the neighborhoods won't be affected by this limit,
+            and that the 10% most dense neighborhoods will lose some of their points.
+            Because of the way we compute neighborhoods, they lose the furthest points,
+            which means they become KNN neighborhoods.
+            Thanks to this trick, our network is lighter, faster, and it does not affect the performances.
+
+            Batch calibration: done to set "batch_limit" (the maximum number of points allowed in every batch) so that the
                                average batch size (number of stacked pointclouds) is the one asked.
-        Neighbors calibration: Set the "neighborhood_limits" (the maximum number of neighbors allowed in convolutions)
+        Neighbors calibration: done to set the "neighborhood_limits" (the maximum number of neighbors allowed in convolutions)
                                so that 90% of the neighborhoods remain untouched. There is a limit for each layer.
         """
 
@@ -1189,6 +1291,10 @@ class AHNSampler(Sampler):
                     v = '?'
                 print('{:}\"{:s}\": {:s}{:}'.format(color, key, v, bcolors.ENDC))
 
+        # all the contents of this IF are just calculation histogram and
+        # values of self.batch_limit and self.neighborhood_limits from it.
+        # These values will define break when enough number of balls are collected during method "potential item"
+        # which will be used inside Calibration (somehow it is used inside it too)
         if redo:
 
             ############################
@@ -1196,22 +1302,22 @@ class AHNSampler(Sampler):
             ############################
 
             # From config parameter, compute higher bound of neighbors number in a neighborhood
-            hist_n = int(np.ceil(4 / 3 * np.pi * (self.dataset.config.deform_radius + 1) ** 3))
+            upper_bound_of_neigh_number = int(np.ceil(4 / 3 * np.pi * (self.dataset.config.deform_radius + 1) ** 3))
 
             # Histogram of neighborhood sizes
-            neighb_hists = np.zeros((self.dataset.config.num_layers, hist_n), dtype=np.int32)
+            neighb_hists = np.zeros((self.dataset.config.num_layers, upper_bound_of_neigh_number), dtype=np.int32)
 
             ########################
             # Batch calib parameters
             ########################
 
-            # Estimated average batch size and target value
+            # Estimated average batch size and target value (0 and 6)
             estim_aver_bat_size = 0
             target_aver_bat_size = self.dataset.config.batch_num
 
             # Calibration parameters
             low_pass_T = 10
-            Kp = 100.0
+            Kp = 100.0  # defines which number of points will be added to current value of batch_limit (is multiplied by ERROR)
             finer = False
 
             # Convergence parameters
@@ -1226,16 +1332,39 @@ class AHNSampler(Sampler):
             #####################
             # Perform calibration
             #####################
-
-            for epoch in range(10):
+            print('Before range10')
+            for epoch in range(10):  # kuramin changed from 10 to 100 instead of increasing steps_per_epoch
+                print('Begin iter o range10. Before enumerate(dataloader)')
                 for batch_i, batch in enumerate(dataloader):
 
-                    # Update neighborhood histogram
-                    counts = [np.sum(neighb_mat.numpy() < neighb_mat.shape[0], axis=1) for neighb_mat in batch.neighbors]
-                    hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
-                    neighb_hists += np.vstack(hists)
+                    # kuramins print
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors len', len(batch.neighbors))
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[0].shape', batch.neighbors[0].shape)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[1].shape', batch.neighbors[1].shape)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[2].shape', batch.neighbors[2].shape)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[3].shape', batch.neighbors[3].shape)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors[4].shape', batch.neighbors[4].shape)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'batch.neighbors\n', batch.neighbors)
+                    # print('epoch', epoch, 'batch_i', batch_i, 'end')
 
-                    # batch length
+                    # Update neighborhood histogram
+                    #for neighb_mat in batch.neighbors:
+                    #    print('neighb_mat.numpy())', neighb_mat.numpy())
+                    #    print('neighb_mat.shape[0])', neighb_mat.shape[0])
+
+                    # number of neighbors of each point on every layer (5 layers)
+                    counts = [np.sum(neighb_mat.numpy() < neighb_mat.shape[0], axis=1) for neighb_mat in batch.neighbors]
+
+                    # on every layer we calculate how many points have 0 neighs, 1 neigh, 2 .... upper_bound_of_neigh_number neighs (which is much more than we need)
+                    hists = [np.bincount(c, minlength=upper_bound_of_neigh_number)[:upper_bound_of_neigh_number] for c in counts]
+
+                    # transform list hists to ndarray neighb_hists
+                    neighb_hists += np.vstack(hists)
+                    # kuramins print
+                    # print('counts', counts)
+                    # print('neighb_hists', neighb_hists)
+
+                    # batch length is number of balls collected now within current value of batch_limit
                     b = len(batch.cloud_inds)
 
                     # Update estim_aver_bat_size (low pass filter)
@@ -1244,7 +1373,7 @@ class AHNSampler(Sampler):
                     # Estimate error (noisy)
                     error = target_aver_bat_size - b
 
-                    # Save smooth errors for convergene check
+                    # Save smooth errors for convergence check
                     smooth_errors.append(target_aver_bat_size - estim_aver_bat_size)
                     if len(smooth_errors) > 10:
                         smooth_errors = smooth_errors[1:]
@@ -1252,7 +1381,7 @@ class AHNSampler(Sampler):
                     # Update batch limit with P controller
                     self.dataset.batch_limit += Kp * error
 
-                    # finer low pass filter when closing in
+                    # turn on finer low pass filter when estim_aver_bat_size is close to target_aver_bat_size
                     if not finer and np.abs(estim_aver_bat_size - target_aver_bat_size) < 1:
                         low_pass_T = 100
                         finer = True
@@ -1267,9 +1396,10 @@ class AHNSampler(Sampler):
 
                     # Console display (only one per second)
                     if verbose:
-                    #if verbose and (t - last_display) > 1.0:
+                    #if verbose and (t - last_display) > 1.0: # kuramin commented
                         last_display = t
-                        message = 'Step {:5d}, estim_aver_bat_size ={:5.2f}, b ={:3d}, bat_lim ={:7d}, error = {:2d}, sm_append = {:5.5f}, lets_finer ={:5.5f}, max_a_sm_err = {:3.7f}, low_pass = {:3d}, finer = {:1d}'
+                        #message = 'For-loop through batches during calibration: Step {:5d} - estim_aver_bat_size ={:5.2f}, b ={:3d}, batch_limit ={:7d}, max_a_sm_err = {:3.7f}'
+                        message = 'Step {:5d} - estim_aver_bat_size ={:5.2f}, b ={:3d}, bat_lim ={:7d}, error = {:2d}, sm_append = {:5.5f}, lets_finer ={:5.5f}, max_a_sm_err = {:3.7f}, low_pass = {:3d}, finer = {:1d}'
                         print(message.format(i,
                                              estim_aver_bat_size,
                                              b,
@@ -1280,27 +1410,34 @@ class AHNSampler(Sampler):
                                              np.max(np.abs(smooth_errors)),
                                              low_pass_T,
                                              finer))
+                        #print('smooth errors is', smooth_errors)
+                    #print('Last step of enumerate(dataloader), breaking is ', breaking)
+                print('After enumerate(dataloader), breaking is ', breaking)
                 if breaking:
                     break
-
+                print('End of iter of range10')
             # Use collected neighbor histogram to get neighbors limit
+            print('After range10')
+            # cumsum[i] contains a list: number of points which have i or less neighbors on sampling level 0, i or less neighbors on level 1, ...., level 4
             cumsum = np.cumsum(neighb_hists.T, axis=0)
-            percentiles = np.sum(cumsum < (untouched_ratio * cumsum[hist_n - 1, :]), axis=0)
+
+            # number of neighbors which is exceeded by only 10% of points of sampling level 0, same for level 1, ...., level 4
+            percentiles = np.sum(cumsum < (untouched_ratio * cumsum[upper_bound_of_neigh_number - 1, :]), axis=0)
             self.dataset.neighborhood_limits = percentiles
 
+            # Print histogram
             if verbose:
-
                 # Crop histogram
                 while np.sum(neighb_hists[:, -1]) == 0:
                     neighb_hists = neighb_hists[:, :-1]
-                hist_n = neighb_hists.shape[1]
+                upper_bound_of_neigh_number = neighb_hists.shape[1]
 
                 print('\n**************************************************\n')
                 line0 = 'neighbors_num '
                 for layer in range(neighb_hists.shape[0]):
                     line0 += '|  layer {:2d}  '.format(layer)
                 print(line0)
-                for neighb_size in range(hist_n):
+                for neighb_size in range(upper_bound_of_neigh_number):
                     line0 = '     {:4d}     '.format(neighb_size)
                     for layer in range(neighb_hists.shape[0]):
                         if neighb_size > percentiles[layer]:
@@ -1317,7 +1454,7 @@ class AHNSampler(Sampler):
                 print('\nchosen neighbors limits: ', percentiles)
                 print()
 
-            # Save batch_limit dictionary
+            # Save batch_limit dictionary to batch_limits.pkl
             if self.dataset.use_potentials:
                 sampler_method = 'potentials'
             else:
@@ -1330,7 +1467,7 @@ class AHNSampler(Sampler):
             with open(batch_lim_file, 'wb') as file:
                 pickle.dump(batch_lim_dict, file)
 
-            # Save neighb_limit dictionary
+            # Save neighborhood_limits to neighbors_limits.pkl
             for layer_ind in range(self.dataset.config.num_layers):
                 dl = self.dataset.config.first_subsampling_dl * (2 ** layer_ind)
                 if self.dataset.config.deform_layers[layer_ind]:
@@ -1342,13 +1479,13 @@ class AHNSampler(Sampler):
             with open(neighb_lim_file, 'wb') as file:
                 pickle.dump(neighb_lim_dict, file)
 
-
+        print('self.dataset.batch_limit', self.dataset.batch_limit, 'self.dataset.neighborhood_limits', self.dataset.neighborhood_limits)
         print('Calibration done in {:.1f}s\n'.format(time.time() - t0))
         return
 
 
-class AHNCustomBatch:
-    """Custom batch definition with memory pinning for AHN"""
+class S3DISCustomBatch:
+    """Custom batch definition with memory pinning for S3DIS"""
 
     def __init__(self, input_list):
 
@@ -1486,190 +1623,182 @@ class AHNCustomBatch:
         return all_p_list
 
 
-
-def AHNCollate(batch_data):
-    '''
-        Collate_fn is your callable/function that processes the batch you want to return from your dataloader
-        Hereof, what is PyTorch DataLoader? Combines a dataset and a sampler, and provides an iterable over the given dataset.
-        Class DataLoader supports both single- or multi-process loading, customizing loading order, optional automatic batching (collation) and memory pinning.
-        Variable num_workers , which denotes the number of processes that generate batches in parallel.
-        DataLoader is a python iterator that will return elements from your dataset batch by batch. This allows you to use it as for data in train_loader.
-    '''
-    return AHNCustomBatch(batch_data)
+def S3DISCollate(batch_data):
+    return S3DISCustomBatch(batch_data)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 #
 #           Debug functions
 #       \*********************/
-
-
-def debug_upsampling(dataset, loader):
-    """Shows which labels are sampled according to strategy chosen"""
-
-
-    for epoch in range(10):
-
-        for batch_i, batch in enumerate(loader):
-
-            pc1 = batch.points[1].numpy()
-            pc2 = batch.points[2].numpy()
-            up1 = batch.upsamples[1].numpy()
-
-            print(pc1.shape, '=>', pc2.shape)
-            print(up1.shape, np.max(up1))
-
-            pc2 = np.vstack((pc2, np.zeros_like(pc2[:1, :])))
-
-            # Get neighbors distance
-            p0 = pc1[10, :]
-            neighbs0 = up1[10, :]
-            neighbs0 = pc2[neighbs0, :] - p0
-            d2 = np.sum(neighbs0 ** 2, axis=1)
-
-            print(neighbs0.shape)
-            print(neighbs0[:5])
-            print(d2[:5])
-
-            print('******************')
-        print('*******************************************')
-
-    _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
-
-
-def debug_timing(dataset, loader):
-    """Timing of generator function"""
-
-    t = [time.time()]
-    last_display = time.time()
-    mean_dt = np.zeros(2)
-    estim_aver_bat_size = dataset.config.batch_num
-    estim_N = 0
-
-    for epoch in range(10):
-
-        for batch_i, batch in enumerate(loader):
-            # print(batch_i, tuple(points.shape),  tuple(normals.shape), labels, indices, in_sizes)
-
-            # New time
-            t = t[-1:]
-            t += [time.time()]
-
-            # Update estim_aver_bat_size (low pass filter)
-            estim_aver_bat_size += (len(batch.cloud_inds) - estim_aver_bat_size) / 100
-            estim_N += (batch.features.shape[0] - estim_N) / 10
-
-            # Pause simulating computations
-            time.sleep(0.05)
-            t += [time.time()]
-
-            # Average timing
-            mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
-
-            # Console display (only one per second)
-            if (t[-1] - last_display) > -1.0:
-                last_display = t[-1]
-                message = 'Step {:08d} -> (ms/batch) {:8.2f} {:8.2f} / batch = {:.2f} - {:.0f}'
-                print(message.format(batch_i,
-                                     1000 * mean_dt[0],
-                                     1000 * mean_dt[1],
-                                     estim_aver_bat_size,
-                                     estim_N))
-
-        print('************* Epoch ended *************')
-
-    _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
-
-
-def debug_show_clouds(dataset, loader):
-
-
-    for epoch in range(10):
-
-        clouds = []
-        cloud_normals = []
-        cloud_labels = []
-
-        L = dataset.config.num_layers
-
-        for batch_i, batch in enumerate(loader):
-
-            # Print characteristics of input tensors
-            print('\nPoints tensors')
-            for i in range(L):
-                print(batch.points[i].dtype, batch.points[i].shape)
-            print('\nNeigbors tensors')
-            for i in range(L):
-                print(batch.neighbors[i].dtype, batch.neighbors[i].shape)
-            print('\nPools tensors')
-            for i in range(L):
-                print(batch.pools[i].dtype, batch.pools[i].shape)
-            print('\nStack lengths')
-            for i in range(L):
-                print(batch.lengths[i].dtype, batch.lengths[i].shape)
-            print('\nFeatures')
-            print(batch.features.dtype, batch.features.shape)
-            print('\nLabels')
-            print(batch.labels.dtype, batch.labels.shape)
-            print('\nAugment Scales')
-            print(batch.scales.dtype, batch.scales.shape)
-            print('\nAugment Rotations')
-            print(batch.rots.dtype, batch.rots.shape)
-            print('\nModel indices')
-            print(batch.model_inds.dtype, batch.model_inds.shape)
-
-            print('\nAre input tensors pinned')
-            print(batch.neighbors[0].is_pinned())
-            print(batch.neighbors[-1].is_pinned())
-            print(batch.points[0].is_pinned())
-            print(batch.points[-1].is_pinned())
-            print(batch.labels.is_pinned())
-            print(batch.scales.is_pinned())
-            print(batch.rots.is_pinned())
-            print(batch.model_inds.is_pinned())
-
-            show_input_batch(batch)
-
-        print('*******************************************')
-
-    _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
-
-
-def debug_batch_and_neighbors_calib(dataset, loader):
-    """Timing of generator function"""
-
-    t = [time.time()]
-    last_display = time.time()
-    mean_dt = np.zeros(2)
-
-    for epoch in range(10):
-
-        for batch_i, input_list in enumerate(loader):
-            # print(batch_i, tuple(points.shape),  tuple(normals.shape), labels, indices, in_sizes)
-
-            # New time
-            t = t[-1:]
-            t += [time.time()]
-
-            # Pause simulating computations
-            time.sleep(0.01)
-            t += [time.time()]
-
-            # Average timing
-            mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
-
-            # Console display (only one per second)
-            if (t[-1] - last_display) > 1.0:
-                last_display = t[-1]
-                message = 'Step {:08d} -> Average timings (ms/batch) {:8.2f} {:8.2f} '
-                print(message.format(batch_i,
-                                     1000 * mean_dt[0],
-                                     1000 * mean_dt[1]))
-
-        print('************* Epoch ended *************')
-
-    _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+#
+#
+# def debug_upsampling(dataset, loader):
+#     """Shows which labels are sampled according to strategy chosen"""
+#
+#
+#     for epoch in range(10):
+#
+#         for batch_i, batch in enumerate(loader):
+#
+#             pc1 = batch.points[1].numpy()
+#             pc2 = batch.points[2].numpy()
+#             up1 = batch.upsamples[1].numpy()
+#
+#             print(pc1.shape, '=>', pc2.shape)
+#             print(up1.shape, np.max(up1))
+#
+#             pc2 = np.vstack((pc2, np.zeros_like(pc2[:1, :])))
+#
+#             # Get neighbors distance
+#             p0 = pc1[10, :]
+#             neighbs0 = up1[10, :]
+#             neighbs0 = pc2[neighbs0, :] - p0
+#             d2 = np.sum(neighbs0 ** 2, axis=1)
+#
+#             print(neighbs0.shape)
+#             print(neighbs0[:5])
+#             print(d2[:5])
+#
+#             print('******************')
+#         print('*******************************************')
+#
+#     _, counts = np.unique(dataset.input_labels, return_counts=True)
+#     print(counts)
+#
+#
+# def debug_timing(dataset, loader):
+#     """Timing of generator function"""
+#
+#     t = [time.time()]
+#     last_display = time.time()
+#     mean_dt = np.zeros(2)
+#     estim_aver_bat_size = dataset.config.batch_num
+#     estim_N = 0
+#
+#     for epoch in range(10):
+#
+#         for batch_i, batch in enumerate(loader):
+#             # print(batch_i, tuple(points.shape),  tuple(normals.shape), labels, indices, in_sizes)
+#
+#             # New time
+#             t = t[-1:]
+#             t += [time.time()]
+#
+#             # Update estim_aver_bat_size (low pass filter)
+#             estim_aver_bat_size += (len(batch.cloud_inds) - estim_aver_bat_size) / 100
+#             estim_N += (batch.features.shape[0] - estim_N) / 10
+#
+#             # Pause simulating computations
+#             time.sleep(0.05)
+#             t += [time.time()]
+#
+#             # Average timing
+#             mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
+#
+#             # Console display (only one per second)
+#             if (t[-1] - last_display) > -1.0:
+#                 last_display = t[-1]
+#                 message = 'Step {:08d} -> (ms/batch) {:8.2f} {:8.2f} / batch = {:.2f} - {:.0f}'
+#                 print(message.format(batch_i,
+#                                      1000 * mean_dt[0],
+#                                      1000 * mean_dt[1],
+#                                      estim_aver_bat_size,
+#                                      estim_N))
+#
+#         print('************* Epoch ended *************')
+#
+#     _, counts = np.unique(dataset.input_labels, return_counts=True)
+#     print(counts)
+#
+#
+# def debug_show_clouds(dataset, loader):
+#
+#
+#     for epoch in range(10):
+#
+#         clouds = []
+#         cloud_normals = []
+#         cloud_labels = []
+#
+#         L = dataset.config.num_layers
+#
+#         for batch_i, batch in enumerate(loader):
+#
+#             # Print characteristics of input tensors
+#             print('\nPoints tensors')
+#             for i in range(L):
+#                 print(batch.points[i].dtype, batch.points[i].shape)
+#             print('\nNeigbors tensors')
+#             for i in range(L):
+#                 print(batch.neighbors[i].dtype, batch.neighbors[i].shape)
+#             print('\nPools tensors')
+#             for i in range(L):
+#                 print(batch.pools[i].dtype, batch.pools[i].shape)
+#             print('\nStack lengths')
+#             for i in range(L):
+#                 print(batch.lengths[i].dtype, batch.lengths[i].shape)
+#             print('\nFeatures')
+#             print(batch.features.dtype, batch.features.shape)
+#             print('\nLabels')
+#             print(batch.labels.dtype, batch.labels.shape)
+#             print('\nAugment Scales')
+#             print(batch.scales.dtype, batch.scales.shape)
+#             print('\nAugment Rotations')
+#             print(batch.rots.dtype, batch.rots.shape)
+#             print('\nModel indices')
+#             print(batch.model_inds.dtype, batch.model_inds.shape)
+#
+#             print('\nAre input tensors pinned')
+#             print(batch.neighbors[0].is_pinned())
+#             print(batch.neighbors[-1].is_pinned())
+#             print(batch.points[0].is_pinned())
+#             print(batch.points[-1].is_pinned())
+#             print(batch.labels.is_pinned())
+#             print(batch.scales.is_pinned())
+#             print(batch.rots.is_pinned())
+#             print(batch.model_inds.is_pinned())
+#
+#             show_input_batch(batch)
+#
+#         print('*******************************************')
+#
+#     _, counts = np.unique(dataset.input_labels, return_counts=True)
+#     print(counts)
+#
+#
+# def debug_batch_and_neighbors_calib(dataset, loader):
+#     """Timing of generator function"""
+#
+#     t = [time.time()]
+#     last_display = time.time()
+#     mean_dt = np.zeros(2)
+#
+#     for epoch in range(10):
+#
+#         for batch_i, input_list in enumerate(loader):
+#             # print(batch_i, tuple(points.shape),  tuple(normals.shape), labels, indices, in_sizes)
+#
+#             # New time
+#             t = t[-1:]
+#             t += [time.time()]
+#
+#             # Pause simulating computations
+#             time.sleep(0.01)
+#             t += [time.time()]
+#
+#             # Average timing
+#             mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
+#
+#             # Console display (only one per second)
+#             if (t[-1] - last_display) > 1.0:
+#                 last_display = t[-1]
+#                 message = 'Step {:08d} -> Average timings (ms/batch) {:8.2f} {:8.2f} '
+#                 print(message.format(batch_i,
+#                                      1000 * mean_dt[0],
+#                                      1000 * mean_dt[1]))
+#
+#         print('************* Epoch ended *************')
+#
+#     _, counts = np.unique(dataset.input_labels, return_counts=True)
+#     print(counts)
