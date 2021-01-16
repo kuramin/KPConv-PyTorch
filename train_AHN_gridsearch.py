@@ -68,9 +68,9 @@ if __name__ == '__main__':
     
     gridsearch_filename = time.strftime('results/train_AHN_gridsearch_%Y-%m-%d_%H-%M-%S.txt', time.gmtime())
     
-    range_fsd = [1.0]  # [0.2, 0.5, 1.0, 1.5]
-    range_in_radius = [15]  # [15, 25, 35]
-    range_conv_radius = [1.5]  # [1.5, 2.5, 3.5]
+    range_fsd = [0.5, 1.5]  # [0.2, 0.5, 1.0, 1.5]
+    range_in_radius = [15, 25]  # [15, 25, 35]
+    range_conv_radius = [1.5, 2.5]  # [1.5, 2.5, 3.5]
     range_deform_radius = [5.0]  # [5.0, 6.0, 7.0]
     range_repulse_extent = [1.2]
     range_KP_extent = [1.2]

@@ -74,9 +74,9 @@ class AHNDataset(PointCloudDataset):
 #                                8: 'fake_class_5',
 #                                9: 'fake_class_6'}
         
-        self.label_to_names = {1: 'other',
-                               2: 'ground',
-                               3: 'building'}
+        self.label_to_names = {0: 'other',
+                               1: 'ground',
+                               2: 'building'}
 
         # Initialize a bunch of variables concerning class labels
         self.init_labels()
@@ -127,10 +127,13 @@ class AHNDataset(PointCloudDataset):
         #self.all_splits = [0, 1]
         #self.validation_split = 1
         
-        self.cloud_names = ['logClass_Lelystad', 'logClass_Duindorp', 'logClass_Katwijk', 'logClass_Maastricht', 'logClass_Vissingen', 'logClass_Hellevoetsluis']
-        self.all_splits = [0, 1, 2, 3, 4, 5]
-        self.validation_split = 5
+#         self.cloud_names = ['logClass_Lelystad', 'logClass_Duindorp', 'logClass_Katwijk', 'logClass_Maastricht', 'logClass_Vissingen', 'logClass_Hellevoetsluis']
+#         self.all_splits = [0, 1, 2, 3, 4, 5]
+#         self.validation_split = 5
         
+        self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012']
+        self.all_splits = [0, 1]
+        self.validation_split = 1
 
         # Number of models used per epoch
         if self.set == 'training':
@@ -373,7 +376,7 @@ class AHNDataset(PointCloudDataset):
                 #        input_labels_list.append(self.label_to_idx[l])
                 input_labels_list = []
                 for inde in input_inds:
-                    if self.input_labels[cloud_ind][inde] not in [1,2,3,4,5,6,7,8,9]:
+                    if self.input_labels[cloud_ind][inde] not in [0,1,2,3,4,5,6,7,8,9]:
                         print('weird val of l', self.input_labels[cloud_ind][inde], 'cloud_ind', cloud_ind, 'input_ind', inde)
                     else:    
                         input_labels_list.append(self.label_to_idx[self.input_labels[cloud_ind][inde]])
