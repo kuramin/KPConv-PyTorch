@@ -63,19 +63,19 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
     
     input_threads = 10
-    max_epoch = 50
-    steps_per_epoch = 100
+    max_epoch = 7
+    steps_per_epoch = 50
     
     gridsearch_filename = time.strftime('results/train_AHN_gridsearch_%Y-%m-%d_%H-%M-%S.txt', time.gmtime())
     
-    range_fsd = [0.5, 1.5]  # [0.2, 0.5, 1.0, 1.5]
+    range_fsd = [0.5, 1.0]  # [0.2, 0.5, 1.0, 1.5]
     range_in_radius = [15, 25]  # [15, 25, 35]
     range_conv_radius = [1.5, 2.5]  # [1.5, 2.5, 3.5]
-    range_deform_radius = [5.0]  # [5.0, 6.0, 7.0]
+    range_deform_radius = [5.0, 7.0]  # [5.0, 6.0, 7.0]
     range_repulse_extent = [1.2]
     range_KP_extent = [1.2]
     range_num_kernel_points = [15, 25]
-    range_deform_fitting_power = [0.5]  # [0.1, 0.5, 1.0]
+    range_deform_fitting_power = [0.1, 0.5]  # [0.1, 0.5, 1.0]
     
     # Lets loop
     for fsd in range_fsd:
