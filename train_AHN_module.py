@@ -144,7 +144,7 @@ class AHNConfig(Config):
     #####################
 
     # Maximal number of epochs
-    max_epoch = 50  # 500  kuramin changed
+    max_epoch = 7  # 500  kuramin changed
 
     # Learning rate management
     learning_rate = 1e-2
@@ -164,7 +164,7 @@ class AHNConfig(Config):
     validation_size = 50
 
     # Number of epoch between each checkpoint
-    checkpoint_gap = 6  # 50
+    checkpoint_gap = 6 #6  # 50
 
     # Augmentations
     augment_scale_anisotropic = True

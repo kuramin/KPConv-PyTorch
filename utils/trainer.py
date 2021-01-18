@@ -188,6 +188,9 @@ class ModelTrainer:
 
                 # Forward pass
                 outputs = net(batch, config)
+                print('len(outputs)', len(outputs))
+                print('len(outputs[0])', len(outputs[0]))
+                print('outputs', outputs)
                 loss = net.loss(outputs, batch.labels)
                 acc = net.accuracy(outputs, batch.labels)
 
@@ -379,6 +382,14 @@ class ModelTrainer:
                 probs = stacked_probs[i0:i0 + length]
                 inds = in_inds[i0:i0 + length]
                 c_i = cloud_inds[b_i]
+                
+                print('len(target)', len(target))
+                print('target', target)
+                print('len(probs)', len(probs))
+                print('probs', probs)
+                aprobs = np.argmax(probs, axis=1)
+                print('len(aprobs)', len(aprobs))
+                print('aprobs', aprobs)
 
                 # Update current probs in whole cloud
                 self.validation_probs[c_i][inds] = val_smooth * self.validation_probs[c_i][inds] \
@@ -503,7 +514,7 @@ class ModelTrainer:
 
                 # Get the predicted labels
                 sub_preds = val_loader.dataset.label_values[np.argmax(sub_probs, axis=1).astype(np.int32)]
-
+                
                 # Reproject preds on the evaluations points
                 preds = (sub_preds[val_loader.dataset.test_proj[i]]).astype(np.int32)
 
