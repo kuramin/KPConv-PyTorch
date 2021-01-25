@@ -157,6 +157,7 @@ class ModelTrainer:
         mean_dt = np.zeros(1)
 
         acc_smooth = []
+        #softmax = torch.nn.Softmax(1) # kuramin added
         
         # Start training loop
         for epoch in range(config.max_epoch):
@@ -188,6 +189,13 @@ class ModelTrainer:
 
                 # Forward pass
                 outputs = net(batch, config)
+                #print('bef len(outputs)', len(outputs))
+                #print('bef len(outputs[0])', len(outputs[0]))
+                #print('bef outputs', outputs)
+                #outputs = softmax(outputs)  # kuramin added softmax
+                #print('aft len(outputs)', len(outputs))
+                #print('aft len(outputs[0])', len(outputs[0]))
+                #print('aft outputs', outputs)
                 loss = net.loss(outputs, batch.labels)
                 acc = net.accuracy(outputs, batch.labels)
 
@@ -305,11 +313,11 @@ class ModelTrainer:
         # Initialize
         ############
 
-        t0 = time.time()
-
-        # Choose validation smoothing parameter (0 for no smothing, 0.99 for big smoothing)
+        # Choose validation smoothing parameter (0 for no smoоthing, 0.99 for big smoothing)
         val_smooth = 0.95
         softmax = torch.nn.Softmax(1)
+
+        t0 = time.time()
 
         # Do not validate if dataset has no validation cloud
         if val_loader.dataset.validation_split not in val_loader.dataset.all_splits:
@@ -320,9 +328,6 @@ class ModelTrainer:
 
         # Number of classes predicted by the model
         nc_model = config.num_classes
-
-        #print(nc_tot)
-        #print(nc_model)
 
         # Initiate global prediction over validation clouds
         if not hasattr(self, 'validation_probs'):
@@ -382,12 +387,20 @@ class ModelTrainer:
                 probs = stacked_probs[i0:i0 + length]
                 inds = in_inds[i0:i0 + length]
                 c_i = cloud_inds[b_i]
+                
+                #print('len(target)', len(target))
+                #print('target', target)
+                #print('len(probs)', len(probs))
+                #print('probs', probs)
+                aprobs = np.argmax(probs, axis=1)
+                #print('len(aprobs)', len(aprobs))
+                #print('aprobs', aprobs)
 
                 # Update current probs in whole cloud
                 self.validation_probs[c_i][inds] = val_smooth * self.validation_probs[c_i][inds] \
                                                    + (1 - val_smooth) * probs
 
-                # Stack all prediction for this epoch
+                # Stack all predictions and targets for this epoch
                 predictions.append(probs)
                 targets.append(target)
                 i0 += length
@@ -399,7 +412,7 @@ class ModelTrainer:
             # Display
             if (t[-1] - last_display) > 1.0:
                 last_display = t[-1]
-                message = 'Validation : {:.1f}% (timings : {:4.2f} {:4.2f})'
+                message = 'Validation is ready for {:.1f}% (timings : {:4.2f} {:4.2f})'
                 print(message.format(100 * i / config.validation_size,
                                      1000 * (mean_dt[0]),
                                      1000 * (mean_dt[1])))
@@ -475,9 +488,9 @@ class ModelTrainer:
                     cloud_name = file_path.split('/')[-1]
                     pot_name = join(pot_path, cloud_name)
                     pots = val_loader.dataset.potentials[i].numpy().astype(np.float32)
-                    write_ply(pot_name,
-                              [pot_points.astype(np.float32), pots],
-                              ['x', 'y', 'z', 'pots'])
+#                     write_ply(pot_name,
+#                               [pot_points.astype(np.float32), pots],
+#                               ['x', 'y', 'z', 'pots'])  # kuramin commented saving clouds
 
         t6 = time.time()
 
@@ -506,7 +519,7 @@ class ModelTrainer:
 
                 # Get the predicted labels
                 sub_preds = val_loader.dataset.label_values[np.argmax(sub_probs, axis=1).astype(np.int32)]
-
+                
                 # Reproject preds on the evaluations points
                 preds = (sub_preds[val_loader.dataset.test_proj[i]]).astype(np.int32)
 
@@ -516,9 +529,9 @@ class ModelTrainer:
 
                 # Save file
                 labels = np.array(val_loader.dataset.validation_labels[i]).astype(np.int32)
-                write_ply(val_name,
-                          [points, preds, labels],
-                          ['x', 'y', 'z', 'preds', 'class'])
+#                 write_ply(val_name,
+#                           [points, preds, labels],
+#                           ['x', 'y', 'z', 'preds', 'class'])  # kuramin commented saving clouds
 
         # Display timings
         t7 = time.time()

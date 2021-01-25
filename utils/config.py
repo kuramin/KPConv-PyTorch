@@ -188,6 +188,14 @@ class Config:
     # Do we nee to save convergence
     saving = True  # redefined in train_S3DIS.py
     saving_path = None  # redefined in train_S3DIS.py
+    
+    # kuramin added, redefined in train_S3DIS.py
+    acc_aver = None
+    acc_var = None
+    mIoU_aver = None
+    mIoU_var = None
+    IoUs_aver = None
+    IoUs_var = None
 
     def __init__(self):
         """

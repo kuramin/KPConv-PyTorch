@@ -173,7 +173,7 @@ class ModelTester:
     #
     #     return
 
-    def cloud_segmentation_test(self, net, test_loader, config, num_votes=5, debug=False):
+    def cloud_segmentation_test(self, net, test_loader, config, num_votes=10, debug=False):
         """
         Test method for cloud segmentation models
         """
@@ -207,6 +207,7 @@ class ModelTester:
                 makedirs(join(test_path, 'probs'))
             if not exists(join(test_path, 'potentials')):
                 makedirs(join(test_path, 'potentials'))
+            iou_log_path = join(test_path, "IoU_log.txt")
         else:
             test_path = None
 
@@ -232,9 +233,14 @@ class ModelTester:
         t = [time.time()]
         last_display = time.time()
         mean_dt = np.zeros(1)
+        
+        mIoU_smooth = []
+        IoUs_smooth = []
 
         # Start test loop
-        while True:
+        for _ in range(2):
+        #if True:
+        #while True:  # kuramin changed
             print('Initialize workers')
             for i, batch in enumerate(test_loader):
 
@@ -304,6 +310,7 @@ class ModelTester:
             new_min = torch.min(test_loader.dataset.min_potentials)
             print('Test epoch {:d}, end. Min potential = {:.1f}'.format(test_epoch, new_min))
             #print([np.mean(pots) for pots in test_loader.dataset.potentials])
+            print('bef if last_min', last_min, 'new_min', new_min)
 
             # Save predicted cloud
             if last_min + 1 < new_min:
@@ -312,48 +319,55 @@ class ModelTester:
                 last_min += 1
 
                 # Show vote results (On subcloud so it is not the good values here)
-                if test_loader.dataset.set == 'validation':
-                    print('\nConfusion on sub clouds')
-                    Confs = []
-                    for i, file_path in enumerate(test_loader.dataset.files):
+#                 if test_loader.dataset.set == 'validation':
+#                     print('\nConfusion on sub clouds')
+#                     Confs = []
+#                     for i, file_path in enumerate(test_loader.dataset.files):
 
-                        # Insert false columns for ignored labels
-                        probs = np.array(self.test_probs[i], copy=True)
-                        for l_ind, label_value in enumerate(test_loader.dataset.label_values):
-                            if label_value in test_loader.dataset.ignored_labels:
-                                probs = np.insert(probs, l_ind, 0, axis=1)
+#                         # Insert false columns for ignored labels
+#                         probs = np.array(self.test_probs[i], copy=True)
+#                         for l_ind, label_value in enumerate(test_loader.dataset.label_values):
+#                             if label_value in test_loader.dataset.ignored_labels:
+#                                 probs = np.insert(probs, l_ind, 0, axis=1)
 
-                        # Predicted labels
-                        preds = test_loader.dataset.label_values[np.argmax(probs, axis=1)].astype(np.int32)
+#                         # Predicted labels
+#                         preds = test_loader.dataset.label_values[np.argmax(probs, axis=1)].astype(np.int32)
 
-                        # Targets
-                        targets = test_loader.dataset.input_labels[i]
+#                         # Targets
+#                         targets = test_loader.dataset.input_labels[i]
 
-                        # Confs
-                        Confs += [fast_confusion(targets, preds, test_loader.dataset.label_values)]
+#                         # Confs
+#                         Confs += [fast_confusion(targets, preds, test_loader.dataset.label_values)]
 
-                    # Regroup confusions
-                    C = np.sum(np.stack(Confs), axis=0).astype(np.float32)
+#                     # Regroup confusions
+#                     C = np.sum(np.stack(Confs), axis=0).astype(np.float32)
+#                     print('Confusions on sub cloud', C)
+                    
+#                     # Remove ignored labels from confusions
+#                     for l_ind, label_value in reversed(list(enumerate(test_loader.dataset.label_values))):
+#                         if label_value in test_loader.dataset.ignored_labels:
+#                             C = np.delete(C, l_ind, axis=0)
+#                             C = np.delete(C, l_ind, axis=1)
 
-                    # Remove ignored labels from confusions
-                    for l_ind, label_value in reversed(list(enumerate(test_loader.dataset.label_values))):
-                        if label_value in test_loader.dataset.ignored_labels:
-                            C = np.delete(C, l_ind, axis=0)
-                            C = np.delete(C, l_ind, axis=1)
+#                     # Rescale with the right number of point per class
+#                     C *= np.expand_dims(val_proportions / (np.sum(C, axis=1) + 1e-6), 1)
 
-                    # Rescale with the right number of point per class
-                    C *= np.expand_dims(val_proportions / (np.sum(C, axis=1) + 1e-6), 1)
+#                     # Compute IoUs
+#                     IoUs = IoU_from_confusions(C)
+#                     mIoU = np.mean(IoUs)
+#                     s = 'e{:03d} ---- mIoU and IoUs on sub clouds {:5.2f} | '.format(test_epoch, 100 * mIoU)
+#                     for IoU in IoUs:
+#                         s += '{:5.2f} '.format(100 * IoU)
+#                     s += '\n'
+#                     print(s)
+                    
+#                     # kuramin added
+#                     with open(iou_log_path, "a") as myfile:
+#                         myfile.write(s)
 
-                    # Compute IoUs
-                    IoUs = IoU_from_confusions(C)
-                    mIoU = np.mean(IoUs)
-                    s = '{:5.2f} | '.format(100 * mIoU)
-                    for IoU in IoUs:
-                        s += '{:5.2f} '.format(100 * IoU)
-                    print(s + '\n')
 
                 # Save real IoU once in a while
-                if int(np.ceil(new_min)) % 10 == 0:
+                if int(np.ceil(new_min)) % 1 == 0:
 
                     # Project predictions
                     print('\nReproject Vote #{:d}'.format(int(np.floor(new_min))))
@@ -392,12 +406,14 @@ class ModelTester:
                             targets = test_loader.dataset.validation_labels[i]
                             Confs += [fast_confusion(targets, preds, test_loader.dataset.label_values)]
 
+                        print('Confusions on full cloud before regroup', Confs)    
                         t2 = time.time()
                         print('Done in {:.1f} s\n'.format(t2 - t1))
 
                         # Regroup confusions
                         C = np.sum(np.stack(Confs), axis=0)
-
+                        print('Confusions on full cloud after regroup', C)    
+                        
                         # Remove ignored labels from confusions
                         for l_ind, label_value in reversed(list(enumerate(test_loader.dataset.label_values))):
                             if label_value in test_loader.dataset.ignored_labels:
@@ -406,12 +422,28 @@ class ModelTester:
 
                         IoUs = IoU_from_confusions(C)
                         mIoU = np.mean(IoUs)
-                        s = '{:5.2f} | '.format(100 * mIoU)
+                        s = 'e{:03d} ---- mIoU and IoUs on full clouds {:5.2f} | '.format(test_epoch, 100 * mIoU)
                         for IoU in IoUs:
                             s += '{:5.2f} '.format(100 * IoU)
                         print('-' * len(s))
                         print(s)
                         print('-' * len(s) + '\n')
+                        
+                        # Write acc to gridsearch file (kuramin added)
+                        mIoU_smooth.append(mIoU)
+                        print('mIoU_smooth before crop', mIoU_smooth)
+                        if len(mIoU_smooth) > 30:
+                            mIoU_smooth = mIoU_smooth[1:]
+                        print('mIoU_smooth after crop', mIoU_smooth)
+                        
+                        IoUs_smooth.append(IoUs)                            
+                        if len(IoUs_smooth) > 30:
+                            IoUs_smooth = IoUs_smooth[1:]
+                        
+                        # kuramin added
+                        s += '\n' 
+                        with open(iou_log_path, "a") as myfile:
+                            myfile.write(s)
 
                     # Save predictions
                     print('Saving clouds')
@@ -429,39 +461,57 @@ class ModelTester:
                         test_name = join(test_path, 'predictions', cloud_name)
                         write_ply(test_name,
                                   [points, preds],
-                                  ['x', 'y', 'z', 'preds'])
+                                  ['x', 'y', 'z', 'preds'])  # kuramin commented saving clouds
                         test_name2 = join(test_path, 'probs', cloud_name)
                         prob_names = ['_'.join(test_loader.dataset.label_to_names[label].split())
                                       for label in test_loader.dataset.label_values]
-                        write_ply(test_name2,
-                                  [points, proj_probs[i]],
-                                  ['x', 'y', 'z'] + prob_names)
+#                         write_ply(test_name2,
+#                                   [points, proj_probs[i]],
+#                                   ['x', 'y', 'z'] + prob_names)  # kuramin commented saving clouds
 
                         # Save potentials
                         pot_points = np.array(test_loader.dataset.pot_trees[i].data, copy=False)
                         pot_name = join(test_path, 'potentials', cloud_name)
                         pots = test_loader.dataset.potentials[i].numpy().astype(np.float32)
-                        write_ply(pot_name,
-                                  [pot_points.astype(np.float32), pots],
-                                  ['x', 'y', 'z', 'pots'])
+#                         write_ply(pot_name,
+#                                   [pot_points.astype(np.float32), pots],
+#                                   ['x', 'y', 'z', 'pots'])  # kuramin commented saving clouds
 
-                        # Save ascii preds
-                        if test_loader.dataset.set == 'test':
-                            if test_loader.dataset.name.startswith('Semantic3D'):
-                                ascii_name = join(test_path, 'predictions', test_loader.dataset.ascii_files[cloud_name])
-                            else:
-                                ascii_name = join(test_path, 'predictions', cloud_name[:-4] + '.txt')
-                            np.savetxt(ascii_name, preds, fmt='%d')
+#                         # Save ascii preds
+#                         if test_loader.dataset.set == 'test':
+#                             if test_loader.dataset.name.startswith('Semantic3D'):
+#                                 ascii_name = join(test_path, 'predictions', test_loader.dataset.ascii_files[cloud_name])
+#                             else:
+#                                 ascii_name = join(test_path, 'predictions', cloud_name[:-4] + '.txt')
+#                             np.savetxt(ascii_name, preds, fmt='%d')
 
                     t2 = time.time()
                     print('Done in {:.1f} s\n'.format(t2 - t1))
 
             test_epoch += 1
 
+            print(' before if-break last_min', last_min, 'new_min', new_min)
+            
             # Break when reaching number of desired votes
-            if last_min > num_votes:
-                break
+            #if last_min > num_votes:   # kuramin commented out
+            #    break
 
+        # kuramin added
+        mIoU_aver = np.sum(mIoU_smooth) / len(mIoU_smooth)
+        mIoU_var = np.var(mIoU_smooth)
+        print('mIoU_aver from inside is', mIoU_aver)
+        print('mIoU_var from inside is', mIoU_var)
+        config.mIoU_aver = mIoU_aver
+        config.mIoU_var = mIoU_var 
+        
+        # kuramin added
+        IoUs_aver = np.sum(IoUs_smooth, axis=0) / len(IoUs_smooth)
+        IoUs_var = np.var(IoUs_smooth, axis=0)
+        print('IoUs_aver from inside is', IoUs_aver)
+        print('IoUs_var from inside is', IoUs_var)
+        config.IoUs_aver = IoUs_aver
+        config.IoUs_var = IoUs_var 
+                
         return
 
     # def slam_segmentation_test(self, net, test_loader, config, num_votes=100, debug=True):

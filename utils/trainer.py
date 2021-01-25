@@ -157,6 +157,7 @@ class ModelTrainer:
         mean_dt = np.zeros(1)
 
         acc_smooth = []
+        #softmax = torch.nn.Softmax(1) # kuramin added
         
         # Start training loop
         for epoch in range(config.max_epoch):
@@ -188,9 +189,13 @@ class ModelTrainer:
 
                 # Forward pass
                 outputs = net(batch, config)
-                print('len(outputs)', len(outputs))
-                print('len(outputs[0])', len(outputs[0]))
-                print('outputs', outputs)
+                #print('bef len(outputs)', len(outputs))
+                #print('bef len(outputs[0])', len(outputs[0]))
+                #print('bef outputs', outputs)
+                #outputs = softmax(outputs)  # kuramin added softmax
+                #print('aft len(outputs)', len(outputs))
+                #print('aft len(outputs[0])', len(outputs[0]))
+                #print('aft outputs', outputs)
                 loss = net.loss(outputs, batch.labels)
                 acc = net.accuracy(outputs, batch.labels)
 
@@ -383,13 +388,13 @@ class ModelTrainer:
                 inds = in_inds[i0:i0 + length]
                 c_i = cloud_inds[b_i]
                 
-                print('len(target)', len(target))
-                print('target', target)
-                print('len(probs)', len(probs))
-                print('probs', probs)
+                #print('len(target)', len(target))
+                #print('target', target)
+                #print('len(probs)', len(probs))
+                #print('probs', probs)
                 aprobs = np.argmax(probs, axis=1)
-                print('len(aprobs)', len(aprobs))
-                print('aprobs', aprobs)
+                #print('len(aprobs)', len(aprobs))
+                #print('aprobs', aprobs)
 
                 # Update current probs in whole cloud
                 self.validation_probs[c_i][inds] = val_smooth * self.validation_probs[c_i][inds] \
@@ -483,9 +488,9 @@ class ModelTrainer:
                     cloud_name = file_path.split('/')[-1]
                     pot_name = join(pot_path, cloud_name)
                     pots = val_loader.dataset.potentials[i].numpy().astype(np.float32)
-                    write_ply(pot_name,
-                              [pot_points.astype(np.float32), pots],
-                              ['x', 'y', 'z', 'pots'])
+#                     write_ply(pot_name,
+#                               [pot_points.astype(np.float32), pots],
+#                               ['x', 'y', 'z', 'pots'])  # kuramin commented saving clouds
 
         t6 = time.time()
 
@@ -524,9 +529,9 @@ class ModelTrainer:
 
                 # Save file
                 labels = np.array(val_loader.dataset.validation_labels[i]).astype(np.int32)
-                write_ply(val_name,
-                          [points, preds, labels],
-                          ['x', 'y', 'z', 'preds', 'class'])
+#                 write_ply(val_name,
+#                           [points, preds, labels],
+#                           ['x', 'y', 'z', 'preds', 'class'])  # kuramin commented saving clouds
 
         # Display timings
         t7 = time.time()

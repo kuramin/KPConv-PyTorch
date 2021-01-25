@@ -144,7 +144,7 @@ class AHNConfig(Config):
     #####################
 
     # Maximal number of epochs
-    max_epoch = 7  # 500  kuramin changed
+    max_epoch = 5 # 20  # 500  kuramin changed
 
     # Learning rate management
     learning_rate = 1e-2
@@ -158,13 +158,13 @@ class AHNConfig(Config):
     batch_num = 6  # target_aver_batch_size will be set equal to it
 
     # Number of steps per epoch (how many batches will be created from dataloader by enumerate(dataloader))
-    steps_per_epoch = 100  # kuramin changed back from 100
+    steps_per_epoch = 10  # kuramin changed back from 100
 
     # Number of validation examples per epoch
     validation_size = 50
 
     # Number of epoch between each checkpoint
-    checkpoint_gap = 6 #6  # 50
+    checkpoint_gap = 10 #6 #6  # 50
 
     # Augmentations
     augment_scale_anisotropic = True
@@ -197,6 +197,11 @@ class AHNConfig(Config):
     
     acc_aver = None
     acc_var = None
+    mIoU_aver = None
+    mIoU_var = None
+    IoUs_aver = None
+    IoUs_var = None
+    
     save_potentials = False
 
 
@@ -233,7 +238,7 @@ def train_AHN_on_hyperparameters(fsd,
     config.steps_per_epoch = steps_per_epoch
     config.input_threads = input_threads
 
-    message_param_string = 'Config set to {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2d} {:2.3f} {:3d} {:3d} {:2d} '
+    message_param_string = '{:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2.3f} {:2d} {:2.3f} {:d} {:d} {:d} '
     message_param_string = message_param_string.format(config.first_subsampling_dl,
                                                        config.in_radius,
                                                        config.conv_radius,
@@ -350,8 +355,9 @@ def train_AHN_on_hyperparameters(fsd,
 
     except Exception as e:
         message = message_param_string + message_path_string + ' Got exception ' + str(e) + '\n'
+        config.acc_aver = None
     else:
-        acc_string = 'acc_aver and acc_var are {:1.4f} {:1.4f}\n'
+        acc_string = ' {:1.4f} {:1.4f}'
         acc_string = acc_string.format(config.acc_aver, config.acc_var)
         message = message_param_string + message_path_string + acc_string
     finally:

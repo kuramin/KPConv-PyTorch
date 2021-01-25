@@ -5,4 +5,6 @@
 /.idea
 *.pyc
 *.ply
-
+*.txt
+*.png
+*-checkpoint.py

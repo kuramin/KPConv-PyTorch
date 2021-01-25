@@ -54,7 +54,8 @@ def model_choice(chosen_log):
     ###########################
 
     # Automatically retrieve the last trained model
-    if chosen_log in ['last_ModelNet40', 'last_ShapeNetPart', 'last_S3DIS']:
+    #if chosen_log in ['last_ModelNet40', 'last_ShapeNetPart', 'last_S3DIS']:
+    if chosen_log in ['last_AHN', 'last_S3DIS']:
 
         # Dataset name
         test_dataset = '_'.join(chosen_log.split('_')[1:])
@@ -70,7 +71,7 @@ def model_choice(chosen_log):
                 chosen_log = log
                 break
 
-        if chosen_log in ['last_ModelNet40', 'last_ShapeNetPart', 'last_S3DIS']:
+        if chosen_log in ['last_AHN', 'last_S3DIS']:
             raise ValueError('No log of the dataset "' + test_dataset + '" found')
 
     # Check if log exists
@@ -86,7 +87,8 @@ def model_choice(chosen_log):
 #       \***************/
 #
 
-if __name__ == '__main__':
+def test_AHN(gridsearch_filename):
+#if __name__ == '__main__':
 
     ###############################
     # Choose the model to visualize
@@ -97,7 +99,8 @@ if __name__ == '__main__':
     #       > 'last_XXX': Automatically retrieve the last trained model on dataset XXX
     #       > '(old_)results/Log_YYYY-MM-DD_HH-MM-SS': Directly provide the path of a trained model
 
-    chosen_log = 'results_copied/Log_2021-01-22_02-11-38_validation_84perc'  # kuramin changed
+#     chosen_log = 'results/Log_2021-01-19_17-06-41'  # kuramin changed
+    chosen_log = 'last_AHN'
 
     # Choose the index of the checkpoint to load OR None if you want to load the current checkpoint
     chkp_idx = None
@@ -113,31 +116,32 @@ if __name__ == '__main__':
     ############################
 
     # Set which gpu is going to be used
-    number_of_gpus = str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
-    print('Number of GPUs is', number_of_gpus)
+#     number_of_gpus = str(subprocess.check_output(["nvidia-smi", "-L"])).count('UUID')
+#     print('Number of GPUs is', number_of_gpus)
 
-    if number_of_gpus == 1:
-        GPU_ID = '0'
-    else:
-        GPU_ID = '2'
+#     if number_of_gpus == 1:
+#         GPU_ID = '0'
+#     else:
+#         GPU_ID = '3'
 
-    # Set GPU visible device
-    os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
+#     # Set GPU visible device
+#     os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
 
     ###############
     # Previous chkp
     ###############
 
     # Find all checkpoints in the chosen training folder
-    chkp_path = os.path.join(chosen_log, 'checkpoints')
-    chkps = [f for f in os.listdir(chkp_path) if f[:4] == 'chkp']
+#     chkp_path = os.path.join(chosen_log, 'checkpoints')
+#     chkps = [f for f in os.listdir(chkp_path) if f[:4] == 'chkp']
 
     # Find which snapshot to restore
-    if chkp_idx is None:
-        chosen_chkp = 'current_chkp.tar'
-    else:
-        chosen_chkp = np.sort(chkps)[chkp_idx]
-    chosen_chkp = os.path.join(chosen_log, 'checkpoints', chosen_chkp)
+#     if chkp_idx is None:
+#         chosen_chkp = 'current_chkp.tar'
+#     else:
+#         chosen_chkp = np.sort(chkps)[chkp_idx]
+#     chosen_chkp = os.path.join(chosen_log, 'checkpoints', chosen_chkp)
+    chosen_chkp = os.path.join(chosen_log, 'checkpoints', 'current_chkp.tar')
 
     # Initialize configuration class
     config = Config()
@@ -154,7 +158,7 @@ if __name__ == '__main__':
     #config.batch_num = 3
     #config.in_radius = 4
     config.validation_size = 200 #200 kuramin changed
-    config.input_threads = 10
+    #config.input_threads = 10
 
     ##############
     # Prepare Data
@@ -172,7 +176,7 @@ if __name__ == '__main__':
     #test_dataset = AHNDataset(config, set='validation', use_potentials=True)  kuramin changed validation to test
     test_dataset = AHNDataset(config, set=set, use_potentials=True)
     test_sampler = AHNSampler(test_dataset)
-    collate_fn = AHNCollate
+    #collate_fn = AHNCollate
 
     # Initiate dataset
     # if config.dataset == 'ModelNet40':
@@ -194,7 +198,7 @@ if __name__ == '__main__':
     test_loader = DataLoader(test_dataset,
                              batch_size=1,
                              sampler=test_sampler,
-                             collate_fn=collate_fn,
+                             collate_fn=AHNCollate,
                              num_workers=config.input_threads,
                              pin_memory=True)
 
@@ -231,3 +235,17 @@ if __name__ == '__main__':
     #     tester.slam_segmentation_test(net, test_loader, config)
     else:
         raise ValueError('Unsupported dataset_task for testing: ' + config.dataset_task)
+
+    print('mious', config.mIoU_aver, config.IoUs_aver[0], config.IoUs_aver[1], config.IoUs_aver[2], config.mIoU_var, config.IoUs_var[0], config.IoUs_var[1], config.IoUs_var[2])
+    
+    message = ' {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}\n'.format(config.mIoU_aver * 100,
+                                                                                  config.IoUs_aver[0] * 100,
+                                                                                  config.IoUs_aver[1] * 100,
+                                                                                  config.IoUs_aver[2] * 100,
+                                                                                  config.mIoU_var * 100,
+                                                                                  config.IoUs_var[0] * 100,
+                                                                                  config.IoUs_var[1] * 100,
+                                                                                  config.IoUs_var[2] * 100)
+    print(message)
+    with open(gridsearch_filename, "a") as file:
+        file.write(message)

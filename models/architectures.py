@@ -434,24 +434,24 @@ class KPFCNN(nn.Module):
             x = block_op(x, batch)
         #print('self.decoder_concats is', self.decoder_concats)
         
-        print('before mlp len(x)', len(x))
-        print('before mlp len(x[0])', len(x[0]))
-        print('before mlp x', x)
+        #print('before mlp len(x)', len(x))
+        #print('before mlp len(x[0])', len(x[0]))
+        #print('before mlp x', x)
         
         # Head of network
         x = self.head_mlp(x, batch)
         
-        print('before softmax len(x)', len(x))
-        print('before softmax len(x[0])', len(x[0]))
-        print('before softmax x', x)
+        #print('before softmax len(x)', len(x))
+        #print('before softmax len(x[0])', len(x[0]))
+        #print('before softmax x', x)
 #         for i in range(len(x[0])):
 #             print('x[0][', i, '] =', x[0][i])
         
         x = self.head_softmax(x, batch)
         
-        print('after softmax len(x)', len(x))
-        print('after softmax len(x[0])', len(x[0]))
-        print('after softmax x', x)
+        #print('after softmax len(x)', len(x))
+        #print('after softmax len(x[0])', len(x[0]))
+        #print('after softmax x', x)
 
         return x
 
@@ -511,8 +511,8 @@ class KPFCNN(nn.Module):
 #         for i in range(len(target)):
 #             print(predicted[i], '=', target[i], '??')  kuramin added
         correct = (predicted == target).sum().item()
-        print('total', total)
-        print('correct', correct)
+        #print('total', total)
+        #print('correct', correct)
 
         return correct / total
 
