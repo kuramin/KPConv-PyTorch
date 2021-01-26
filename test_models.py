@@ -32,7 +32,7 @@ import torch
 #from datasets.ModelNet40 import *
 #from datasets.S3DIS import *       # kuramin changed
 from datasets.AHN import *
-from datasets.SemanticKitti import *
+#from datasets.SemanticKitti import *
 from torch.utils.data import DataLoader
 
 from utils.config import Config
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     #       > 'last_XXX': Automatically retrieve the last trained model on dataset XXX
     #       > '(old_)results/Log_YYYY-MM-DD_HH-MM-SS': Directly provide the path of a trained model
 
-    chosen_log = 'results_copied/Log_2021-01-22_02-11-38_validation_84perc'  # kuramin changed
+    chosen_log = 'results/Log_2021-01-22_02-11-38'  # kuramin changed
 
     # Choose the index of the checkpoint to load OR None if you want to load the current checkpoint
     chkp_idx = None
@@ -169,6 +169,7 @@ if __name__ == '__main__':
     else:
         set = 'test'
 
+
     #test_dataset = AHNDataset(config, set='validation', use_potentials=True)  kuramin changed validation to test
     test_dataset = AHNDataset(config, set=set, use_potentials=True)
     test_sampler = AHNSampler(test_dataset)
@@ -218,6 +219,7 @@ if __name__ == '__main__':
     # Define a visualizer class
     tester = ModelTester(net, chkp_path=chosen_chkp)
     print('Done in {:.1f}s\n'.format(time.time() - t1))
+    print('tester.device', tester.device)
 
     print('\nStart test')
     print('**********\n')

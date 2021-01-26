@@ -194,9 +194,11 @@ class ModelTester:
         nc_model = config.num_classes
 
         # Initiate global prediction over test clouds
+        # self.test_probs consists of zeros and has size (n_points, 3)
+        # test_loader.dataset.input_labels consists of labels from [0,1,2] for n_points
         self.test_probs = [np.zeros((l.shape[0], nc_model)) for l in test_loader.dataset.input_labels]
 
-        # Test saving path
+        # Create folders for saving
         if config.saving:
             test_path = join('test', config.saving_path.split('/')[-1])
             if not exists(test_path):
@@ -211,7 +213,7 @@ class ModelTester:
         else:
             test_path = None
 
-        # If on validation directly compute score
+        # If validation, compute list of length nc_model: [N_points_with_label_0, N_points_with_label_1, N_points_with_label_2]
         if test_loader.dataset.set == 'validation':
             val_proportions = np.zeros(nc_model, dtype=np.float32)
             i = 0
@@ -242,6 +244,8 @@ class ModelTester:
         #if True:
         #while True:  # kuramin changed
             print('Initialize workers')
+
+            # work with a batch provided by test_loader
             for i, batch in enumerate(test_loader):
 
                 # New time
@@ -251,6 +255,7 @@ class ModelTester:
                 # if i == 0:
                 #     print('Done in {:.1f}s'.format(t[1] - t[0]))
 
+                print('self.device.type', self.device.type)
                 if 'cuda' in self.device.type:
                     batch.to(self.device)
 
@@ -259,7 +264,8 @@ class ModelTester:
 
                 t += [time.time()]
 
-                # Get probs and s_points
+                # Get probabilities, s_points, lengths, input_inds and cloud inds
+                # of the whole batch which consists of several balls
                 stacked_probs = softmax(outputs).cpu().detach().numpy()
                 s_points = batch.points[0].cpu().numpy()
                 lengths = batch.lengths[0].cpu().numpy()
@@ -271,6 +277,7 @@ class ModelTester:
                 # ***************************************
 
                 i0 = 0
+                # for every ball of the batch
                 for b_i, length in enumerate(lengths):
 
                     # Get prediction
@@ -281,11 +288,13 @@ class ModelTester:
 
                     # Leave inds and probs of only those points which are within test_radius_ratio
                     if 0 < test_radius_ratio < 1:
-                        mask = np.sum(points ** 2, axis=1) < (test_radius_ratio * config.in_radius) ** 2
+                        # mask will be 1 for every point within radius test_radius_ratio * config.in_radius from ball center
+                        mask = np.sum(points ** 2, axis=1) < (test_radius_ratio * config.in_radius) ** 2  # will be 1 for every point within
                         inds = inds[mask]
                         probs = probs[mask]
 
-                    # Update current probs in whole cloud
+                    # Use probabilities of MASKED points to update probs in whole cloud
+                    # New value of test_probs will depend a lot on old value
                     self.test_probs[c_i][inds] = test_smooth * self.test_probs[c_i][inds] + (1 - test_smooth) * probs
                     i0 += length
 
@@ -306,12 +315,18 @@ class ModelTester:
                                          1000 * (mean_dt[1]),
                                          1000 * (mean_dt[2])))
 
-            # Update minimum od potentials
+            # By now test_loader finished providing batches, probabilities from every MASKED ball of every batch were
+            # used to update test_probs
+            print('self.test_probs.shape', self.test_probs.shape)
+
+            # Now we want to distribute probabilities and predictions to the very original cloud
+            # Update minimum of potentials
             new_min = torch.min(test_loader.dataset.min_potentials)
             print('Test epoch {:d}, end. Min potential = {:.1f}'.format(test_epoch, new_min))
             #print([np.mean(pots) for pots in test_loader.dataset.potentials])
             print('bef if last_min', last_min, 'new_min', new_min)
 
+            # new_min must be at least 0.6 by now (from some previous calculations maybe)
             # Save predicted cloud
             if last_min + 1 < new_min:
 
@@ -381,6 +396,8 @@ class ModelTester:
                         print(test_loader.dataset.test_proj[i][:5])
 
                         # Reproject probs on the evaluations points
+                        # Probs will be test probabilities for those members of sampled cloud
+                        # which are closest neighbors of the original cloud
                         probs = self.test_probs[i][test_loader.dataset.test_proj[i], :]
                         proj_probs += [probs]
 

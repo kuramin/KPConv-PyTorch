@@ -870,6 +870,7 @@ class AHNDataset(PointCloudDataset):
         self.num_clouds = len(self.input_trees)
 
         # Only necessary for validation and test sets
+        # (proj_inds will help to project result from sampled cloud to the very original cloud)
         if self.set in ['validation', 'test']:
 
             print('\nPreparing reprojection indices for testing')
@@ -905,7 +906,8 @@ class AHNDataset(PointCloudDataset):
                         label = int(label_float)
                         labels.append(label)
 
-                    # Compute projection inds
+                    # Compute projection inds, which are indices of closest members
+                    # of input_tree for every member of cloud "points"
                     idxs = self.input_trees[i].query(points, return_distance=False)
                     #dists, idxs = self.input_trees[i_cloud].kneighbors(points)
                     proj_inds = np.squeeze(idxs).astype(np.int32)
@@ -914,6 +916,8 @@ class AHNDataset(PointCloudDataset):
                     with open(proj_file, 'wb') as f:
                         pickle.dump([proj_inds, labels], f)
 
+                # test_proj will contain such indices of closest members
+                # of input_tree for every point of the every original cloud from self.files
                 self.test_proj += [proj_inds]
                 self.validation_labels += [labels]
                 print('{:s} done in {:.1f}s'.format(cloud_name, time.time() - t0))
