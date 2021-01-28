@@ -97,7 +97,7 @@ if __name__ == '__main__':
     #       > 'last_XXX': Automatically retrieve the last trained model on dataset XXX
     #       > '(old_)results/Log_YYYY-MM-DD_HH-MM-SS': Directly provide the path of a trained model
 
-    chosen_log = 'results_copied/Log_2021-01-22_02-11-38_validation_84perc'  # kuramin changed
+    chosen_log = 'results_copied/Log_2021-01-25_14-12-25_88perc'  # kuramin changed
 
     # Choose the index of the checkpoint to load OR None if you want to load the current checkpoint
     chkp_idx = None

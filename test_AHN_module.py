@@ -227,6 +227,7 @@ def test_AHN(gridsearch_filename):
     print('**********\n')
 
     # Training
+    print('test_loader.dataset.set', test_loader.dataset.set)
     if config.dataset_task == 'cloud_segmentation':
         tester.cloud_segmentation_test(net, test_loader, config)
     # elif config.dataset_task == 'classification':

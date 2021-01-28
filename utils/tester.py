@@ -238,9 +238,9 @@ class ModelTester:
         IoUs_smooth = []
 
         # Start test loop
-        for _ in range(2):
+        #for _ in range(2):
         #if True:
-        #while True:  # kuramin changed
+        while True:  # kuramin changed
             print('Initialize workers')
             for i, batch in enumerate(test_loader):
 
@@ -459,9 +459,9 @@ class ModelTester:
                         # Save plys
                         cloud_name = file_path.split('/')[-1]
                         test_name = join(test_path, 'predictions', cloud_name)
-                        write_ply(test_name,
-                                  [points, preds],
-                                  ['x', 'y', 'z', 'preds'])  # kuramin commented saving clouds
+#                         write_ply(test_name,
+#                                   [points, preds],
+#                                   ['x', 'y', 'z', 'preds'])  # kuramin commented saving clouds
                         test_name2 = join(test_path, 'probs', cloud_name)
                         prob_names = ['_'.join(test_loader.dataset.label_to_names[label].split())
                                       for label in test_loader.dataset.label_values]
@@ -493,8 +493,8 @@ class ModelTester:
             print(' before if-break last_min', last_min, 'new_min', new_min)
             
             # Break when reaching number of desired votes
-            #if last_min > num_votes:   # kuramin commented out
-            #    break
+            if last_min > num_votes:   # kuramin commented out
+                break
 
         # kuramin added
         mIoU_aver = np.sum(mIoU_smooth) / len(mIoU_smooth)
