@@ -366,5 +366,3 @@ if __name__ == '__main__':
     trainer.train(net, training_loader, test_loader, config)
 
     print('Exit now')
-#     print('Forcing exit now')
-#     os.kill(os.getpid(), signal.SIGINT)

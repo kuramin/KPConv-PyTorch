@@ -338,5 +338,3 @@ if __name__ == '__main__':
     trainer.train(net, training_loader, test_loader, config)
 
     print('Exit without forcing')
-    #print('Forcing exit now')
-    #os.kill(os.getpid(), signal.SIGINT)

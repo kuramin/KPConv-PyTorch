@@ -350,8 +350,6 @@ def train_AHN_on_hyperparameters(fsd,
         trainer.train(net, training_loader, test_loader, config)
 
         print('End attempt without forcing')
-        #print('Forcing exit now')
-        #os.kill(os.getpid(), signal.SIGINT)
 
     except Exception as e:
         message = message_param_string + message_path_string + ' Got exception ' + str(e) + '\n'

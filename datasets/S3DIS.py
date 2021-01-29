@@ -533,50 +533,6 @@ class S3DISDataset(PointCloudDataset):
 
         t += [time.time()]
 
-        # Display timings
-        #debugT = False  #kuramin commented
-        # if debugT:
-        #     print('\n************************\n')
-        #     print('Timings:')
-        #     ti = 0
-        #     N = 5
-        #     mess = 'Init ...... {:5.1f}ms /'
-        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-        #     for dt in loop_times:
-        #         mess += ' {:5.1f}'.format(dt)
-        #     print(mess.format(np.sum(loop_times)))
-        #     ti += 1
-        #     mess = 'Pots ...... {:5.1f}ms /'
-        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-        #     for dt in loop_times:
-        #         mess += ' {:5.1f}'.format(dt)
-        #     print(mess.format(np.sum(loop_times)))
-        #     ti += 1
-        #     mess = 'Sphere .... {:5.1f}ms /'
-        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-        #     for dt in loop_times:
-        #         mess += ' {:5.1f}'.format(dt)
-        #     print(mess.format(np.sum(loop_times)))
-        #     ti += 1
-        #     mess = 'Collect ... {:5.1f}ms /'
-        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-        #     for dt in loop_times:
-        #         mess += ' {:5.1f}'.format(dt)
-        #     print(mess.format(np.sum(loop_times)))
-        #     ti += 1
-        #     mess = 'Augment ... {:5.1f}ms /'
-        #     loop_times = [1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))]
-        #     for dt in loop_times:
-        #         mess += ' {:5.1f}'.format(dt)
-        #     print(mess.format(np.sum(loop_times)))
-        #     ti += N * (len(stack_lengths) - 1) + 1
-        #     print('concat .... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
-        #     ti += 1
-        #     print('input ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
-        #     ti += 1
-        #     print('stack ..... {:5.1f}ms'.format(1000 * (t[ti+1] - t[ti])))
-        #     ti += 1
-        #     print('\n************************\n')
         # print('End of potential item')  # kuramins print
         return input_list
 
@@ -788,12 +744,6 @@ class S3DISDataset(PointCloudDataset):
 
     def load_subsampled_clouds(self):
 
-        # kuramin defined value to distinguish between AHN and S3DIS
-#         if self.config.dataset == 'S3DIS':
-#             name_of_class_property = 'class'
-#         else:
-#             name_of_class_property = 'scalar_Classification'
-            
         name_of_class_property = 'scalar_Classification'
         
         # Parameter
@@ -1087,82 +1037,6 @@ class S3DISSampler(Sampler):
         """
         return self.N
 
-    # def fast_calib(self):
-    #     """
-    #     This method calibrates the batch sizes while ensuring the potentials are well initialized. Indeed on a dataset
-    #     like Semantic3D, before potential have been updated over the dataset, there are chances that all the dense area
-    #     are picked in the beginning and in the end, we will have very large batch of small point clouds
-    #     :return:
-    #     """
-    #
-    #     # Estimated average batch size and target value
-    #     estim_aver_bat_size = 0
-    #     target_aver_bat_size = self.dataset.config.batch_num
-    #
-    #     # Calibration parameters
-    #     low_pass_T = 10
-    #     Kp = 100.0
-    #     finer = False
-    #     breaking = False
-    #
-    #     # Convergence parameters
-    #     smooth_errors = []
-    #     converge_threshold = 0.1
-    #
-    #     t = [time.time()]
-    #     last_display = time.time()
-    #     mean_dt = np.zeros(2)
-    #
-    #     for epoch in range(10):
-    #         for i, test in enumerate(self):
-    #
-    #             # New time
-    #             t = t[-1:]
-    #             t += [time.time()]
-    #
-    #             # batch length
-    #             b = len(test)
-    #
-    #             # Update estim_aver_bat_size (low pass filter)
-    #             estim_aver_bat_size += (b - estim_aver_bat_size) / low_pass_T
-    #
-    #             # Estimate error (noisy)
-    #             error = target_aver_bat_size - b
-    #
-    #             # Save smooth errors for convergene check
-    #             smooth_errors.append(target_aver_bat_size - estim_aver_bat_size)
-    #             if len(smooth_errors) > 10:
-    #                 smooth_errors = smooth_errors[1:]
-    #
-    #             # Update batch limit with P controller
-    #             self.dataset.batch_limit += Kp * error
-    #
-    #             # finer low pass filter when closing in
-    #             if not finer and np.abs(estim_aver_bat_size - target_aver_bat_size) < 1:
-    #                 low_pass_T = 100
-    #                 finer = True
-    #
-    #             # Convergence
-    #             if finer and np.max(np.abs(smooth_errors)) < converge_threshold:
-    #                 breaking = True
-    #                 break
-    #
-    #             # Average timing
-    #             t += [time.time()]
-    #             mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
-    #
-    #             # Console display (only one per second)
-    #             if (t[-1] - last_display) > 1.0:
-    #                 last_display = t[-1]
-    #                 message = 'Step {:5d}  estim_aver_bat_size ={:5.2f} batch_limit ={:7d},  //  {:.1f}ms {:.1f}ms'
-    #                 print(message.format(i,
-    #                                      estim_aver_bat_size,
-    #                                      int(self.dataset.batch_limit),
-    #                                      1000 * mean_dt[0],
-    #                                      1000 * mean_dt[1]))
-    #
-    #         if breaking:
-    #             break
 
     def calibration(self, dataloader, untouched_ratio=0.9, verbose=False, force_redo=False):
         """

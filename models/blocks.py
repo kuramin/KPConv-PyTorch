@@ -113,29 +113,6 @@ def max_pool(x, inds):
     return max_features
 
 
-# def global_average(x, batch_lengths):
-#     """
-#     Block performing a global average over batch pooling
-#     :param x: [N, D] input features
-#     :param batch_lengths: [B] list of batch lengths
-#     :return: [B, D] averaged features
-#     """
-#
-#     # Loop over the clouds of the batch
-#     averaged_features = []
-#     i0 = 0
-#     for b_i, length in enumerate(batch_lengths):
-#
-#         # Average features for each batch cloud
-#         averaged_features.append(torch.mean(x[i0:i0 + length], dim=0))
-#
-#         # Increment for next cloud
-#         i0 += length
-#
-#     # Average features in each batch
-#     return torch.stack(averaged_features)
-
-
 # ----------------------------------------------------------------------------------------------------------------------
 #
 #           KPConv class
@@ -499,21 +476,6 @@ def block_decider(block_name, radius, in_dim, out_dim, layer_ind, config):
                         'resnetb_deformable_strided']:
         return ResnetBottleneckBlock(block_name, in_dim, out_dim, radius, layer_ind, config)
 
-    # elif block_name in ['simple',
-    #                     'simple_deformable',
-    #                     'simple_invariant',
-    #                     'simple_equivariant',
-    #                     'simple_strided',
-    #                     'simple_deformable_strided',
-    #                     'simple_invariant_strided',
-    #                     'simple_equivariant_strided']:
-    #     return SimpleBlock(block_name, in_dim, out_dim, radius, layer_ind, config)
-    #
-    # elif block_name == 'max_pool' or block_name == 'max_pool_wide':
-    #     return MaxPoolBlock(layer_ind)
-    #
-    # elif block_name == 'global_average':
-    #     return GlobalAverageBlock()
 
     elif block_name == 'simple':
         return SimpleBlock(block_name, in_dim, out_dim, radius, layer_ind, config)
@@ -610,18 +572,6 @@ class UnaryBlock(nn.Module):
                                                                                         self.out_dim,
                                                                                         str(self.use_bn),
                                                                                         str(not self.no_relu))
-    
-# class GlobalAverageBlock(nn.Module):
-#
-#     def __init__(self):
-#         """
-#         Initialize a global average block with its ReLU and BatchNorm.
-#         """
-#         super(GlobalAverageBlock, self).__init__()
-#         return
-#
-#     def forward(self, x, batch):
-#         return global_average(x, batch.lengths[-1])
 
 
 class NearestUpsampleBlock(nn.Module):
@@ -644,20 +594,6 @@ class NearestUpsampleBlock(nn.Module):
     def __repr__(self):
         return 'NearestUpsampleBlock(layer: {:d} -> {:d})'.format(self.layer_ind,
                                                                   self.layer_ind - 1)
-
-
-# class MaxPoolBlock(nn.Module):
-#
-#     def __init__(self, layer_ind):
-#         """
-#         Initialize a max pooling block with its ReLU and BatchNorm.
-#         """
-#         super(MaxPoolBlock, self).__init__()
-#         self.layer_ind = layer_ind
-#         return
-#
-#     def forward(self, x, batch):
-#         return max_pool(x, batch.pools[self.layer_ind + 1])
 
 
 class SimpleBlock(nn.Module):
