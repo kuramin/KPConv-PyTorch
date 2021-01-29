@@ -132,7 +132,7 @@ class AHNDataset(PointCloudDataset):
 #         self.validation_split = 5
         
         #self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_medium']
-        self.cloud_names = ['logClass_Lelystad_012', 'Vaihingen3D_Training_kuramin_edition']
+        self.cloud_names = ['logClass_Lelystad_012', 'Vaihingen3D_Training_kuramin_edition_fakergb']
         self.all_splits = [0, 1]
         self.validation_split = 1
 
@@ -656,79 +656,79 @@ class AHNDataset(PointCloudDataset):
 
         return input_list
 
-    def prepare_AHN_ply(self):
+#     def prepare_AHN_ply(self):
 
-        print('\nPreparing ply files')
-        t0 = time.time()
+#         print('\nPreparing ply files')
+#         t0 = time.time()
 
-        # Folder for the ply files
-        ply_path = join(self.path, self.train_path)
-        if not exists(ply_path):
-            makedirs(ply_path)
+#         # Folder for the ply files
+#         ply_path = join(self.path, self.train_path)
+#         if not exists(ply_path):
+#             makedirs(ply_path)
 
-        for cloud_name in self.cloud_names:
+#         for cloud_name in self.cloud_names:
 
-            # Pass if the cloud has already been computed
-            cloud_file = join(ply_path, cloud_name + '.ply')
-            if exists(cloud_file):
-                continue
+#             # Pass if the cloud has already been computed
+#             cloud_file = join(ply_path, cloud_name + '.ply')
+#             if exists(cloud_file):
+#                 continue
 
-            # Get rooms of the current cloud
-            cloud_folder = join(self.path, cloud_name)
-            room_folders = [join(cloud_folder, room) for room in listdir(cloud_folder) if isdir(join(cloud_folder, room))]
+#             # Get rooms of the current cloud
+#             cloud_folder = join(self.path, cloud_name)
+#             room_folders = [join(cloud_folder, room) for room in listdir(cloud_folder) if isdir(join(cloud_folder, room))]
 
-            # Initiate containers
-            cloud_points = np.empty((0, 3), dtype=np.float32)
-            cloud_colors = np.empty((0, 3), dtype=np.uint8)
-            cloud_classes = np.empty((0, 1), dtype=np.int32)
+#             # Initiate containers
+#             cloud_points = np.empty((0, 3), dtype=np.float32)
+#             cloud_colors = np.empty((0, 3), dtype=np.uint8)
+#             cloud_classes = np.empty((0, 1), dtype=np.int32)
 
-            # Loop over rooms
-            for i, room_folder in enumerate(room_folders):
+#             # Loop over rooms
+#             for i, room_folder in enumerate(room_folders):
 
-                print('Cloud %s - Room %d/%d : %s' % (cloud_name, i+1, len(room_folders), room_folder.split('/')[-1]))
+#                 print('Cloud %s - Room %d/%d : %s' % (cloud_name, i+1, len(room_folders), room_folder.split('/')[-1]))
 
-                for object_name in listdir(join(room_folder, 'Annotations')):
+#                 for object_name in listdir(join(room_folder, 'Annotations')):
 
-                    if object_name[-4:] == '.txt':
+#                     if object_name[-4:] == '.txt':
 
-                        # Text file containing point of the object
-                        object_file = join(room_folder, 'Annotations', object_name)
+#                         # Text file containing point of the object
+#                         object_file = join(room_folder, 'Annotations', object_name)
 
-                        # Object class and ID
-                        tmp = object_name[:-4].split('_')[0]
-                        if tmp in self.name_to_label:
-                            object_class = self.name_to_label[tmp]
-                        elif tmp in ['stairs']:
-                            object_class = self.name_to_label['clutter']
-                        else:
-                            raise ValueError('Unknown object name: ' + str(tmp))
+#                         # Object class and ID
+#                         tmp = object_name[:-4].split('_')[0]
+#                         if tmp in self.name_to_label:
+#                             object_class = self.name_to_label[tmp]
+#                         elif tmp in ['stairs']:
+#                             object_class = self.name_to_label['clutter']
+#                         else:
+#                             raise ValueError('Unknown object name: ' + str(tmp))
 
-                        # Correct bug in AHN dataset
-                        if object_name == 'ceiling_1.txt':
-                            with open(object_file, 'r') as f:
-                                lines = f.readlines()
-                            for l_i, line in enumerate(lines):
-                                if '103.0\x100000' in line:
-                                    lines[l_i] = line.replace('103.0\x100000', '103.000000')
-                            with open(object_file, 'w') as f:
-                                f.writelines(lines)
+#                         # Correct bug in AHN dataset
+#                         if object_name == 'ceiling_1.txt':
+#                             with open(object_file, 'r') as f:
+#                                 lines = f.readlines()
+#                             for l_i, line in enumerate(lines):
+#                                 if '103.0\x100000' in line:
+#                                     lines[l_i] = line.replace('103.0\x100000', '103.000000')
+#                             with open(object_file, 'w') as f:
+#                                 f.writelines(lines)
 
-                        # Read object points and colors
-                        object_data = np.loadtxt(object_file, dtype=np.float32)
+#                         # Read object points and colors
+#                         object_data = np.loadtxt(object_file, dtype=np.float32)
 
-                        # Stack all data
-                        cloud_points = np.vstack((cloud_points, object_data[:, 0:3].astype(np.float32)))
-                        cloud_colors = np.vstack((cloud_colors, object_data[:, 3:6].astype(np.uint8)))
-                        object_classes = np.full((object_data.shape[0], 1), object_class, dtype=np.int32)
-                        cloud_classes = np.vstack((cloud_classes, object_classes))
+#                         # Stack all data
+#                         cloud_points = np.vstack((cloud_points, object_data[:, 0:3].astype(np.float32)))
+#                         cloud_colors = np.vstack((cloud_colors, object_data[:, 3:6].astype(np.uint8)))
+#                         object_classes = np.full((object_data.shape[0], 1), object_class, dtype=np.int32)
+#                         cloud_classes = np.vstack((cloud_classes, object_classes))
 
-            # Save as ply
-            write_ply(cloud_file,
-                      (cloud_points, cloud_colors, cloud_classes),
-                      ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
+#             # Save as ply
+#             write_ply(cloud_file,
+#                       (cloud_points, cloud_colors, cloud_classes),
+#                       ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
 
-        print('Done in {:.1f}s'.format(time.time() - t0))
-        return
+#         print('Done in {:.1f}s'.format(time.time() - t0))
+#         return
 
     def load_subsampled_clouds(self):
 

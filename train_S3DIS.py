@@ -61,7 +61,7 @@ class S3DISConfig(Config):
     dataset_task = ''
 
     # Number of CPU threads for the input pipeline
-    input_threads = 0  # 10 kuramin changed
+    input_threads = 10  # 10 kuramin changed
 
     #########################
     # Architecture definition
@@ -163,7 +163,7 @@ class S3DISConfig(Config):
     validation_size = 50
 
     # Number of epoch between each checkpoint
-    checkpoint_gap = 50
+    checkpoint_gap = 8
 
     # Augmentations
     augment_scale_anisotropic = True
@@ -193,6 +193,16 @@ class S3DISConfig(Config):
 
     # Choose weights for class (used in segmentation loss). Empty list for no weights
     class_w = []
+    
+    # kuramin added
+    acc_aver = None
+    acc_var = None
+    mIoU_aver = None
+    mIoU_var = None
+    IoUs_aver = None
+    IoUs_var = None
+    
+    save_potentials = False
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -214,7 +224,7 @@ if __name__ == '__main__':
     if number_of_gpus == 1:
         GPU_ID = '0'
     else:
-        GPU_ID = '3'
+        GPU_ID = '2'
 
     # Set GPU visible device
     os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
@@ -355,5 +365,6 @@ if __name__ == '__main__':
     # Training
     trainer.train(net, training_loader, test_loader, config)
 
-    print('Forcing exit now')
-    os.kill(os.getpid(), signal.SIGINT)
+    print('Exit now')
+#     print('Forcing exit now')
+#     os.kill(os.getpid(), signal.SIGINT)

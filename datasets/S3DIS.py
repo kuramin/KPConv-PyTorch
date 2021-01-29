@@ -120,20 +120,9 @@ class S3DISDataset(PointCloudDataset):
         #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2']
         #self.cloud_names = ['Area_1_fake_rgb_remarked', 'Area_2_remarked']
 
-        #self.cloud_names = ['Area_1', 'Area_3']
-        if config.dataset == 'S3DIS':
-            print('Process S3DIS dataset')
-            #self.cloud_names = ['Area_1', 'Area_3']
-            #self.all_splits = [0, 1]
-            #self.validation_split = 1
-            self.cloud_names = ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6']
-            self.all_splits = [0, 1, 2, 3, 4, 5]
-            self.validation_split = 5
-        else:    
-            print('Process AHN dataset')
-            self.cloud_names = ['1_rgb', '2_rgb']
-            self.all_splits = [0, 1]
-            self.validation_split = 1
+        self.cloud_names = ['Area_1_fake_rgb_scalar_Classification', 'Area_3_fake_rgb_scalar_Classification']
+        self.all_splits = [0, 1]
+        self.validation_split = 1
 
         # Number of models used per epoch (used only during visualization)
         if self.set == 'training':
@@ -724,86 +713,88 @@ class S3DISDataset(PointCloudDataset):
 #
 #         return input_list
 
-    def prepare_S3DIS_ply(self, ply_path):
+#     def prepare_S3DIS_ply(self, ply_path):
 
-        print('\nPreparing ply files')
-        t0 = time.time()
+#         print('\nPreparing ply files')
+#         t0 = time.time()
 
-        # Folder for the ply files
-        #ply_path = join(self.path, self.train_path)
+#         # Folder for the ply files
+#         #ply_path = join(self.path, self.train_path)
 
-        for cloud_name in self.cloud_names:
+#         for cloud_name in self.cloud_names:
 
-            # Pass if the cloud has already been computed
-            cloud_file = join(ply_path, cloud_name + '.ply')
-            if exists(cloud_file):
-                print("Cloud_file", cloud_file, "already exists, dont use txt files")
-                continue
+#             # Pass if the cloud has already been computed
+#             cloud_file = join(ply_path, cloud_name + '.ply')
+#             if exists(cloud_file):
+#                 print("Cloud_file", cloud_file, "already exists, dont use txt files")
+#                 continue
 
-            # Get rooms of the current cloud
-            cloud_folder = join(self.path, cloud_name)
-            room_folders = [join(cloud_folder, room) for room in listdir(cloud_folder) if isdir(join(cloud_folder, room))]
+#             # Get rooms of the current cloud
+#             cloud_folder = join(self.path, cloud_name)
+#             room_folders = [join(cloud_folder, room) for room in listdir(cloud_folder) if isdir(join(cloud_folder, room))]
 
-            # Initiate containers
-            cloud_points = np.empty((0, 3), dtype=np.float32)
-            cloud_colors = np.empty((0, 3), dtype=np.uint8)
-            cloud_classes = np.empty((0, 1), dtype=np.int32)
+#             # Initiate containers
+#             cloud_points = np.empty((0, 3), dtype=np.float32)
+#             cloud_colors = np.empty((0, 3), dtype=np.uint8)
+#             cloud_classes = np.empty((0, 1), dtype=np.int32)
 
-            # Loop over rooms
-            for i, room_folder in enumerate(room_folders):
+#             # Loop over rooms
+#             for i, room_folder in enumerate(room_folders):
 
-                print('Cloud %s - Room %d/%d : %s' % (cloud_name, i+1, len(room_folders), room_folder.split('/')[-1]))
+#                 print('Cloud %s - Room %d/%d : %s' % (cloud_name, i+1, len(room_folders), room_folder.split('/')[-1]))
 
-                for object_name in listdir(join(room_folder, 'Annotations')):
+#                 for object_name in listdir(join(room_folder, 'Annotations')):
 
-                    if object_name[-4:] == '.txt':
+#                     if object_name[-4:] == '.txt':
 
-                        # Text file containing point of the object
-                        object_file = join(room_folder, 'Annotations', object_name)
+#                         # Text file containing point of the object
+#                         object_file = join(room_folder, 'Annotations', object_name)
 
-                        # Object class and ID
-                        tmp = object_name[:-4].split('_')[0]
-                        if tmp in self.name_to_label:
-                            object_class = self.name_to_label[tmp]
-                        elif tmp in ['stairs']:
-                            object_class = self.name_to_label['clutter']
-                        else:
-                            raise ValueError('Unknown object name: ' + str(tmp))
+#                         # Object class and ID
+#                         tmp = object_name[:-4].split('_')[0]
+#                         if tmp in self.name_to_label:
+#                             object_class = self.name_to_label[tmp]
+#                         elif tmp in ['stairs']:
+#                             object_class = self.name_to_label['clutter']
+#                         else:
+#                             raise ValueError('Unknown object name: ' + str(tmp))
 
-                        # Correct bug in S3DIS dataset
-                        if object_name == 'ceiling_1.txt':
-                            with open(object_file, 'r') as f:
-                                lines = f.readlines()
-                            for l_i, line in enumerate(lines):
-                                if '103.0\x100000' in line:
-                                    lines[l_i] = line.replace('103.0\x100000', '103.000000')
-                            with open(object_file, 'w') as f:
-                                f.writelines(lines)
+#                         # Correct bug in S3DIS dataset
+#                         if object_name == 'ceiling_1.txt':
+#                             with open(object_file, 'r') as f:
+#                                 lines = f.readlines()
+#                             for l_i, line in enumerate(lines):
+#                                 if '103.0\x100000' in line:
+#                                     lines[l_i] = line.replace('103.0\x100000', '103.000000')
+#                             with open(object_file, 'w') as f:
+#                                 f.writelines(lines)
 
-                        # Read object points and colors
-                        object_data = np.loadtxt(object_file, dtype=np.float32)
+#                         # Read object points and colors
+#                         object_data = np.loadtxt(object_file, dtype=np.float32)
 
-                        # Stack all data
-                        cloud_points = np.vstack((cloud_points, object_data[:, 0:3].astype(np.float32)))
-                        cloud_colors = np.vstack((cloud_colors, object_data[:, 3:6].astype(np.uint8)))
-                        object_classes = np.full((object_data.shape[0], 1), object_class, dtype=np.int32)
-                        cloud_classes = np.vstack((cloud_classes, object_classes))
+#                         # Stack all data
+#                         cloud_points = np.vstack((cloud_points, object_data[:, 0:3].astype(np.float32)))
+#                         cloud_colors = np.vstack((cloud_colors, object_data[:, 3:6].astype(np.uint8)))
+#                         object_classes = np.full((object_data.shape[0], 1), object_class, dtype=np.int32)
+#                         cloud_classes = np.vstack((cloud_classes, object_classes))
 
-            # Save as ply
-            write_ply(cloud_file,
-                      (cloud_points, cloud_colors, cloud_classes),
-                      ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
+#             # Save as ply
+#             write_ply(cloud_file,
+#                       (cloud_points, cloud_colors, cloud_classes),
+#                       ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
 
-        print('Done in {:.1f}s'.format(time.time() - t0))
-        return
+#         print('Done in {:.1f}s'.format(time.time() - t0))
+#         return
 
     def load_subsampled_clouds(self):
 
         # kuramin defined value to distinguish between AHN and S3DIS
-        if self.config.dataset == 'S3DIS':
-            name_of_class_property = 'class'
-        else:
-            name_of_class_property = 'scalar_Classification'
+#         if self.config.dataset == 'S3DIS':
+#             name_of_class_property = 'class'
+#         else:
+#             name_of_class_property = 'scalar_Classification'
+            
+        name_of_class_property = 'scalar_Classification'
         
         # Parameter
         dl = self.config.first_subsampling_dl
@@ -881,7 +872,7 @@ class S3DISDataset(PointCloudDataset):
                 # Save ply
                 write_ply(sub_ply_file,
                           [sub_points, sub_colors, sub_labels],
-                          ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
+                          ['x', 'y', 'z', 'red', 'green', 'blue', name_of_class_property])
 
             # Fill data containers
             self.input_trees += [search_tree]

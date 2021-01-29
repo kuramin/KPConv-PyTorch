@@ -255,7 +255,7 @@ class ModelTester:
                 # if i == 0:
                 #     print('Done in {:.1f}s'.format(t[1] - t[0]))
 
-                print('self.device.type', self.device.type)
+                #print('self.device.type', self.device.type)
                 if 'cuda' in self.device.type:
                     batch.to(self.device)
 
@@ -317,7 +317,7 @@ class ModelTester:
 
             # By now test_loader finished providing batches, probabilities from every MASKED ball of every batch were
             # used to update test_probs
-            print('self.test_probs.shape', self.test_probs.shape)
+            #print('self.test_probs.shape', self.test_probs.shape)
 
             # Now we want to distribute probabilities and predictions to the very original cloud
             # Update minimum of potentials
@@ -476,23 +476,23 @@ class ModelTester:
                         # Save plys
                         cloud_name = file_path.split('/')[-1]
                         test_name = join(test_path, 'predictions', cloud_name)
-#                         write_ply(test_name,
-#                                   [points, preds],
-#                                   ['x', 'y', 'z', 'preds'])  # kuramin commented saving clouds
+                        write_ply(test_name,
+                                  [points, preds],
+                                  ['x', 'y', 'z', 'preds'])  # kuramin commented saving clouds
                         test_name2 = join(test_path, 'probs', cloud_name)
                         prob_names = ['_'.join(test_loader.dataset.label_to_names[label].split())
                                       for label in test_loader.dataset.label_values]
-#                         write_ply(test_name2,
-#                                   [points, proj_probs[i]],
-#                                   ['x', 'y', 'z'] + prob_names)  # kuramin commented saving clouds
+                        write_ply(test_name2,
+                                  [points, proj_probs[i]],
+                                  ['x', 'y', 'z'] + prob_names)  # kuramin commented saving clouds
 
                         # Save potentials
                         pot_points = np.array(test_loader.dataset.pot_trees[i].data, copy=False)
                         pot_name = join(test_path, 'potentials', cloud_name)
                         pots = test_loader.dataset.potentials[i].numpy().astype(np.float32)
-#                         write_ply(pot_name,
-#                                   [pot_points.astype(np.float32), pots],
-#                                   ['x', 'y', 'z', 'pots'])  # kuramin commented saving clouds
+                        write_ply(pot_name,
+                                  [pot_points.astype(np.float32), pots],
+                                  ['x', 'y', 'z', 'pots'])  # kuramin commented saving clouds
 
 #                         # Save ascii preds
 #                         if test_loader.dataset.set == 'test':

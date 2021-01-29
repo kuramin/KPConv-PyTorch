@@ -170,6 +170,9 @@ if __name__ == '__main__':
         set = 'test'
 
 
+    print('config.first_subsampling_dl', config.first_subsampling_dl)
+    print('config', config)
+    
     #test_dataset = AHNDataset(config, set='validation', use_potentials=True)  kuramin changed validation to test
     test_dataset = AHNDataset(config, set=set, use_potentials=True)
     test_sampler = AHNSampler(test_dataset)
