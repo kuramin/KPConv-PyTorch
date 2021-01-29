@@ -131,10 +131,10 @@ class AHNConfig(Config):
     batch_num = 6  # target_aver_batch_size will be set equal to it
 
     # Number of steps per epoch (how many batches will be created from dataloader by enumerate(dataloader))
-    steps_per_epoch = 50 # 100 # 50  # kuramin changed back from 100
+    steps_per_epoch = 50  # 100 # 50  # kuramin changed back from 100
 
     # Number of validation examples per epoch
-    validation_size = 100 # 50
+    validation_size = 100  # 50
 
     # Number of epoch between each checkpoint
     checkpoint_gap = 50

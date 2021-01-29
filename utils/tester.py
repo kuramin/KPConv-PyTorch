@@ -13,9 +13,6 @@ from utils.ply import read_ply, write_ply
 
 # Metrics
 from utils.metrics import IoU_from_confusions, fast_confusion
-from sklearn.metrics import confusion_matrix
-
-#from utils.visualizer import show_ModelNet_models
 
 # ----------------------------------------------------------------------------------------------------------------------
 #

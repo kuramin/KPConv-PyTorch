@@ -1,18 +1,6 @@
-# Common libs
-import signal
-import os
-import numpy as np
-import sys
-import torch
-
 # Dataset
 from train_AHN_module import *
 from test_AHN_module import *
-from torch.utils.data import DataLoader
-
-from utils.config import Config
-from utils.trainer import ModelTrainer
-from models.architectures import KPFCNN
 
 
 if __name__ == '__main__':

@@ -1,21 +1,13 @@
 # Common libs
-import signal
 import os
-import numpy as np
-import sys
-import torch
 
 # Dataset
-#from datasets.ModelNet40 import *
-#from datasets.S3DIS import *       # kuramin changed
 from datasets.AHN import *
-from datasets.SemanticKitti import *
 from torch.utils.data import DataLoader
 
 from utils.config import Config
 from utils.tester import ModelTester
 from models.architectures import KPFCNN
-import subprocess
 
 
 # ----------------------------------------------------------------------------------------------------------------------
