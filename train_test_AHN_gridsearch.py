@@ -1,26 +1,3 @@
-#
-#
-#      0=================================0
-#      |    Kernel Point Convolutions    |
-#      0=================================0
-#
-#
-# ----------------------------------------------------------------------------------------------------------------------
-#
-#      Callable script to start a grid search training on AHN dataset
-#
-# ----------------------------------------------------------------------------------------------------------------------
-#
-#      Dmitry Kuramin - 06/01/2021
-#
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-#
-#           Imports and global variables
-#       \**********************************/
-#
-
 # Common libs
 import signal
 import os
@@ -36,13 +13,6 @@ from torch.utils.data import DataLoader
 from utils.config import Config
 from utils.trainer import ModelTrainer
 from models.architectures import KPFCNN
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-#
-#           Config Class
-#       \******************/
-#
 
 
 if __name__ == '__main__':
@@ -102,10 +72,7 @@ if __name__ == '__main__':
                                                                  input_threads, 
                                                                  gridsearch_filename)
                                     print('End this training. Do the test')
-                                    
-#                                     if config.acc_aver == None:
-#                                         print('Failed training, this testing is not performed')
-#                                     else:
+
                                     test_AHN(gridsearch_filename)
                                         
                                     print('End of test for this range')
