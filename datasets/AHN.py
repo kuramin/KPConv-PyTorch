@@ -120,8 +120,8 @@ class AHNDataset(PointCloudDataset):
 #         self.all_splits = [0, 1, 2, 3, 4, 5]
 #         self.validation_split = 5
         
-        self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_small']
-        #self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_medium']
+        #self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_small']
+        self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_medium']
         #self.cloud_names = ['logClass_Lelystad_012', 'Vaihingen3D_Training_kuramin_edition_fakergb']
         self.all_splits = [0, 1]
         self.validation_split = 1
