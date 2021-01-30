@@ -10,3 +10,4 @@
 *-checkpoint.py
 *-checkpoint.ipynb
 /utils/.ipynb_checkpoints
+/logs

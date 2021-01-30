@@ -54,7 +54,7 @@ class ModelTester:
     # Test main methods
     # ------------------------------------------------------------------------------------------------------------------
 
-    # def classification_test(self, net, test_loader, config, num_votes=100, debug=False):
+    # def classification_test(self, net, test_loader, config, req_last_min_potential_stairstep=100, debug=False):
     #
     #     ############
     #     # Initialize
@@ -76,7 +76,7 @@ class ModelTester:
     #     t = [time.time()]
     #     mean_dt = np.zeros(1)
     #     last_display = time.time()
-    #     while np.min(self.test_counts) < num_votes:
+    #     while np.min(self.test_counts) < req_last_min_potential_stairstep:
     #
     #         # Run model on all test examples
     #         # ******************************
@@ -146,7 +146,7 @@ class ModelTester:
     #
     #     return
 
-    def cloud_segmentation_test(self, net, test_loader, config, num_votes=10, debug=False):
+    def cloud_segmentation_test(self, net, test_loader, config, req_last_min_potential_stairstep=10, debug=False):
         """
         Test method for cloud segmentation models
         """
@@ -170,7 +170,7 @@ class ModelTester:
         # self.test_probs consists of zeros and has size (n_points, 3)
         # test_loader.dataset.input_labels consists of labels from [0,1,2] for n_points
         self.test_probs = [np.zeros((l.shape[0], nc_model)) for l in test_loader.dataset.input_labels]
-        print('self.test_probs.shape is', self.test_probs())
+        print('len(self.test_probs) is', len(self.test_probs))
 
         # Create folders for saving
         if config.saving:
@@ -204,7 +204,7 @@ class ModelTester:
         #####################
 
         test_epoch = 0
-        last_min = -0.5
+        last_min_potential_stairstep = 0  #-0.5  # -0.5
 
         t = [time.time()]
         last_display = time.time()
@@ -219,6 +219,8 @@ class ModelTester:
         while True:  # kuramin changed
             print('Initialize workers')
 
+            print('len(test_loader.dataset.potentials[0]) bef', len(test_loader.dataset.potentials[0]))
+            print('test_loader.dataset.potentials[0] bef', test_loader.dataset.potentials[0])
             # work with every batch provided by test_loader
             for i, batch in enumerate(test_loader):
 
@@ -247,10 +249,11 @@ class ModelTester:
                 cloud_inds = batch.cloud_inds.cpu().numpy()
                 torch.cuda.synchronize(self.device)
 
-                print('len(batch.points)', len(batch.points))
-                print('len(batch.points[0])', len(batch.points[0]))
-                print('len(batch.lengths)', len(batch.lengths))
-                print('len(batch.lengths[0])', len(batch.lengths[0]))
+#                 print('len(batch.points)', len(batch.points))
+#                 print('len(batch.points[0])', len(batch.points[0]))
+#                 print('len(batch.lengths)', len(batch.lengths))
+#                 print('len(batch.lengths[0])', len(batch.lengths[0]))
+#                 print('batch.lengths[0]', batch.lengths[0])
                 # Get predictions and labels per instance
                 # ***************************************
 
@@ -263,6 +266,8 @@ class ModelTester:
                     probs = stacked_probs[i0:i0 + length]
                     inds = in_inds[i0:i0 + length]
                     c_i = cloud_inds[b_i]
+                    
+                    #print('len(points)', len(points))
 
                     # Leave inds and probs of only those points which are within test_radius_ratio
                     if 0 < test_radius_ratio < 1:
@@ -275,8 +280,11 @@ class ModelTester:
                     # New value of test_probs will depend a lot on old value
                     self.test_probs[c_i][inds] = test_smooth * self.test_probs[c_i][inds] + (1 - test_smooth) * probs
                     i0 += length
+                    
+                    #print('len(self.test_probs[c_i])', len(self.test_probs[c_i]))
 
-                    print('b_i, probs', b_i, probs)
+                    #print('b_i, len(probs)', b_i, len(probs))
+                    #print('probs', probs)
 
                 # Average timing
                 t += [time.time()]
@@ -299,75 +307,44 @@ class ModelTester:
             # used to update test_probs
             #print('self.test_probs.shape', self.test_probs.shape)
 
-            # Now we want to distribute probabilities and predictions to the very original cloud
+            # Now we want to distribute probabilities and predictions to the very original cloud.
+            # Batching process used potentials to take batches uniformly, so now potentials of the cloud are changed
             # Update minimum of potentials
-            new_min = torch.min(test_loader.dataset.min_potentials)
-            print('Test epoch {:d}, end. Min potential = {:.1f}'.format(test_epoch, new_min))
+            print('len(test_loader.dataset.potentials)', len(test_loader.dataset.potentials))
+            print('len(test_loader.dataset.potentials[0])', len(test_loader.dataset.potentials[0]))
+            print('test_loader.dataset.potentials', test_loader.dataset.potentials)
+            
+            print('len(test_loader.dataset.min_potentials)', len(test_loader.dataset.min_potentials))
+            print('test_loader.dataset.min_potentials', test_loader.dataset.min_potentials)
+                        
+            print('len(test_loader.dataset.argmin_potentials)', len(test_loader.dataset.argmin_potentials))
+            print('test_loader.dataset.argmin_potentials', test_loader.dataset.argmin_potentials)
+            
+            new_min_potential = torch.min(test_loader.dataset.min_potentials)
+            print('Test epoch {:d}, end. Min potential = {:.4f}'.format(test_epoch, new_min_potential))
+            print('len(self.test_probs)', len(self.test_probs))
+            print('len(self.test_probs[0])', len(self.test_probs[0]))
             print('self.test_probs', self.test_probs)
             #print([np.mean(pots) for pots in test_loader.dataset.potentials])
-            print('bef if last_min', last_min, 'new_min', new_min)
+            print('bef if last_min_potential_stairstep', last_min_potential_stairstep, 'new_min_potential', new_min_potential)
 
-            # new_min must be at least 0.6 by now (from some previous calculations maybe)
+            # Every time the minimal potential of the cloud is more than the next integer value last_min_potential_stairstep, the next if-code will be launched.
+            # This if-code will reproject votes to the original cloud (every non-segmented point gets probs from its closest input_tree neighbor), 
+            # calculate IoUs (if we are in validation mode) and save clouds of potentials, probs for each class and preds
+            # Such an approach with last_min_potential_stairstep is used because min_potential increment can be very small (for big clouds) 
+            # or very big (for tiny clouds). However if increment of min_potential is big, we dont want it to be the first and only decider. We want more voters
+            
             # Save predicted cloud
-            if last_min + 1 < new_min:
+            if new_min_potential > last_min_potential_stairstep + 1:
 
-                print('Entered if because last_min + 1 < new_min')
-                # Update last_min
-                last_min += 1
-
-                # Show vote results (On subcloud so it is not the good values here)
-#                 if test_loader.dataset.set == 'validation':
-#                     print('\nConfusion on sub clouds')
-#                     Confs = []
-#                     for i, file_path in enumerate(test_loader.dataset.files):
-
-#                         # Insert false columns for ignored labels
-#                         probs = np.array(self.test_probs[i], copy=True)
-#                         for l_ind, label_value in enumerate(test_loader.dataset.label_values):
-#                             if label_value in test_loader.dataset.ignored_labels:
-#                                 probs = np.insert(probs, l_ind, 0, axis=1)
-
-#                         # Predicted labels
-#                         preds = test_loader.dataset.label_values[np.argmax(probs, axis=1)].astype(np.int32)
-
-#                         # Targets
-#                         targets = test_loader.dataset.input_labels[i]
-
-#                         # Confs
-#                         Confs += [fast_confusion(targets, preds, test_loader.dataset.label_values)]
-
-#                     # Regroup confusions
-#                     C = np.sum(np.stack(Confs), axis=0).astype(np.float32)
-#                     print('Confusions on sub cloud', C)
-                    
-#                     # Remove ignored labels from confusions
-#                     for l_ind, label_value in reversed(list(enumerate(test_loader.dataset.label_values))):
-#                         if label_value in test_loader.dataset.ignored_labels:
-#                             C = np.delete(C, l_ind, axis=0)
-#                             C = np.delete(C, l_ind, axis=1)
-
-#                     # Rescale with the right number of point per class
-#                     C *= np.expand_dims(val_proportions / (np.sum(C, axis=1) + 1e-6), 1)
-
-#                     # Compute IoUs
-#                     IoUs = IoU_from_confusions(C)
-#                     mIoU = np.mean(IoUs)
-#                     s = 'e{:03d} ---- mIoU and IoUs on sub clouds {:5.2f} | '.format(test_epoch, 100 * mIoU)
-#                     for IoU in IoUs:
-#                         s += '{:5.2f} '.format(100 * IoU)
-#                     s += '\n'
-#                     print(s)
-                    
-#                     # kuramin added
-#                     with open(iou_log_path, "a") as myfile:
-#                         myfile.write(s)
-
+                print('Entered if because new_min_potential > last_min_potential_stairstep + 1', new_min_potential, last_min_potential_stairstep)
 
                 # Save real IoU once in a while
-                if int(np.ceil(new_min)) % 1 == 0:
-
+                #if int(np.ceil(new_min_potential)) % 1000 == 0:
+                if last_min_potential_stairstep > req_last_min_potential_stairstep:
+                    
                     # Project predictions
-                    print('\nReproject Vote #{:d}'.format(int(np.floor(new_min))))
+                    print('\nReproject Vote #{:d}'.format(int(np.floor(new_min_potential))))
                     t1 = time.time()
                     proj_probs = []
                     for i, file_path in enumerate(test_loader.dataset.files):
@@ -495,14 +472,17 @@ class ModelTester:
 
                     t2 = time.time()
                     print('Done in {:.1f} s\n'.format(t2 - t1))
-
+        
             test_epoch += 1
 
-            print(' before if-break last_min', last_min, 'new_min', new_min)
+            print('before if-break last_min_potential_stairstep', last_min_potential_stairstep, 'new_min_potential', new_min_potential, 'req_last_min_potential_stairstep', req_last_min_potential_stairstep)
             
             # Break when reaching number of desired votes
-            if last_min > num_votes:   # kuramin commented out
+            if last_min_potential_stairstep > req_last_min_potential_stairstep:   # kuramin commented out
                 break
+
+            # Update last_min_potential_stairstep
+            last_min_potential_stairstep += 1    
 
         # kuramin added
         mIoU_aver = np.sum(mIoU_smooth) / len(mIoU_smooth)
