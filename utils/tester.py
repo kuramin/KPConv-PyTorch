@@ -170,6 +170,7 @@ class ModelTester:
         # self.test_probs consists of zeros and has size (n_points, 3)
         # test_loader.dataset.input_labels consists of labels from [0,1,2] for n_points
         self.test_probs = [np.zeros((l.shape[0], nc_model)) for l in test_loader.dataset.input_labels]
+        print('self.test_probs.shape is', self.test_probs())
 
         # Create folders for saving
         if config.saving:
@@ -218,7 +219,7 @@ class ModelTester:
         while True:  # kuramin changed
             print('Initialize workers')
 
-            # work with a batch provided by test_loader
+            # work with every batch provided by test_loader
             for i, batch in enumerate(test_loader):
 
                 # New time
@@ -246,6 +247,10 @@ class ModelTester:
                 cloud_inds = batch.cloud_inds.cpu().numpy()
                 torch.cuda.synchronize(self.device)
 
+                print('len(batch.points)', len(batch.points))
+                print('len(batch.points[0])', len(batch.points[0]))
+                print('len(batch.lengths)', len(batch.lengths))
+                print('len(batch.lengths[0])', len(batch.lengths[0]))
                 # Get predictions and labels per instance
                 # ***************************************
 
@@ -271,6 +276,8 @@ class ModelTester:
                     self.test_probs[c_i][inds] = test_smooth * self.test_probs[c_i][inds] + (1 - test_smooth) * probs
                     i0 += length
 
+                    print('b_i, probs', b_i, probs)
+
                 # Average timing
                 t += [time.time()]
                 if i < 2:
@@ -281,7 +288,7 @@ class ModelTester:
                 # Display
                 if (t[-1] - last_display) > 1.0:
                     last_display = t[-1]
-                    message = 'e{:03d}-i{:04d} => testing is ready for {:.1f}% (timings : {:4.2f} {:4.2f} {:4.2f})'
+                    message = 'Finished the batch e{:03d}-i{:04d} => testing is ready for {:.1f}% (timings : {:4.2f} {:4.2f} {:4.2f})'
                     print(message.format(test_epoch, i,
                                          100 * i / config.validation_size,
                                          1000 * (mean_dt[0]),
@@ -296,6 +303,7 @@ class ModelTester:
             # Update minimum of potentials
             new_min = torch.min(test_loader.dataset.min_potentials)
             print('Test epoch {:d}, end. Min potential = {:.1f}'.format(test_epoch, new_min))
+            print('self.test_probs', self.test_probs)
             #print([np.mean(pots) for pots in test_loader.dataset.potentials])
             print('bef if last_min', last_min, 'new_min', new_min)
 
@@ -303,6 +311,7 @@ class ModelTester:
             # Save predicted cloud
             if last_min + 1 < new_min:
 
+                print('Entered if because last_min + 1 < new_min')
                 # Update last_min
                 last_min += 1
 
@@ -363,8 +372,8 @@ class ModelTester:
                     proj_probs = []
                     for i, file_path in enumerate(test_loader.dataset.files):
 
+                        # test_loader.dataset.test_proj consists of proj_inds, assigned during sampling of the cloud
                         print(i, file_path, test_loader.dataset.test_proj[i].shape, self.test_probs[i].shape)
-
                         print(test_loader.dataset.test_proj[i].dtype, np.max(test_loader.dataset.test_proj[i]))
                         print(test_loader.dataset.test_proj[i][:5])
 
@@ -372,27 +381,34 @@ class ModelTester:
                         # Probs will be test probabilities for those members of sampled cloud
                         # which are closest neighbors of the original cloud
                         probs = self.test_probs[i][test_loader.dataset.test_proj[i], :]
+
+                        # proj_probs will collect such probs from several training clouds
                         proj_probs += [probs]
+
+                    print('len(proj_probs)', len(proj_probs))
+                    print('len(proj_probs[0])', len(proj_probs[0]))
+                    # Now we want to distribute values of proj_probs to the whole original cloud
+                    # calculate IoUs if we are in validation mode
 
                     t2 = time.time()
                     print('Done in {:.1f} s\n'.format(t2 - t1))
 
                     # Show vote results
-                    if test_loader.dataset.set == 'validation':
+                    if test_loader.dataset.set == 'validation':  # if real labels are known, we compute IoUs
                         print('Confusion on full clouds')
                         t1 = time.time()
                         Confs = []
                         for i, file_path in enumerate(test_loader.dataset.files):
 
-                            # Insert false columns for ignored labels
+                            # Insert false columns for ignored labels (we dont have probabilities for them)
                             for l_ind, label_value in enumerate(test_loader.dataset.label_values):
                                 if label_value in test_loader.dataset.ignored_labels:
                                     proj_probs[i] = np.insert(proj_probs[i], l_ind, 0, axis=1)
 
-                            # Get the predicted labels
+                            # Get the predicted labels from calculated before
                             preds = test_loader.dataset.label_values[np.argmax(proj_probs[i], axis=1)].astype(np.int32)
 
-                            # Confusion
+                            # Get the true values of labels and calculate Confusions
                             targets = test_loader.dataset.validation_labels[i]
                             Confs += [fast_confusion(targets, preds, test_loader.dataset.label_values)]
 
@@ -440,18 +456,20 @@ class ModelTester:
                     t1 = time.time()
                     for i, file_path in enumerate(test_loader.dataset.files):
 
-                        # Get file
+                        # Get coordinates only from the file of point cloud
                         points = test_loader.dataset.load_evaluation_points(file_path)
 
                         # Get the predicted labels
                         preds = test_loader.dataset.label_values[np.argmax(proj_probs[i], axis=1)].astype(np.int32)
 
-                        # Save plys
+                        # Save predictions
                         cloud_name = file_path.split('/')[-1]
                         test_name = join(test_path, 'predictions', cloud_name)
                         write_ply(test_name,
                                   [points, preds],
                                   ['x', 'y', 'z', 'preds'])  # kuramin commented saving clouds
+
+                        # Save probabilities
                         test_name2 = join(test_path, 'probs', cloud_name)
                         prob_names = ['_'.join(test_loader.dataset.label_to_names[label].split())
                                       for label in test_loader.dataset.label_values]
