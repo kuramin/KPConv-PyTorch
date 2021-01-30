@@ -96,16 +96,16 @@ class ModelTester:
             test_path = None
 
         # If validation, compute list of length nc_model: [N_points_with_label_0, N_points_with_label_1, N_points_with_label_2]
-        if test_loader.dataset.set == 'validation':
-            val_proportions = np.zeros(nc_model, dtype=np.float32)
-            i = 0
-            for label_value in test_loader.dataset.label_values:
-                if label_value not in test_loader.dataset.ignored_labels:
-                    val_proportions[i] = np.sum([np.sum(labels == label_value)
-                                                 for labels in test_loader.dataset.validation_labels])
-                    i += 1
-        else:
-            val_proportions = None
+#         if test_loader.dataset.set == 'validation':
+#             val_proportions = np.zeros(nc_model, dtype=np.float32)
+#             i = 0
+#             for label_value in test_loader.dataset.label_values:
+#                 if label_value not in test_loader.dataset.ignored_labels:
+#                     val_proportions[i] = np.sum([np.sum(labels == label_value)
+#                                                  for labels in test_loader.dataset.validation_labels])
+#                     i += 1
+#         else:
+#             val_proportions = None
 
         #####################
         # Network predictions
@@ -125,6 +125,7 @@ class ModelTester:
         #for _ in range(2):
         #if True:
         #while True:  # kuramin changed
+        zeros_only = 0
         while last_min_potential_stairstep < req_last_min_potential_stairstep:
             print('Initialize workers')
 
@@ -145,13 +146,18 @@ class ModelTester:
                     batch.to(self.device)
 
                 # Forward pass
-                outputs = net(batch, config)
+                outputs = net(batch, config)               
 
                 t += [time.time()]
 
                 # Get probabilities, s_points, lengths, input_inds and cloud inds
                 # of the whole batch which consists of several balls
                 stacked_probs = softmax(outputs).cpu().detach().numpy()
+                print('len(outputs)', len(outputs))
+                print(np.sum(np.argmax(stacked_probs, axis = 1) == 0, axis = 0))
+                if len(outputs) == np.sum(np.argmax(stacked_probs, axis = 1) == 0, axis = 0):
+                    zeros_only += 1
+                
                 s_points = batch.points[0].cpu().numpy()
                 lengths = batch.lengths[0].cpu().numpy()
                 in_inds = batch.input_inds.cpu().numpy()
@@ -190,10 +196,10 @@ class ModelTester:
                     self.test_probs[c_i][inds] = test_smooth * self.test_probs[c_i][inds] + (1 - test_smooth) * probs
                     i0 += length
                     
-                    #print('len(self.test_probs[c_i])', len(self.test_probs[c_i]))
+                    print('len(self.test_probs[c_i])', len(self.test_probs[c_i]))
 
-                    #print('b_i, len(probs)', b_i, len(probs))
-                    #print('probs', probs)
+                    print('b_i, len(probs)', b_i, len(probs))
+                    print('probs', probs)
 
                 # Average timing
                 t += [time.time()]
@@ -409,5 +415,7 @@ class ModelTester:
         print('IoUs_var from inside is', IoUs_var)
         config.IoUs_aver = IoUs_aver
         config.IoUs_var = IoUs_var 
+        
+        print('zeros_only', zeros_only)
                 
         return

@@ -79,7 +79,7 @@ if __name__ == '__main__':
     ##################################
 
     # Change parameters for the test here. For example, you can stop augmenting the input data.
-    config.validation_size = 50 #200 kuramin changed
+    config.validation_size = 200 #200 kuramin changed
     config.input_threads = 10
 
     ##############
