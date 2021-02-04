@@ -119,42 +119,42 @@ def fast_confusion(true, pred, label_values=None):
 
         # Reshape confusion in a matrix
         return vec_conf.reshape((num_classes, num_classes))
-
-def metrics(confusions, ignore_unclassified=False):
-    """
-    Computes different metrics from confusion matrices.
-    :param confusions: ([..., n_c, n_c] np.int32). Can be any dimension, the confusion matrices should be described by
-    the last axes. n_c = number of classes
-    :param ignore_unclassified: (bool). True if the the first class should be ignored in the results
-    :return: ([..., n_c] np.float32) precision, recall, F1 score, IoU score
-    """
-
-    # If the first class (often "unclassified") should be ignored, erase it from the confusion.
-    if (ignore_unclassified):
-        confusions[..., 0, :] = 0
-        confusions[..., :, 0] = 0
-
-    # Compute TP, FP, FN. This assume that the second to last axis counts the truths (like the first axis of a
-    # confusion matrix), and that the last axis counts the predictions (like the second axis of a confusion matrix)
-    TP = np.diagonal(confusions, axis1=-2, axis2=-1)
-    TP_plus_FP = np.sum(confusions, axis=-1)
-    TP_plus_FN = np.sum(confusions, axis=-2)
-
-    # Compute precision and recall. This assume that the second to last axis counts the truths (like the first axis of
-    # a confusion matrix), and that the last axis counts the predictions (like the second axis of a confusion matrix)
-    PRE = TP / (TP_plus_FN + 1e-6)
-    REC = TP / (TP_plus_FP + 1e-6)
-
-    # Compute Accuracy
-    ACC = np.sum(TP, axis=-1) / (np.sum(confusions, axis=(-2, -1)) + 1e-6)
-
-    # Compute F1 score
-    F1 = 2 * TP / (TP_plus_FP + TP_plus_FN + 1e-6)
-
-    # Compute IoU
-    IoU = F1 / (2 - F1)
-
-    return PRE, REC, F1, IoU, ACC
+#
+# def metrics(confusions, ignore_unclassified=False):
+#     """
+#     Computes different metrics from confusion matrices.
+#     :param confusions: ([..., n_c, n_c] np.int32). Can be any dimension, the confusion matrices should be described by
+#     the last axes. n_c = number of classes
+#     :param ignore_unclassified: (bool). True if the the first class should be ignored in the results
+#     :return: ([..., n_c] np.float32) precision, recall, F1 score, IoU score
+#     """
+#
+#     # If the first class (often "unclassified") should be ignored, erase it from the confusion.
+#     if (ignore_unclassified):
+#         confusions[..., 0, :] = 0
+#         confusions[..., :, 0] = 0
+#
+#     # Compute TP, FP, FN. This assume that the second to last axis counts the truths (like the first axis of a
+#     # confusion matrix), and that the last axis counts the predictions (like the second axis of a confusion matrix)
+#     TP = np.diagonal(confusions, axis1=-2, axis2=-1)
+#     TP_plus_FP = np.sum(confusions, axis=-1)
+#     TP_plus_FN = np.sum(confusions, axis=-2)
+#
+#     # Compute precision and recall. This assume that the second to last axis counts the truths (like the first axis of
+#     # a confusion matrix), and that the last axis counts the predictions (like the second axis of a confusion matrix)
+#     PRE = TP / (TP_plus_FN + 1e-6)
+#     REC = TP / (TP_plus_FP + 1e-6)
+#
+#     # Compute Accuracy
+#     ACC = np.sum(TP, axis=-1) / (np.sum(confusions, axis=(-2, -1)) + 1e-6)
+#
+#     # Compute F1 score
+#     F1 = 2 * TP / (TP_plus_FP + TP_plus_FN + 1e-6)
+#
+#     # Compute IoU
+#     IoU = F1 / (2 - F1)
+#
+#     return PRE, REC, F1, IoU, ACC
 
 
 def smooth_metrics(confusions, smooth_n=0, ignore_unclassified=False):
@@ -212,7 +212,7 @@ def IoU_from_confusions(confusions):
     :return: ([..., n_c] np.float32) IoU score
     """
 
-    # Compute TP, FP, FN. This assume that the second to last axis counts the truths (like the first axis of a
+    # Compute TP, FP, FN. This assumes that the second to last axis counts the truths (like the first axis of a
     # confusion matrix), and that the last axis counts the predictions (like the second axis of a confusion matrix)
     TP = np.diagonal(confusions, axis1=-2, axis2=-1)
     TP_plus_FN = np.sum(confusions, axis=-1)
@@ -222,6 +222,7 @@ def IoU_from_confusions(confusions):
     IoU = TP / (TP_plus_FP + TP_plus_FN - TP + 1e-6)
 
     # Compute mIoU with only the actual classes
+    # counts will get 1 only when TP_plus_FN is higher then 1e-3
     mask = TP_plus_FN < 1e-3
     counts = np.sum(1 - mask, axis=-1, keepdims=True)
     mIoU = np.sum(IoU, axis=-1, keepdims=True) / (counts + 1e-6)

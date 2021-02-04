@@ -307,8 +307,11 @@ class ModelTrainer:
 
         # Initiate global prediction over validation clouds
         if not hasattr(self, 'validation_probs'):
+            # validation_probs will be a place which collects probs
             self.validation_probs = [np.zeros((l.shape[0], nc_model))
                                      for l in val_loader.dataset.input_labels]
+
+            # val_proportions will be [num_classes] list of number of points of each class in subsampled cloud
             self.val_proportions = np.zeros(nc_model, dtype=np.float32)
             i = 0
             for label_value in val_loader.dataset.label_values:
@@ -321,8 +324,8 @@ class ModelTrainer:
         # Network predictions
         #####################
 
-        predictions = []
-        targets = []
+        list_of_balls_of_probs = []
+        list_of_balls_of_targets = []
 
         t = [time.time()]
         last_display = time.time()
@@ -352,13 +355,14 @@ class ModelTrainer:
             cloud_inds = batch.cloud_inds.cpu().numpy()
             torch.cuda.synchronize(self.device)
 
-            # Get predictions and labels per instance
+            # Get list_of_balls_of_probs and labels per instance
             # ***************************************
 
             i0 = 0
+            # for every ball of the batch
             for b_i, length in enumerate(lengths):
 
-                # Get prediction
+                # Get labels and probabilities
                 target = labels[i0:i0 + length]
                 probs = stacked_probs[i0:i0 + length]
                 inds = in_inds[i0:i0 + length]
@@ -372,15 +376,16 @@ class ModelTrainer:
                 #print('len(aprobs)', len(aprobs))
                 #print('aprobs', aprobs)
 
-                # Update current probs in whole cloud
+                # Update corresponding validation_probs of our sampled_cloud
                 self.validation_probs[c_i][inds] = val_smooth * self.validation_probs[c_i][inds] \
                                                    + (1 - val_smooth) * probs
 
-                # Stack all predictions and targets for this epoch
-                predictions.append(probs)
-                targets.append(target)
+                # Collect list_of_balls_of_probs and list_of_balls_of_targets for this epoch
+                list_of_balls_of_probs.append(probs)
+                list_of_balls_of_targets.append(target)
                 i0 += length
 
+            # walking through balls of the batch is finished
             # Average timing
             t += [time.time()]
             mean_dt = 0.95 * mean_dt + 0.05 * (np.array(t[1:]) - np.array(t[:-1]))
@@ -394,10 +399,12 @@ class ModelTrainer:
                                      1000 * (mean_dt[1])))
 
         t2 = time.time()
+        # Batching of balls is finished, it gave us: self.validation_probs are smoothed sum of probabilities,
+        # list_of_balls_of_probs is a list of ball-lists of probabilities, list_of_balls_of_targets is a list of ball-lists of targets
 
-        # Confusions for our subparts of validation set
-        Confs = np.zeros((len(predictions), nc_tot, nc_tot), dtype=np.int32)
-        for i, (probs, truth) in enumerate(zip(predictions, targets)):
+        # Confusions based on list_of_balls_of_probs and list_of_balls_of_targets
+        Confs = np.zeros((len(list_of_balls_of_probs), nc_tot, nc_tot), dtype=np.int32)
+        for i, (probs, truth) in enumerate(zip(list_of_balls_of_probs, list_of_balls_of_targets)):
 
             # Insert false columns for ignored labels
             for l_ind, label_value in enumerate(val_loader.dataset.label_values):
@@ -407,13 +414,14 @@ class ModelTrainer:
             # Predicted labels
             preds = val_loader.dataset.label_values[np.argmax(probs, axis=1)]
 
-            # Confusions
+            # Confusions (shape is [number_of_collected_balls, num_classes, num_classes] like [318, 3, 3])
+            # Every Confs[i, j, k] contains number of points of class j mislabeled as class k inside collected ball number i
             Confs[i, :, :] = fast_confusion(truth, preds, val_loader.dataset.label_values).astype(np.int32)
 
 
         t3 = time.time()
 
-        # Sum all confusions
+        # Sum all confusions (C[j, k] will contain number of points of class j mislabeled as class k within all balls)
         C = np.sum(Confs, axis=0).astype(np.float32)
 
         # Remove ignored labels from confusions
@@ -422,18 +430,26 @@ class ModelTrainer:
                 C = np.delete(C, l_ind, axis=0)
                 C = np.delete(C, l_ind, axis=1)
 
-        # Balance with real validation proportions
+        # Extrapolate out result on collected balls to the whole set of validation labels
+        # np.sum(C, axis=1) contains [num_classes] list,
+        # how many points of each actual class do we have in OUR SET OF COLLECTED BALLS (not in subsampled cloud)
+        # List self.val_proportions / (np.sum(C, axis=1) will be [num_classes] and will contain values of
+        # how many times more values of this actual class we have in our subsampled class than in OUR SET OF COLLECTED BALLS
+        # expand_dims(axis=1) turns this [class1, class2, class3] list to [[class1], [class2], [class3]]
         C *= np.expand_dims(self.val_proportions / (np.sum(C, axis=1) + 1e-6), 1)
-
+        # Now C will be a confusion matrix extrapolated from our set of collected balls to the whole dataset.
+        # Sum of numbers in each row will be equal to number of points of this actual class in the subsampled cloud
+        # Ratio of numbers in each row will be equal to the ratio in confusion matrix of our set of collected balls
 
         t4 = time.time()
 
         # Objects IoU
         IoUs = IoU_from_confusions(C)
+        print('IoUs based on Confusions summed up along collected balls and extrapolated to the whole cloud', IoUs)
 
         t5 = time.time()
 
-        # Saving (optionnal)
+        # Saving (optional): every validation round will write a line of num_classes IoUs
         if config.saving:
 
             # Name of saving file
@@ -485,7 +501,7 @@ class ModelTrainer:
                 # Get points
                 points = val_loader.dataset.load_evaluation_points(file_path)
 
-                # Get probs on our own ply points
+                # Get validation_probs, which are smoothed sums of probs from different balls of different batches
                 sub_probs = self.validation_probs[i]
 
                 # Insert false columns for ignored labels
@@ -493,17 +509,17 @@ class ModelTrainer:
                     if label_value in val_loader.dataset.ignored_labels:
                         sub_probs = np.insert(sub_probs, l_ind, 0, axis=1)
 
-                # Get the predicted labels
+                # Get the predicted labels. Size of this list is number of points in subsampled cloud
                 sub_preds = val_loader.dataset.label_values[np.argmax(sub_probs, axis=1).astype(np.int32)]
                 
-                # Reproject preds on the evaluations points
+                # Reproject preds on the original non-sampled cloud
                 preds = (sub_preds[val_loader.dataset.test_proj[i]]).astype(np.int32)
 
                 # Path of saved validation file
                 cloud_name = file_path.split('/')[-1]
                 val_name = join(val_path, cloud_name)
 
-                # Save file
+                # Save file of points from original non-sampled cloud with true labels and preds
                 labels = np.array(val_loader.dataset.validation_labels[i]).astype(np.int32)
                 write_ply(val_name,
                           [points, preds, labels],
