@@ -389,7 +389,7 @@ class S3DISDataset(PointCloudDataset):
             # inp_counter += 1
             # print(str(inp_filename)+str(inp_counter)+'.ply')
             # write_ply('/home/kuramin/Downloads/input.ply',
-            #               [input_points, input_colors, input_labels],
+            #               [input_points, input_features, input_labels],
             #               ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
 
             # as a result, input_points is a ball of radius 1.3 m

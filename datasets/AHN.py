@@ -39,6 +39,7 @@ from os.path import exists, join, isdir
 from datasets.common import PointCloudDataset
 from torch.utils.data import Sampler, get_worker_info
 from utils.mayavi_visu import *
+from sklearn.preprocessing import minmax_scale
 
 from datasets.common import grid_subsampling
 from utils.config import bcolors
@@ -122,10 +123,14 @@ class AHNDataset(PointCloudDataset):
         
         #self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_small']
         #self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_medium']
+        self.cloud_names = ['logClass_Hellevoetsluis_012_medium', 'logClass_Hellevoetsluis_012_mini']
         #self.cloud_names = ['logClass_Lelystad_012', 'Vaihingen3D_Training_kuramin_edition_fakergb']
-        self.cloud_names = ['logClass_Lelystad_012', 'Vaihingen3D_Training_kuramin_edition_shifted']
+        #self.cloud_names = ['logClass_Lelystad_012', 'Vaihingen3D_Training_kuramin_edition_shifted']
         self.all_splits = [0, 1]
         self.validation_split = 1
+
+        self.list_of_colors = ['red', 'green', 'blue']
+        self.list_of_scalars = ['scalar_NumberOfReturns', 'scalar_ReturnNumber', 'scalar_Intensity']
 
         # Number of models used per epoch
         if self.set == 'training':
@@ -173,7 +178,7 @@ class AHNDataset(PointCloudDataset):
 
         # Initiate containers
         self.input_trees = []
-        self.input_colors = []
+        self.input_features = []
         self.input_labels = []
         self.pot_trees = []
         self.num_clouds = 0
@@ -355,17 +360,10 @@ class AHNDataset(PointCloudDataset):
 
             # Collect labels and colors
             input_points = (points[input_inds] - center_point).astype(np.float32)
-            input_colors = self.input_colors[cloud_ind][input_inds]
+            #input_features = self.input_features[cloud_ind][input_inds]
             if self.set in ['test', 'ERF']:
                 input_labels = np.zeros(input_points.shape[0])
             else:
-                #input_labels = self.input_labels[cloud_ind][input_inds]
-                #input_labels_list = []
-                #for l in input_labels:
-                #    if l not in [1,2,3,4,5,6,7,8,9]:
-                #        print('weird val of l', l, 'cloud_ind', cloud_ind, 'input_inds', input_inds)
-                #    else:    
-                #        input_labels_list.append(self.label_to_idx[l])
                 input_labels_list = []
                 for inde in input_inds:
                     if self.input_labels[cloud_ind][inde] not in [0,1,2,3,4,5,6,7,8,9]:
@@ -385,11 +383,20 @@ class AHNDataset(PointCloudDataset):
             input_points, scale, R = self.augmentation_transform(input_points)
 
             # Color augmentation
-            if np.random.rand() > self.config.augment_color:
-                input_colors *= 0
+            # if np.random.rand() > self.config.augment_color:
+            #     input_features *= 0
 
-            # Get original height as additional feature
-            input_features = np.hstack((input_colors, input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
+            list_of_feats = self.list_of_colors + self.list_of_scalars
+            if list_of_feats:
+                input_features = self.input_features[cloud_ind][input_inds]
+                if self.list_of_colors: #and np.random.rand() > self.config.augment_color:
+                    for color_feat in self.list_of_colors:
+                        input_features[:, list_of_feats.index(color_feat)] *= 0
+                # Put original height as additional feature
+                input_features = np.hstack((input_features, input_points[:, 2:] + center_point[:, 2:])).astype(np.float32)
+            else:
+                # Put original height as additional feature
+                input_features = (input_points[:, 2:] + center_point[:, 2:]).astype(np.float32)
 
             t += [time.time()]
 
@@ -431,14 +438,15 @@ class AHNDataset(PointCloudDataset):
 
         # Input features
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
-        if self.config.in_features_dim == 1:
-            pass
-        elif self.config.in_features_dim == 4:
-            stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
-            stacked_features = np.hstack((stacked_features, features))
-        else:
-            raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)')
+        stacked_features = np.hstack((stacked_features, features))
+        # if self.config.in_features_dim == 1:
+        #     pass
+        # elif self.config.in_features_dim == 4:
+        #     stacked_features = np.hstack((stacked_features, features[:, :3]))
+        # elif self.config.in_features_dim == 5:
+        #     stacked_features = np.hstack((stacked_features, features))
+        # else:
+        #     raise ValueError('Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)')
 
         #######################
         # Create network inputs
@@ -505,14 +513,21 @@ class AHNDataset(PointCloudDataset):
             KDTree_file = join(tree_path, '{:s}_KDTree.pkl'.format(cloud_name))
             sub_ply_file = join(tree_path, '{:s}.ply'.format(cloud_name))
 
+            list_of_feats = self.list_of_colors + self.list_of_scalars
             # Check if inputs have already been computed
             if exists(KDTree_file):
                 print('\nFound KDTree for cloud {:s}, subsampled at {:.3f}'.format(cloud_name, dl))
 
                 # read ply with data
                 data = read_ply(sub_ply_file)
-                sub_colors = np.vstack((data['red'], data['green'], data['blue'])).T
-                sub_labels = data['class']
+                #sub_features = np.vstack((data['red'], data['green'], data['blue'])).T
+                #sub_features = np.vstack((data['red'], data['green'], data['blue'])).T
+                if list_of_feats:
+                    sub_features = np.vstack((data[feat] for feat in list_of_feats)).T
+                else:
+                    sub_features = []
+                #sub_labels = data['class']
+                sub_labels = data['scalar_Classification']
 
                 # Read pkl with search tree
                 with open(KDTree_file, 'rb') as f:
@@ -524,25 +539,44 @@ class AHNDataset(PointCloudDataset):
                 # Read ply file
                 data = read_ply(file_path)
                 points = np.vstack((data['x'], data['y'], data['z'])).T
-                #colors = np.vstack((data['scalar_NumberOfReturns'], data['scalar_ReturnNumber'], data['scalar_Intensity'])).T  # kuramin changed
-                colors = np.vstack((data['red'], data['green'], data['blue'])).T
                 labels_float = data['scalar_Classification']
                 labels = []
                 for label_float in labels_float:
                     label = int(label_float)
                     labels.append(label)
-                    
                 print('labels has size', len(labels), 'hist is', np.histogram(labels, bins = [0,1,2,3,4,5,6,7,8,9,10]))
+                #colors = np.vstack((data['scalar_NumberOfReturns'], data['scalar_ReturnNumber'], data['scalar_Intensity'])).T  # kuramin changed
+                #colors = np.vstack((data['red'], data['green'], data['blue'])).T
 
                 # Subsample cloud
-                sub_points, sub_colors, sub_labels = grid_subsampling(points,
-                                                                      features=colors,
-                                                                      labels=labels,
-                                                                      sampleDl=dl)
+                if list_of_feats:
+                    features = np.vstack((data[feat] for feat in list_of_feats)).T
+                    sub_points, sub_features, sub_labels = grid_subsampling(points,
+                                                                          features=features,
+                                                                          labels=labels,
+                                                                          sampleDl=dl)
+                    sub_labels = np.squeeze(sub_labels)
+                    #sub_features = sub_features / 255  # kuramin replaced it with lines above
+                    # Normalize features
+                    for feat in list_of_feats:
+                        if feat in self.list_of_colors:
+                            sub_features[:, list_of_feats.index(feat)] = sub_features[:, list_of_feats.index(feat)] / 255
+                        if feat in self.list_of_scalars:
+                            sub_features[:, list_of_feats.index(feat)] = minmax_scale(sub_features[:, list_of_feats.index(feat)], feature_range=(0, 1))
+                    write_ply(sub_ply_file,
+                              [sub_points, sub_features, sub_labels],
+                              ['x', 'y', 'z'] + list_of_feats + ['scalar_Classification'])
 
-                # Rescale float color and squeeze label
-                sub_colors = sub_colors / 255
-                sub_labels = np.squeeze(sub_labels)
+                else:
+                    sub_points, sub_labels = grid_subsampling(points,
+                                                              labels=labels,
+                                                              sampleDl=dl)
+                    sub_labels = np.squeeze(sub_labels)
+                    sub_features = []
+                    write_ply(sub_ply_file,
+                              [sub_points, sub_labels],
+                              ['x', 'y', 'z'] + ['scalar_Classification'])
+
 
                 # Get chosen neighborhoods
                 search_tree = KDTree(sub_points, leaf_size=10)
@@ -553,18 +587,14 @@ class AHNDataset(PointCloudDataset):
                 with open(KDTree_file, 'wb') as f:
                     pickle.dump(search_tree, f)
 
-                # Save ply
-                write_ply(sub_ply_file,
-                          [sub_points, sub_colors, sub_labels],
-                          ['x', 'y', 'z', 'red', 'green', 'blue', 'class'])
-
             # Fill data containers
             self.input_trees += [search_tree]
-            self.input_colors += [sub_colors]
             self.input_labels += [sub_labels]
+            if list_of_feats:
+                self.input_features += [sub_features]
 
-            size = sub_colors.shape[0] * 4 * 7
-            print('{:.1f} MB loaded in {:.1f}s'.format(size * 1e-6, time.time() - t0))
+            #size = sub_features.shape[0] * 4 * 7
+            #print('{:.1f} MB loaded in {:.1f}s'.format(size * 1e-6, time.time() - t0))
 
         ############################
         # Coarse potential locations

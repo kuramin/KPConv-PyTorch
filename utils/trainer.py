@@ -523,7 +523,10 @@ class ModelTrainer:
                 labels = np.array(val_loader.dataset.validation_labels[i]).astype(np.int32)
                 write_ply(val_name,
                           [points, preds, labels],
-                          ['x', 'y', 'z', 'preds', 'class'])  # kuramin commented saving clouds
+                          ['x', 'y', 'z', 'preds', 'scalar_Classification'])  # kuramin commented saving clouds
+                # write_ply(val_name,
+                #           [points, preds, labels],
+                #           ['x', 'y', 'z', 'preds', 'class'])  # kuramin commented saving clouds
 
         # Display timings
         t7 = time.time()
