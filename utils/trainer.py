@@ -307,11 +307,11 @@ class ModelTrainer:
 
         # Initiate global prediction over validation clouds
         if not hasattr(self, 'validation_probs'):
-            # validation_probs will be a place which collects probs
+            # validation_probs will be a place which collects probs, has size of sampled cloud
             self.validation_probs = [np.zeros((l.shape[0], nc_model))
                                      for l in val_loader.dataset.input_labels]
 
-            # val_proportions will be [num_classes] list of number of points of each class in subsampled cloud
+            # val_proportions will be [num_classes] list of number of points of each class in nonsampled cloud
             self.val_proportions = np.zeros(nc_model, dtype=np.float32)
             i = 0
             for label_value in val_loader.dataset.label_values:
@@ -372,7 +372,7 @@ class ModelTrainer:
                 #print('target', target)
                 #print('len(probs)', len(probs))
                 #print('probs', probs)
-                aprobs = np.argmax(probs, axis=1)
+                #aprobs = np.argmax(probs, axis=1)
                 #print('len(aprobs)', len(aprobs))
                 #print('aprobs', aprobs)
 
