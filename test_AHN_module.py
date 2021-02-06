@@ -90,7 +90,7 @@ def test_AHN(gridsearch_filename):
     ##################################
 
     # Change parameters for the test here. For example, you can stop augmenting the input data.
-    config.validation_size = 200 #200 kuramin changed
+    #config.validation_size = 200 #200 kuramin changed
 
     ##############
     # Prepare Data

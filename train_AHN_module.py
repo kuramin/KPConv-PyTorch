@@ -99,7 +99,7 @@ class AHNConfig(Config):
 
     # Choice of input features
     first_features_dim = 128 # kuramin changed back from 8
-    in_features_dim = 8 #5 # kuramin changed back from 4
+    in_features_dim = 4 # kuramin changed back from 4
 
     # Can the network learn modulations
     modulated = False
@@ -141,7 +141,7 @@ class AHNConfig(Config):
     validation_size = 50
 
     # Number of epoch between each checkpoint
-    checkpoint_gap = 10 #6 #6  # 50
+    checkpoint_gap = 100 #10 #6 #6  # 50
 
     # Augmentations
     augment_scale_anisotropic = True
@@ -231,8 +231,7 @@ def train_AHN_on_hyperparameters(fsd,
     message_path_string = ''
     message = ''
 
-    #try:
-    if True:
+    try:
         chosen_chkp = None
         
         # Initialize datasets
@@ -329,18 +328,18 @@ def train_AHN_on_hyperparameters(fsd,
 
         print('End attempt without forcing')
 
-    # except Exception as e:
-    #     message = message_param_string + message_path_string + ' Got exception ' + str(e) + '\n'
-    #     config.acc_aver = None
-    # else:
-    #     acc_string = ' {:1.4f} {:1.4f}'
-    #     acc_string = acc_string.format(config.acc_aver, config.acc_var)
-    #     message = message_param_string + message_path_string + acc_string
-    # finally:
-    #     print(message)
-    #
-    #     with open(gridsearch_filename, "a") as file:
-    #         file.write(message)
+    except Exception as e:
+        message = message_param_string + message_path_string + ' Got exception ' + str(e) + '\n'
+        config.acc_aver = None
+    else:
+        acc_string = ' {:1.4f} {:1.4f}'
+        acc_string = acc_string.format(config.acc_aver, config.acc_var)
+        message = message_param_string + message_path_string + acc_string
+    finally:
+        print(message)
+    
+        with open(gridsearch_filename, "a") as file:
+            file.write(message)
 
         print('End of finally part of exception')
     print('End of program')

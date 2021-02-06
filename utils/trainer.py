@@ -260,7 +260,7 @@ class ModelTrainer:
 
             # Validation
             net.eval()
-            self.validation(net, val_loader, config)
+            #self.validation(net, val_loader, config)
             net.train()
 
         # kuramin added
