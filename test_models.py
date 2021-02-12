@@ -26,6 +26,7 @@ if __name__ == '__main__':
     #   Here you can choose which model you want to test with the variable test_model:
     #   '(old_)results/Log_YYYY-MM-DD_HH-MM-SS': Directly provide the path of a trained model
 
+    #chosen_log = 'results_copied/Log_2021-02-08_14-00-38_91perc'  # kuramin changed
     chosen_log = 'results_copied/Log_2021-01-25_14-12-25_88perc'  # kuramin changed
     if not os.path.exists(chosen_log):
         raise ValueError('The given log does not exists: ' + chosen_log)
@@ -79,7 +80,7 @@ if __name__ == '__main__':
     ##################################
 
     # Change parameters for the test here. For example, you can stop augmenting the input data.
-    config.validation_size = 200 #200 kuramin changed
+    #config.validation_size = 200 #200 kuramin changed
     config.input_threads = 10
 
     ##############

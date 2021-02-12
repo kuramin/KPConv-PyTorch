@@ -195,6 +195,9 @@ class ModelTrainer:
                 else:
                     mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
              
+                if loss.item() > 1e+10 or np.isnan(loss.item()):
+                    raise Exception('Loss too high:', loss.item())
+                    
                 # Console display (only one per second)
                 if (t[-1] - last_display) > 1.0:
                     last_display = t[-1]
@@ -254,9 +257,9 @@ class ModelTrainer:
                 torch.save(save_dict, checkpoint_path)
 
                 # Save checkpoints occasionally
-                if (self.epoch + 1) % config.checkpoint_gap == 0:
-                    checkpoint_path = join(checkpoint_directory, 'chkp_{:04d}.tar'.format(self.epoch + 1))
-                    torch.save(save_dict, checkpoint_path)
+#                 if (self.epoch + 1) % config.checkpoint_gap == 0:
+#                     checkpoint_path = join(checkpoint_directory, 'chkp_{:04d}.tar'.format(self.epoch + 1))
+#                     torch.save(save_dict, checkpoint_path)
 
             # Validation
             net.eval()
@@ -280,269 +283,269 @@ class ModelTrainer:
     def validation(self, net, val_loader, config: Config):
         self.cloud_segmentation_validation(net, val_loader, config)
 
-    def cloud_segmentation_validation(self, net, val_loader, config, debug=False):
-        """
-        Validation method for cloud segmentation models
-        """
+#     def cloud_segmentation_validation(self, net, val_loader, config, debug=False):
+#         """
+#         Validation method for cloud segmentation models
+#         """
 
-        ############
-        # Initialize
-        ############
+#         ############
+#         # Initialize
+#         ############
 
-        # Choose validation smoothing parameter (0 for no smoоthing, 0.99 for big smoothing)
-        val_smooth = 0.95
-        softmax = torch.nn.Softmax(1)
+#         # Choose validation smoothing parameter (0 for no smoоthing, 0.99 for big smoothing)
+#         val_smooth = 0.95
+#         softmax = torch.nn.Softmax(1)
 
-        t0 = time.time()
+#         t0 = time.time()
 
-        # Do not validate if dataset has no validation cloud
-        if val_loader.dataset.validation_split not in val_loader.dataset.all_splits:
-            return
+#         # Do not validate if dataset has no validation cloud
+#         if val_loader.dataset.validation_split not in val_loader.dataset.all_splits:
+#             return
 
-        # Number of classes including ignored labels
-        nc_tot = val_loader.dataset.num_classes
+#         # Number of classes including ignored labels
+#         nc_tot = val_loader.dataset.num_classes
 
-        # Number of classes predicted by the model
-        nc_model = config.num_classes
+#         # Number of classes predicted by the model
+#         nc_model = config.num_classes
 
-        # Initiate global prediction over validation clouds
-        if not hasattr(self, 'validation_probs'):
-            # validation_probs will be a place which collects probs, has size of sampled cloud
-            self.validation_probs = [np.zeros((l.shape[0], nc_model))
-                                     for l in val_loader.dataset.input_labels]
+#         # Initiate global prediction over validation clouds
+#         if not hasattr(self, 'validation_probs'):
+#             # validation_probs will be a place which collects probs, has size of sampled cloud
+#             self.validation_probs = [np.zeros((l.shape[0], nc_model))
+#                                      for l in val_loader.dataset.input_labels]
 
-            # val_proportions will be [num_classes] list of number of points of each class in nonsampled cloud
-            self.val_proportions = np.zeros(nc_model, dtype=np.float32)
-            i = 0
-            for label_value in val_loader.dataset.label_values:
-                if label_value not in val_loader.dataset.ignored_labels:
-                    self.val_proportions[i] = np.sum([np.sum(labels == label_value)
-                                                      for labels in val_loader.dataset.validation_labels])
-                    i += 1
+#             # val_proportions will be [num_classes] list of number of points of each class in nonsampled cloud
+#             self.val_proportions = np.zeros(nc_model, dtype=np.float32)
+#             i = 0
+#             for label_value in val_loader.dataset.label_values:
+#                 if label_value not in val_loader.dataset.ignored_labels:
+#                     self.val_proportions[i] = np.sum([np.sum(labels == label_value)
+#                                                       for labels in val_loader.dataset.validation_labels])
+#                     i += 1
 
-        #####################
-        # Network predictions
-        #####################
+#         #####################
+#         # Network predictions
+#         #####################
 
-        list_of_balls_of_probs = []
-        list_of_balls_of_targets = []
+#         list_of_balls_of_probs = []
+#         list_of_balls_of_targets = []
 
-        t = [time.time()]
-        last_display = time.time()
-        mean_dt = np.zeros(1)
+#         t = [time.time()]
+#         last_display = time.time()
+#         mean_dt = np.zeros(1)
 
 
-        t1 = time.time()
+#         t1 = time.time()
 
-        # Start validation loop
-        for i, batch in enumerate(val_loader):
+#         # Start validation loop
+#         for i, batch in enumerate(val_loader):
 
-            # New time
-            t = t[-1:]
-            t += [time.time()]
+#             # New time
+#             t = t[-1:]
+#             t += [time.time()]
 
-            if 'cuda' in self.device.type:
-                batch.to(self.device)
+#             if 'cuda' in self.device.type:
+#                 batch.to(self.device)
 
-            # Forward pass
-            outputs = net(batch, config)
+#             # Forward pass
+#             outputs = net(batch, config)
 
-            # Get probs and labels
-            stacked_probs = softmax(outputs).cpu().detach().numpy()
-            labels = batch.labels.cpu().numpy()
-            lengths = batch.lengths[0].cpu().numpy()
-            in_inds = batch.input_inds.cpu().numpy()
-            cloud_inds = batch.cloud_inds.cpu().numpy()
-            torch.cuda.synchronize(self.device)
+#             # Get probs and labels
+#             stacked_probs = softmax(outputs).cpu().detach().numpy()
+#             labels = batch.labels.cpu().numpy()
+#             lengths = batch.lengths[0].cpu().numpy()
+#             in_inds = batch.input_inds.cpu().numpy()
+#             cloud_inds = batch.cloud_inds.cpu().numpy()
+#             torch.cuda.synchronize(self.device)
 
-            # Get list_of_balls_of_probs and labels per instance
-            # ***************************************
+#             # Get list_of_balls_of_probs and labels per instance
+#             # ***************************************
 
-            i0 = 0
-            # for every ball of the batch
-            for b_i, length in enumerate(lengths):
+#             i0 = 0
+#             # for every ball of the batch
+#             for b_i, length in enumerate(lengths):
 
-                # Get labels and probabilities
-                target = labels[i0:i0 + length]
-                probs = stacked_probs[i0:i0 + length]
-                inds = in_inds[i0:i0 + length]
-                c_i = cloud_inds[b_i]
+#                 # Get labels and probabilities
+#                 target = labels[i0:i0 + length]
+#                 probs = stacked_probs[i0:i0 + length]
+#                 inds = in_inds[i0:i0 + length]
+#                 c_i = cloud_inds[b_i]
                 
-                #print('len(target)', len(target))
-                #print('target', target)
-                #print('len(probs)', len(probs))
-                #print('probs', probs)
-                #aprobs = np.argmax(probs, axis=1)
-                #print('len(aprobs)', len(aprobs))
-                #print('aprobs', aprobs)
+#                 #print('len(target)', len(target))
+#                 #print('target', target)
+#                 #print('len(probs)', len(probs))
+#                 #print('probs', probs)
+#                 #aprobs = np.argmax(probs, axis=1)
+#                 #print('len(aprobs)', len(aprobs))
+#                 #print('aprobs', aprobs)
 
-                # Update corresponding validation_probs of our sampled_cloud
-                self.validation_probs[c_i][inds] = val_smooth * self.validation_probs[c_i][inds] \
-                                                   + (1 - val_smooth) * probs
+#                 # Update corresponding validation_probs of our sampled_cloud
+#                 self.validation_probs[c_i][inds] = val_smooth * self.validation_probs[c_i][inds] \
+#                                                    + (1 - val_smooth) * probs
 
-                # Collect list_of_balls_of_probs and list_of_balls_of_targets for this epoch
-                list_of_balls_of_probs.append(probs)
-                list_of_balls_of_targets.append(target)
-                i0 += length
+#                 # Collect list_of_balls_of_probs and list_of_balls_of_targets for this epoch
+#                 list_of_balls_of_probs.append(probs)
+#                 list_of_balls_of_targets.append(target)
+#                 i0 += length
 
-            # walking through balls of the batch is finished
-            # Average timing
-            t += [time.time()]
-            mean_dt = 0.95 * mean_dt + 0.05 * (np.array(t[1:]) - np.array(t[:-1]))
+#             # walking through balls of the batch is finished
+#             # Average timing
+#             t += [time.time()]
+#             mean_dt = 0.95 * mean_dt + 0.05 * (np.array(t[1:]) - np.array(t[:-1]))
 
-            # Display
-            if (t[-1] - last_display) > 1.0:
-                last_display = t[-1]
-                message = 'Validation is ready for {:.1f}% (timings : {:4.2f} {:4.2f})'
-                print(message.format(100 * i / config.validation_size,
-                                     1000 * (mean_dt[0]),
-                                     1000 * (mean_dt[1])))
+#             # Display
+#             if (t[-1] - last_display) > 1.0:
+#                 last_display = t[-1]
+#                 message = 'Validation is ready for {:.1f}% (timings : {:4.2f} {:4.2f})'
+#                 print(message.format(100 * i / config.validation_size,
+#                                      1000 * (mean_dt[0]),
+#                                      1000 * (mean_dt[1])))
 
-        t2 = time.time()
-        # Batching of balls is finished, it gave us: self.validation_probs are smoothed sum of probabilities,
-        # list_of_balls_of_probs is a list of ball-lists of probabilities, list_of_balls_of_targets is a list of ball-lists of targets
+#         t2 = time.time()
+#         # Batching of balls is finished, it gave us: self.validation_probs are smoothed sum of probabilities,
+#         # list_of_balls_of_probs is a list of ball-lists of probabilities, list_of_balls_of_targets is a list of ball-lists of targets
 
-        # Confusions based on list_of_balls_of_probs and list_of_balls_of_targets
-        Confs = np.zeros((len(list_of_balls_of_probs), nc_tot, nc_tot), dtype=np.int32)
-        for i, (probs, truth) in enumerate(zip(list_of_balls_of_probs, list_of_balls_of_targets)):
+#         # Confusions based on list_of_balls_of_probs and list_of_balls_of_targets
+#         Confs = np.zeros((len(list_of_balls_of_probs), nc_tot, nc_tot), dtype=np.int32)
+#         for i, (probs, truth) in enumerate(zip(list_of_balls_of_probs, list_of_balls_of_targets)):
 
-            # Insert false columns for ignored labels
-            for l_ind, label_value in enumerate(val_loader.dataset.label_values):
-                if label_value in val_loader.dataset.ignored_labels:
-                    probs = np.insert(probs, l_ind, 0, axis=1)
+#             # Insert false columns for ignored labels
+#             for l_ind, label_value in enumerate(val_loader.dataset.label_values):
+#                 if label_value in val_loader.dataset.ignored_labels:
+#                     probs = np.insert(probs, l_ind, 0, axis=1)
 
-            # Predicted labels
-            preds = val_loader.dataset.label_values[np.argmax(probs, axis=1)]
+#             # Predicted labels
+#             preds = val_loader.dataset.label_values[np.argmax(probs, axis=1)]
 
-            # Confusions (shape is [number_of_collected_balls, num_classes, num_classes] like [318, 3, 3])
-            # Every Confs[i, j, k] contains number of points of class j mislabeled as class k inside collected ball number i
-            Confs[i, :, :] = fast_confusion(truth, preds, val_loader.dataset.label_values).astype(np.int32)
+#             # Confusions (shape is [number_of_collected_balls, num_classes, num_classes] like [318, 3, 3])
+#             # Every Confs[i, j, k] contains number of points of class j mislabeled as class k inside collected ball number i
+#             Confs[i, :, :] = fast_confusion(truth, preds, val_loader.dataset.label_values).astype(np.int32)
 
 
-        t3 = time.time()
+#         t3 = time.time()
 
-        # Sum all confusions (C[j, k] will contain number of points of class j mislabeled as class k within all balls)
-        C = np.sum(Confs, axis=0).astype(np.float32)
+#         # Sum all confusions (C[j, k] will contain number of points of class j mislabeled as class k within all balls)
+#         C = np.sum(Confs, axis=0).astype(np.float32)
 
-        # Remove ignored labels from confusions
-        for l_ind, label_value in reversed(list(enumerate(val_loader.dataset.label_values))):
-            if label_value in val_loader.dataset.ignored_labels:
-                C = np.delete(C, l_ind, axis=0)
-                C = np.delete(C, l_ind, axis=1)
+#         # Remove ignored labels from confusions
+#         for l_ind, label_value in reversed(list(enumerate(val_loader.dataset.label_values))):
+#             if label_value in val_loader.dataset.ignored_labels:
+#                 C = np.delete(C, l_ind, axis=0)
+#                 C = np.delete(C, l_ind, axis=1)
 
-        # Extrapolate out result on collected balls to the whole set of validation labels
-        # np.sum(C, axis=1) contains [num_classes] list,
-        # how many points of each actual class do we have in OUR SET OF COLLECTED BALLS (not in subsampled cloud)
-        # List self.val_proportions / (np.sum(C, axis=1) will be [num_classes] and will contain values of
-        # how many times more values of this actual class we have in our subsampled class than in OUR SET OF COLLECTED BALLS
-        # expand_dims(axis=1) turns this [class1, class2, class3] list to [[class1], [class2], [class3]]
-        C *= np.expand_dims(self.val_proportions / (np.sum(C, axis=1) + 1e-6), 1)
-        # Now C will be a confusion matrix extrapolated from our set of collected balls to the whole dataset.
-        # Sum of numbers in each row will be equal to number of points of this actual class in the subsampled cloud
-        # Ratio of numbers in each row will be equal to the ratio in confusion matrix of our set of collected balls
+#         # Extrapolate out result on collected balls to the whole set of validation labels
+#         # np.sum(C, axis=1) contains [num_classes] list,
+#         # how many points of each actual class do we have in OUR SET OF COLLECTED BALLS (not in subsampled cloud)
+#         # List self.val_proportions / (np.sum(C, axis=1) will be [num_classes] and will contain values of
+#         # how many times more values of this actual class we have in our subsampled class than in OUR SET OF COLLECTED BALLS
+#         # expand_dims(axis=1) turns this [class1, class2, class3] list to [[class1], [class2], [class3]]
+#         C *= np.expand_dims(self.val_proportions / (np.sum(C, axis=1) + 1e-6), 1)
+#         # Now C will be a confusion matrix extrapolated from our set of collected balls to the whole dataset.
+#         # Sum of numbers in each row will be equal to number of points of this actual class in the subsampled cloud
+#         # Ratio of numbers in each row will be equal to the ratio in confusion matrix of our set of collected balls
 
-        t4 = time.time()
+#         t4 = time.time()
 
-        # Objects IoU
-        IoUs = IoU_from_confusions(C)
-        print('IoUs based on Confusions summed up along collected balls and extrapolated to the whole cloud', IoUs)
+#         # Objects IoU
+#         IoUs = IoU_from_confusions(C)
+#         print('IoUs based on Confusions summed up along collected balls and extrapolated to the whole cloud', IoUs)
 
-        t5 = time.time()
+#         t5 = time.time()
 
-        # Saving (optional): every validation round will write a line of num_classes IoUs
-        if config.saving:
+#         # Saving (optional): every validation round will write a line of num_classes IoUs
+#         if config.saving:
 
-            # Name of saving file
-            test_file = join(config.saving_path, 'val_IoUs.txt')
+#             # Name of saving file
+#             test_file = join(config.saving_path, 'val_IoUs.txt')
 
-            # Line to write:
-            line = ''
-            for IoU in IoUs:
-                line += '{:.3f} '.format(IoU)
-            line = line + '\n'
+#             # Line to write:
+#             line = ''
+#             for IoU in IoUs:
+#                 line += '{:.3f} '.format(IoU)
+#             line = line + '\n'
 
-            # Write in file
-            if exists(test_file):
-                with open(test_file, "a") as text_file:
-                    text_file.write(line)
-            else:
-                with open(test_file, "w") as text_file:
-                    text_file.write(line)
+#             # Write in file
+#             if exists(test_file):
+#                 with open(test_file, "a") as text_file:
+#                     text_file.write(line)
+#             else:
+#                 with open(test_file, "w") as text_file:
+#                     text_file.write(line)
 
-            # Save potentials
-            if config.save_potentials:
-                pot_path = join(config.saving_path, 'potentials')
-                if not exists(pot_path):
-                    makedirs(pot_path)
-                files = val_loader.dataset.files
-                for i, file_path in enumerate(files):
-                    pot_points = np.array(val_loader.dataset.pot_trees[i].data, copy=False)
-                    cloud_name = file_path.split('/')[-1]
-                    pot_name = join(pot_path, cloud_name)
-                    pots = val_loader.dataset.potentials[i].numpy().astype(np.float32)
-#                     write_ply(pot_name,
-#                               [pot_points.astype(np.float32), pots],
-#                               ['x', 'y', 'z', 'pots'])  # kuramin commented saving clouds
+#             # Save potentials
+#             if config.save_potentials:
+#                 pot_path = join(config.saving_path, 'potentials')
+#                 if not exists(pot_path):
+#                     makedirs(pot_path)
+#                 files = val_loader.dataset.files
+#                 for i, file_path in enumerate(files):
+#                     pot_points = np.array(val_loader.dataset.pot_trees[i].data, copy=False)
+#                     cloud_name = file_path.split('/')[-1]
+#                     pot_name = join(pot_path, cloud_name)
+#                     pots = val_loader.dataset.potentials[i].numpy().astype(np.float32)
+# #                     write_ply(pot_name,
+# #                               [pot_points.astype(np.float32), pots],
+# #                               ['x', 'y', 'z', 'pots'])  # kuramin commented saving clouds
 
-        t6 = time.time()
+#         t6 = time.time()
 
-        # Print instance mean
-        mIoU = 100 * np.mean(IoUs)
-        print('{:s} mean IoU = {:.1f}%'.format(config.dataset, mIoU))
+#         # Print instance mean
+#         mIoU = 100 * np.mean(IoUs)
+#         print('{:s} mean IoU = {:.1f}%'.format(config.dataset, mIoU))
 
-        # Save predicted cloud occasionally
-        if config.saving and (self.epoch + 1) % config.checkpoint_gap == 0:
-            val_path = join(config.saving_path, 'val_preds_{:d}'.format(self.epoch + 1))
-            if not exists(val_path):
-                makedirs(val_path)
-            files = val_loader.dataset.files
-            for i, file_path in enumerate(files):
+#         # Save predicted cloud occasionally
+#         if config.saving and (self.epoch + 1) % config.checkpoint_gap == 0:
+#             val_path = join(config.saving_path, 'val_preds_{:d}'.format(self.epoch + 1))
+#             if not exists(val_path):
+#                 makedirs(val_path)
+#             files = val_loader.dataset.files
+#             for i, file_path in enumerate(files):
 
-                # Get points
-                points = val_loader.dataset.load_evaluation_points(file_path)
+#                 # Get points
+#                 points = val_loader.dataset.load_evaluation_points(file_path)
 
-                # Get validation_probs, which are smoothed sums of probs from different balls of different batches
-                sub_probs = self.validation_probs[i]
+#                 # Get validation_probs, which are smoothed sums of probs from different balls of different batches
+#                 sub_probs = self.validation_probs[i]
 
-                # Insert false columns for ignored labels
-                for l_ind, label_value in enumerate(val_loader.dataset.label_values):
-                    if label_value in val_loader.dataset.ignored_labels:
-                        sub_probs = np.insert(sub_probs, l_ind, 0, axis=1)
+#                 # Insert false columns for ignored labels
+#                 for l_ind, label_value in enumerate(val_loader.dataset.label_values):
+#                     if label_value in val_loader.dataset.ignored_labels:
+#                         sub_probs = np.insert(sub_probs, l_ind, 0, axis=1)
 
-                # Get the predicted labels. Size of this list is number of points in subsampled cloud
-                sub_preds = val_loader.dataset.label_values[np.argmax(sub_probs, axis=1).astype(np.int32)]
+#                 # Get the predicted labels. Size of this list is number of points in subsampled cloud
+#                 sub_preds = val_loader.dataset.label_values[np.argmax(sub_probs, axis=1).astype(np.int32)]
                 
-                # Reproject preds on the original non-sampled cloud
-                preds = (sub_preds[val_loader.dataset.test_proj[i]]).astype(np.int32)
+#                 # Reproject preds on the original non-sampled cloud
+#                 preds = (sub_preds[val_loader.dataset.test_proj[i]]).astype(np.int32)
 
-                # Path of saved validation file
-                cloud_name = file_path.split('/')[-1]
-                val_name = join(val_path, cloud_name)
+#                 # Path of saved validation file
+#                 cloud_name = file_path.split('/')[-1]
+#                 val_name = join(val_path, cloud_name)
 
-                # Save file of points from original non-sampled cloud with true labels and preds
-                labels = np.array(val_loader.dataset.validation_labels[i]).astype(np.int32)
-                write_ply(val_name,
-                          [points, preds, labels],
-                          ['x', 'y', 'z', 'preds', 'scalar_Classification'])  # kuramin commented saving clouds
-                # write_ply(val_name,
-                #           [points, preds, labels],
-                #           ['x', 'y', 'z', 'preds', 'class'])  # kuramin commented saving clouds
+#                 # Save file of points from original non-sampled cloud with true labels and preds
+#                 labels = np.array(val_loader.dataset.validation_labels[i]).astype(np.int32)
+#                 write_ply(val_name,
+#                           [points, preds, labels],
+#                           ['x', 'y', 'z', 'preds', 'scalar_Classification'])  # kuramin commented saving clouds
+#                 # write_ply(val_name,
+#                 #           [points, preds, labels],
+#                 #           ['x', 'y', 'z', 'preds', 'class'])  # kuramin commented saving clouds
 
-        # Display timings
-        t7 = time.time()
-        if debug:
-            print('\n************************\n')
-            print('Validation timings:')
-            print('Init ...... {:.1f}s'.format(t1 - t0))
-            print('Loop ...... {:.1f}s'.format(t2 - t1))
-            print('Confs ..... {:.1f}s'.format(t3 - t2))
-            print('Confs bis . {:.1f}s'.format(t4 - t3))
-            print('IoU ....... {:.1f}s'.format(t5 - t4))
-            print('Save1 ..... {:.1f}s'.format(t6 - t5))
-            print('Save2 ..... {:.1f}s'.format(t7 - t6))
-            print('\n************************\n')
+#         # Display timings
+#         t7 = time.time()
+#         if debug:
+#             print('\n************************\n')
+#             print('Validation timings:')
+#             print('Init ...... {:.1f}s'.format(t1 - t0))
+#             print('Loop ...... {:.1f}s'.format(t2 - t1))
+#             print('Confs ..... {:.1f}s'.format(t3 - t2))
+#             print('Confs bis . {:.1f}s'.format(t4 - t3))
+#             print('IoU ....... {:.1f}s'.format(t5 - t4))
+#             print('Save1 ..... {:.1f}s'.format(t6 - t5))
+#             print('Save2 ..... {:.1f}s'.format(t7 - t6))
+#             print('\n************************\n')
 
-        return
+#         return
 
 
 

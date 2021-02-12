@@ -21,6 +21,15 @@ def gather(x, idx, method=0): # 2 kuramin changed
     :param idx: indexing with shape [n_1, ..., n_m]
     :param method: Choice of the method
     :return: x[idx] with shape [n_1, ..., n_m, D_1, ... D_d]
+    
+    Performs gathering of elements from an array with respect to the indexes. 
+    For example, to extract [7009, 62] from [7009, 259]: neighb_limit changes to new_max_neighb.
+    Every of 7009 points has neighbors: some have full 259, some have shadow neighbors.
+    We want to keep only those, which can influence the kernel in current position 
+    (which are within KP_extent to one of kernel points).
+    Some of 7009 have 62 which are in game. These 62 are extracted by GATHER.
+    Neighb_row_inds contains row indices of members of neighb_inds which are in game.
+    Thus, new_neighb_inds are total indices of points in game.
     """
 
     if method == 0:

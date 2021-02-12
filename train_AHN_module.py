@@ -39,7 +39,7 @@ class AHNConfig(Config):
     dataset_task = ''
 
     # Number of CPU threads for the input pipeline
-    input_threads = 10  # 10 kuramin changed
+    input_threads = 32  # 10 kuramin changed
 
     #########################
     # Architecture definition
@@ -99,7 +99,7 @@ class AHNConfig(Config):
 
     # Choice of input features
     first_features_dim = 128 # kuramin changed back from 8
-    in_features_dim = 4 # kuramin changed back from 4
+    in_features_dim = 5 # kuramin changed back from 4
 
     # Can the network learn modulations
     modulated = False
@@ -232,6 +232,8 @@ def train_AHN_on_hyperparameters(fsd,
     message = ''
 
     try:
+        t1 = time.time()
+
         chosen_chkp = None
         
         # Initialize datasets
@@ -300,7 +302,6 @@ def train_AHN_on_hyperparameters(fsd,
         print('*****************')
 
         # Define network model
-        t1 = time.time()
         net = KPFCNN(config, training_dataset.label_values, training_dataset.ignored_labels)
 
         # debug = False
@@ -317,9 +318,11 @@ def train_AHN_on_hyperparameters(fsd,
 
         # Define a trainer class
         trainer = ModelTrainer(net, config, chkp_path=chosen_chkp)
-        print('Done in {:.1f}s\n'.format(time.time() - t1))
+        
         message_path_string = str(config.saving_path)
 
+        t2 = time.time()
+        print('Done in {:.1f} s\n'.format(t2 - t1))
         print('\nStart training')
         print('**************')
 
@@ -327,14 +330,15 @@ def train_AHN_on_hyperparameters(fsd,
         trainer.train(net, training_loader, test_loader, config)
 
         print('End attempt without forcing')
-
+        t3 = time.time()
+        message_time_string = ' {:.0f} {:.0f}'.format(t2 - t1, t3 - t2)
     except Exception as e:
         message = message_param_string + message_path_string + ' Got exception ' + str(e) + '\n'
         config.acc_aver = None
     else:
         acc_string = ' {:1.4f} {:1.4f}'
         acc_string = acc_string.format(config.acc_aver, config.acc_var)
-        message = message_param_string + message_path_string + acc_string
+        message = message_param_string + message_path_string + acc_string + message_time_string
     finally:
         print(message)
     

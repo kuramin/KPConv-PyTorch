@@ -78,7 +78,7 @@ class ModelTester:
         # self.test_probs consists of zeros and has size (n_points, 3)
         # test_loader.dataset.input_labels consists of labels from [0,1,2] for n_points
         self.test_probs = [np.zeros((l.shape[0], nc_model)) for l in test_loader.dataset.input_labels]
-        print('len(self.test_probs) is', len(self.test_probs))
+        #print('len(self.test_probs) is', len(self.test_probs))
 
         # Create folders for saving
         if config.saving:
@@ -129,8 +129,8 @@ class ModelTester:
         while last_min_potential_stairstep < req_last_min_potential_stairstep:
             print('Initialize workers')
 
-            print('len(test_loader.dataset.potentials[0]) bef', len(test_loader.dataset.potentials[0]))
-            print('test_loader.dataset.potentials[0] bef', test_loader.dataset.potentials[0])
+            #print('len(test_loader.dataset.potentials[0]) bef', len(test_loader.dataset.potentials[0]))
+            #print('test_loader.dataset.potentials[0] bef', test_loader.dataset.potentials[0])
             # work with every batch provided by test_loader
             for i, batch in enumerate(test_loader):
 
@@ -153,8 +153,8 @@ class ModelTester:
                 # Get probabilities, s_points, lengths, input_inds and cloud inds
                 # of the whole batch which consists of several balls
                 stacked_probs = softmax(outputs).cpu().detach().numpy()
-                print('len(outputs)', len(outputs))
-                print(np.sum(np.argmax(stacked_probs, axis = 1) == 0, axis = 0))
+                #print('len(outputs)', len(outputs))
+                #print(np.sum(np.argmax(stacked_probs, axis = 1) == 0, axis = 0))
                 if len(outputs) == np.sum(np.argmax(stacked_probs, axis = 1) == 0, axis = 0):
                     zeros_only += 1
                 
@@ -196,10 +196,10 @@ class ModelTester:
                     self.test_probs[c_i][inds] = test_smooth * self.test_probs[c_i][inds] + (1 - test_smooth) * probs
                     i0 += length
                     
-                    print('len(self.test_probs[c_i])', len(self.test_probs[c_i]))
+                    #print('len(self.test_probs[c_i])', len(self.test_probs[c_i]))
 
-                    print('b_i, len(probs)', b_i, len(probs))
-                    print('probs', probs)
+                    #print('b_i, len(probs)', b_i, len(probs))
+                   # print('probs', probs)
 
                 # Average timing
                 t += [time.time()]
@@ -225,23 +225,23 @@ class ModelTester:
             # Now we want to distribute probabilities and predictions to the very original cloud.
             # Batching process used potentials to take batches uniformly, so now potentials of the cloud are changed
             # Update minimum of potentials
-            print('len(test_loader.dataset.potentials)', len(test_loader.dataset.potentials))
-            print('len(test_loader.dataset.potentials[0])', len(test_loader.dataset.potentials[0]))
-            print('test_loader.dataset.potentials', test_loader.dataset.potentials)
+#             print('len(test_loader.dataset.potentials)', len(test_loader.dataset.potentials))
+#             print('len(test_loader.dataset.potentials[0])', len(test_loader.dataset.potentials[0]))
+#             print('test_loader.dataset.potentials', test_loader.dataset.potentials)
             
-            print('len(test_loader.dataset.min_potentials)', len(test_loader.dataset.min_potentials))
-            print('test_loader.dataset.min_potentials', test_loader.dataset.min_potentials)
+#             print('len(test_loader.dataset.min_potentials)', len(test_loader.dataset.min_potentials))
+#             print('test_loader.dataset.min_potentials', test_loader.dataset.min_potentials)
                         
-            print('len(test_loader.dataset.argmin_potentials)', len(test_loader.dataset.argmin_potentials))
-            print('test_loader.dataset.argmin_potentials', test_loader.dataset.argmin_potentials)
+#             print('len(test_loader.dataset.argmin_potentials)', len(test_loader.dataset.argmin_potentials))
+#             print('test_loader.dataset.argmin_potentials', test_loader.dataset.argmin_potentials)
             
             new_min_potential = torch.min(test_loader.dataset.min_potentials)
-            print('Test epoch {:d}, end. Min potential = {:.4f}'.format(test_epoch, new_min_potential))
-            print('len(self.test_probs)', len(self.test_probs))
-            print('len(self.test_probs[0])', len(self.test_probs[0]))
-            print('self.test_probs', self.test_probs)
+#             print('Test epoch {:d}, end. Min potential = {:.4f}'.format(test_epoch, new_min_potential))
+#             print('len(self.test_probs)', len(self.test_probs))
+#             print('len(self.test_probs[0])', len(self.test_probs[0]))
+#             print('self.test_probs', self.test_probs)
             #print([np.mean(pots) for pots in test_loader.dataset.potentials])
-            print('bef if last_min_potential_stairstep', last_min_potential_stairstep, 'new_min_potential', new_min_potential)
+            #print('bef if last_min_potential_stairstep', last_min_potential_stairstep, 'new_min_potential', new_min_potential)
 
             # Every time the minimal potential of the cloud is more than the next integer value last_min_potential_stairstep, the next if-code will be launched.
             # This if-code will reproject votes to the original cloud (every non-segmented point gets probs from its closest input_tree neighbor), 
@@ -278,8 +278,8 @@ class ModelTester:
                     # proj_probs will collect such probs from several training clouds
                     proj_probs += [probs]
 
-                print('len(proj_probs)', len(proj_probs))
-                print('len(proj_probs[0])', len(proj_probs[0]))
+#                 print('len(proj_probs)', len(proj_probs))
+#                 print('len(proj_probs[0])', len(proj_probs[0]))
                 # Now we want to distribute values of proj_probs to the whole original cloud
                 # calculate IoUs if we are in validation mode
 
@@ -358,25 +358,25 @@ class ModelTester:
                     # Save predictions
                     cloud_name = file_path.split('/')[-1]
                     test_name = join(test_path, 'predictions', cloud_name)
-                    write_ply(test_name,
-                              [points, preds],
-                              ['x', 'y', 'z', 'preds'])  # kuramin commented saving clouds
+#                     write_ply(test_name,
+#                               [points, preds],
+#                               ['x', 'y', 'z', 'preds'])  # kuramin commented saving clouds
 
                     # Save probabilities
                     test_name2 = join(test_path, 'probs', cloud_name)
                     prob_names = ['_'.join(test_loader.dataset.label_to_names[label].split())
                                   for label in test_loader.dataset.label_values]
-                    write_ply(test_name2,
-                              [points, proj_probs[i]],
-                              ['x', 'y', 'z'] + prob_names)  # kuramin commented saving clouds
+#                     write_ply(test_name2,
+#                               [points, proj_probs[i]],
+#                               ['x', 'y', 'z'] + prob_names)  # kuramin commented saving clouds
 
                     # Save potentials
                     pot_points = np.array(test_loader.dataset.pot_trees[i].data, copy=False)
                     pot_name = join(test_path, 'potentials', cloud_name)
                     pots = test_loader.dataset.potentials[i].numpy().astype(np.float32)
-                    write_ply(pot_name,
-                              [pot_points.astype(np.float32), pots],
-                              ['x', 'y', 'z', 'pots'])  # kuramin commented saving clouds
+#                     write_ply(pot_name,
+#                               [pot_points.astype(np.float32), pots],
+#                               ['x', 'y', 'z', 'pots'])  # kuramin commented saving clouds
 
 #                         # Save ascii preds
 #                         if test_loader.dataset.set == 'test':
