@@ -187,28 +187,13 @@ class KPConv(nn.Module):
             self.offset_dim = None
             self.offset_conv = None
             self.offset_bias = None
-            
-        #if not (self.offset_dim == None):
-        #    print('self.offset_dim in init before reset is', self.offset_dim)
-        #    print('self.offset_conv in init before reset is', self.offset_conv)
-        #    print(self.offset_bias.shape, 'self.offset_bias in init before reset is', self.offset_bias)
-        #else:
-        #    print('self.offset_dim in init before reset is None')
+
 
         # Reset parameters
         self.reset_parameters()
-        
-        #print(self.weights.shape, 'self.weights in init after reset is', self.weights)
-        #if not (self.offset_dim == None):
-        #    print('self.offset_dim in init after reset is', self.offset_dim)
-        #    print('self.offset_conv in init after reset is', self.offset_conv)
-        #    print(self.offset_bias.shape, 'self.offset_bias in init after reset is', self.offset_bias)
-        #else:
-        #    print('self.offset_dim in init after reset is None')
 
         # Initialize kernel points
         self.kernel_points = self.init_KP()
-        #print(self.kernel_points.shape, 'self.kernel_points in init after init_KP is', self.kernel_points)
 
         return
 
@@ -238,7 +223,7 @@ class KPConv(nn.Module):
         :param q_pts: points which will get feature vectors (n_points[lev] for non-strided and n_points[lev+1] for strided blocks)
         :param s_pts: points which will provide their features
         :param neighb_inds: indices of neighbors for every point of s_pts
-        :param x: signal which will be passed through
+        :param x: signal which will be passed through (features)
         """
 
         #print('len(q_pts) is', len(q_pts))
@@ -255,23 +240,8 @@ class KPConv(nn.Module):
 
             # Get offsets with a KPConv that only takes part of the features
             self.offset_features = self.offset_conv(q_pts, s_pts, neighb_inds, x) + self.offset_bias
-            #print(self.offset_features.shape, 'self.offset_features is', self.offset_features)
-            #print(self.offset_bias.shape, 'self.offset_bias is', self.offset_bias)
-
-            if not self.modulated:
-                # Get offset (in normalized scale) from features
-                unscaled_offsets = self.offset_features.view(-1, self.K, self.p_dim)
-
-                # No modulations
-                modulations = None
-
-            # else:  # not our case
-            #     # Get offset (in normalized scale) from features
-            #     unscaled_offsets = self.offset_features[:, :self.p_dim * self.K]
-            #     unscaled_offsets = unscaled_offsets.view(-1, self.K, self.p_dim)
-            #
-            #     # Get modulations
-            #     modulations = 2 * torch.sigmoid(self.offset_features[:, self.p_dim * self.K:])
+            # Get offset (in normalized scale) from features
+            unscaled_offsets = self.offset_features.view(-1, self.K, self.p_dim)
 
             # Rescale offset for this layer: now its a scaled matrix [self.K, self.p_dim]
             offsets = unscaled_offsets * self.KP_extent
@@ -279,7 +249,6 @@ class KPConv(nn.Module):
 
         else:
             offsets = None
-            modulations = None
 
         ######################
         # Deformed convolution
@@ -292,7 +261,7 @@ class KPConv(nn.Module):
         #print(neighb_inds.shape, 'neighb_inds is', neighb_inds)
         #print(s_pts.shape, 's_pts')
         #print(q_pts.shape, 'q_pts')
-        # Get neighbor points [n_points, n_neighbors, dim]
+        # Get neighbor points [n_q_points, n_neighbors, dim] - indices of s-neighbors for every q-point
         neighbors = s_pts[neighb_inds, :]
         #print(neighbors.shape, 'neighbors')
 
@@ -301,7 +270,7 @@ class KPConv(nn.Module):
         # and size [n_points[lev+1], p_dim] for strided blocks
         
         # Center every neighborhood around its q-pts point
-        # (unsqueeze for subtraction: q_pts from [n_points, p_dim] to [n_points, 1, p_dim])
+        # (unsqueeze for subtraction: q_pts from [n_q_points, p_dim] to [n_q_points, 1, p_dim])
         neighbors = neighbors - q_pts.unsqueeze(1)
         #print('len(neighbors) is', len(neighbors))
         #print('neighbors[0] after is', neighbors[0])
@@ -316,7 +285,7 @@ class KPConv(nn.Module):
 
         #print('len(deformed_K_points) is', len(deformed_K_points))
         #print('deformed_K_points[0] is', deformed_K_points[0])
-        # Turn neighbors from [n_points, n_neighbors, dim] to [n_points, n_neighbors, 1, dim]
+        # Turn neighbors from [n_q_points, n_neighbors, dim] to [n_q_points, n_neighbors, 1, dim]
         neighbors.unsqueeze_(2)
 
         # Get all difference matrices [n_points, n_neighbors, n_kpoints, dim]
@@ -425,18 +394,18 @@ class KPConv(nn.Module):
         x = torch.cat((x, torch.zeros_like(x[:1, :])), 0)
         #print(x.shape, 'x is', x)
 
-        # Get the features of each neighborhood [n_points, n_neighbors, f_dim_in]
+        # Get the features of each neighborhood [n_q_points, n_neighbors, f_dim_in]
         neighb_x = gather(x, new_neighb_inds)
         #print(neighb_x.shape, 'neighb_x', neighb_x)
         #print(h_Yi_Xk.shape, 'h_Yi_Xk is', h_Yi_Xk)
         
         # Apply distance weights [n_points, n_kpoints, f_dim_in]
-        weighted_features = torch.matmul(h_Yi_Xk, neighb_x)
-        #print(weighted_features.shape, 'weighted_features', weighted_features)
-        weighted_features = weighted_features.permute((1, 0, 2))  # permute is a 3d version of Transpose
+        features_projected_to_kernel_point = torch.matmul(h_Yi_Xk, neighb_x)
+        #print(features_projected_to_kernel_point.shape, 'features_projected_to_kernel_point', features_projected_to_kernel_point)
+        features_projected_to_kernel_point = features_projected_to_kernel_point.permute((1, 0, 2))  # permute is a 3d version of Transpose
         
         # Apply network weights. Kernel_outputs is [n_kpoints, n_points, f_dim_out]
-        kernel_outputs = torch.matmul(weighted_features, self.weights)  # self.weights is trained Parameter
+        kernel_outputs = torch.matmul(features_projected_to_kernel_point, self.weights)  # self.weights is trained Parameter
         #print(kernel_outputs.shape, 'kernel_outputs', kernel_outputs)
         
         # Convolution sum (output features from picture 2; sum of kernel responses) [n_points, f_dim_out]
@@ -641,11 +610,11 @@ class SimpleBlock(nn.Module):
         if 'strided' in self.block_name:
             q_pts = batch.points[self.layer_ind + 1]
             s_pts = batch.points[self.layer_ind]
-            neighb_inds = batch.pools[self.layer_ind]
+            neighb_inds = batch.pools[self.layer_ind]  # pools is indices of s_pts-neighbors for every q_pts-point
         else:
             q_pts = batch.points[self.layer_ind]
             s_pts = batch.points[self.layer_ind]
-            neighb_inds = batch.neighbors[self.layer_ind]
+            neighb_inds = batch.neighbors[self.layer_ind]  # neighbors is indices of s_pts-neighbors for every s_pts-point
 
         # Apply KPConv described in SimpleBlock.__init__ to chosen points
         x = self.KPConv(q_pts, s_pts, neighb_inds, x)

@@ -80,16 +80,18 @@ class ModelVisualizer:
 
         checkpoint = torch.load(chkp_path)
 
-        new_dict = {}
-        for k, v in checkpoint['model_state_dict'].items():
-            if 'blocs' in k:
-                k = k.replace('blocs', 'blocks')
-            new_dict[k] = v
+        # new_dict = {}
+        # for k, v in checkpoint['model_state_dict'].items():
+        #     if 'blocs' in k:
+        #         k = k.replace('blocs', 'blocks')
+        #     new_dict[k] = v
+        # net.load_state_dict(new_dict)
 
-        net.load_state_dict(new_dict)
+        net.load_state_dict(checkpoint['model_state_dict'])
         self.epoch = checkpoint['epoch']
         net.eval()
         print("\nModel state restored from {:s}.".format(chkp_path))
+        print(net)
 
         return
 
@@ -109,7 +111,9 @@ class ModelVisualizer:
         fmt_str = '  {:}{:2d} > KPConv(r={:.3f}, Din={:d}, Dout={:d}){:}'
         deform_convs = []
         for m in net.modules():
+            print('Module m is', m)
             if isinstance(m, KPConv) and m.deformable:
+                print('and its deformable')
                 if len(deform_convs) == deform_idx:
                     color = bcolors.OKGREEN
                 else:
