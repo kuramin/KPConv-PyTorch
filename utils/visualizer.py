@@ -80,16 +80,18 @@ class ModelVisualizer:
 
         checkpoint = torch.load(chkp_path)
 
-        new_dict = {}
-        for k, v in checkpoint['model_state_dict'].items():
-            if 'blocs' in k:
-                k = k.replace('blocs', 'blocks')
-            new_dict[k] = v
+        # new_dict = {}
+        # for k, v in checkpoint['model_state_dict'].items():
+        #     if 'blocs' in k:
+        #         k = k.replace('blocs', 'blocks')
+        #     new_dict[k] = v
+        # net.load_state_dict(new_dict)
 
-        net.load_state_dict(new_dict)
+        net.load_state_dict(checkpoint['model_state_dict'])
         self.epoch = checkpoint['epoch']
         net.eval()
         print("\nModel state restored from {:s}.".format(chkp_path))
+        print(net)
 
         return
 
@@ -109,7 +111,9 @@ class ModelVisualizer:
         fmt_str = '  {:}{:2d} > KPConv(r={:.3f}, Din={:d}, Dout={:d}){:}'
         deform_convs = []
         for m in net.modules():
+            print('Module m is', m)
             if isinstance(m, KPConv) and m.deformable:
+                print('and its deformable')
                 if len(deform_convs) == deform_idx:
                     color = bcolors.OKGREEN
                 else:
@@ -443,68 +447,68 @@ class ModelVisualizer:
     # Utilities
     # ------------------------------------------------------------------------------------------------------------------
 
-
-def show_ModelNet_models(all_points):
-
-    ###########################
-    # Interactive visualization
-    ###########################
-
-    # Create figure for features
-    fig1 = mlab.figure('Models', bgcolor=(1, 1, 1), size=(1000, 800))
-    fig1.scene.parallel_projection = False
-
-    # Indices
-    global file_i
-    file_i = 0
-
-    def update_scene():
-
-        #  clear figure
-        mlab.clf(fig1)
-
-        # Plot new data feature
-        points = all_points[file_i]
-
-        # Rescale points for visu
-        points = (points * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
-
-        # Show point clouds colorized with activations
-        activations = mlab.points3d(points[:, 0],
-                                    points[:, 1],
-                                    points[:, 2],
-                                    points[:, 2],
-                                    scale_factor=3.0,
-                                    scale_mode='none',
-                                    figure=fig1)
-
-        # New title
-        mlab.title(str(file_i), color=(0, 0, 0), size=0.3, height=0.01)
-        text = '<--- (press g for previous)' + 50 * ' ' + '(press h for next) --->'
-        mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
-        mlab.orientation_axes()
-
-        return
-
-    def keyboard_callback(vtk_obj, event):
-        global file_i
-
-        if vtk_obj.GetKeyCode() in ['g', 'G']:
-
-            file_i = (file_i - 1) % len(all_points)
-            update_scene()
-
-        elif vtk_obj.GetKeyCode() in ['h', 'H']:
-
-            file_i = (file_i + 1) % len(all_points)
-            update_scene()
-
-        return
-
-    # Draw a first plot
-    update_scene()
-    fig1.scene.interactor.add_observer('KeyPressEvent', keyboard_callback)
-    mlab.show()
+#
+# def show_ModelNet_models(all_points):
+#
+#     ###########################
+#     # Interactive visualization
+#     ###########################
+#
+#     # Create figure for features
+#     fig1 = mlab.figure('Models', bgcolor=(1, 1, 1), size=(1000, 800))
+#     fig1.scene.parallel_projection = False
+#
+#     # Indices
+#     global file_i
+#     file_i = 0
+#
+#     def update_scene():
+#
+#         #  clear figure
+#         mlab.clf(fig1)
+#
+#         # Plot new data feature
+#         points = all_points[file_i]
+#
+#         # Rescale points for visu
+#         points = (points * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
+#
+#         # Show point clouds colorized with activations
+#         activations = mlab.points3d(points[:, 0],
+#                                     points[:, 1],
+#                                     points[:, 2],
+#                                     points[:, 2],
+#                                     scale_factor=3.0,
+#                                     scale_mode='none',
+#                                     figure=fig1)
+#
+#         # New title
+#         mlab.title(str(file_i), color=(0, 0, 0), size=0.3, height=0.01)
+#         text = '<--- (press g for previous)' + 50 * ' ' + '(press h for next) --->'
+#         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
+#         mlab.orientation_axes()
+#
+#         return
+#
+#     def keyboard_callback(vtk_obj, event):
+#         global file_i
+#
+#         if vtk_obj.GetKeyCode() in ['g', 'G']:
+#
+#             file_i = (file_i - 1) % len(all_points)
+#             update_scene()
+#
+#         elif vtk_obj.GetKeyCode() in ['h', 'H']:
+#
+#             file_i = (file_i + 1) % len(all_points)
+#             update_scene()
+#
+#         return
+#
+#     # Draw a first plot
+#     update_scene()
+#     fig1.scene.interactor.add_observer('KeyPressEvent', keyboard_callback)
+#     mlab.show()
 
 
 

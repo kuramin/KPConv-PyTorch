@@ -39,233 +39,233 @@ from utils.ply import write_ply, read_ply
 from utils.config import Config
 
 
-def show_ModelNet_models(all_points):
-    from mayavi import mlab
-
-    ###########################
-    # Interactive visualization
-    ###########################
-
-    # Create figure for features
-    fig1 = mlab.figure('Models', bgcolor=(1, 1, 1), size=(1000, 800))
-    fig1.scene.parallel_projection = False
-
-    # Indices
-    global file_i
-    file_i = 0
-
-    def update_scene():
-
-        #  clear figure
-        mlab.clf(fig1)
-
-        # Plot new data feature
-        points = all_points[file_i]
-
-        # Rescale points for visu
-        points = (points * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
-
-        # Show point clouds colorized with activations
-        activations = mlab.points3d(points[:, 0],
-                                    points[:, 1],
-                                    points[:, 2],
-                                    points[:, 2],
-                                    scale_factor=3.0,
-                                    scale_mode='none',
-                                    figure=fig1)
-
-        # New title
-        mlab.title(str(file_i), color=(0, 0, 0), size=0.3, height=0.01)
-        text = '<--- (press g for previous)' + 50 * ' ' + '(press h for next) --->'
-        mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
-        mlab.orientation_axes()
-
-        return
-
-    def keyboard_callback(vtk_obj, event):
-        global file_i
-
-        if vtk_obj.GetKeyCode() in ['g', 'G']:
-
-            file_i = (file_i - 1) % len(all_points)
-            update_scene()
-
-        elif vtk_obj.GetKeyCode() in ['h', 'H']:
-
-            file_i = (file_i + 1) % len(all_points)
-            update_scene()
-
-        return
-
-    # Draw a first plot
-    update_scene()
-    fig1.scene.interactor.add_observer('KeyPressEvent', keyboard_callback)
-    mlab.show()
-
-
-def show_ModelNet_examples(clouds, cloud_normals=None, cloud_labels=None):
-    from mayavi import mlab
-
-    ###########################
-    # Interactive visualization
-    ###########################
-
-    # Create figure for features
-    fig1 = mlab.figure('Models', bgcolor=(1, 1, 1), size=(1000, 800))
-    fig1.scene.parallel_projection = False
-
-    if cloud_labels is None:
-        cloud_labels = [points[:, 2] for points in clouds]
-
-    # Indices
-    global file_i, show_normals
-    file_i = 0
-    show_normals = True
-
-    def update_scene():
-
-        #  clear figure
-        mlab.clf(fig1)
-
-        # Plot new data feature
-        points = clouds[file_i]
-        labels = cloud_labels[file_i]
-        if cloud_normals is not None:
-            normals = cloud_normals[file_i]
-        else:
-            normals = None
-
-        # Rescale points for visu
-        points = (points * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
-
-        # Show point clouds colorized with activations
-        activations = mlab.points3d(points[:, 0],
-                                    points[:, 1],
-                                    points[:, 2],
-                                    labels,
-                                    scale_factor=3.0,
-                                    scale_mode='none',
-                                    figure=fig1)
-        if normals is not None and show_normals:
-            activations = mlab.quiver3d(points[:, 0],
-                                        points[:, 1],
-                                        points[:, 2],
-                                        normals[:, 0],
-                                        normals[:, 1],
-                                        normals[:, 2],
-                                        scale_factor=10.0,
-                                        scale_mode='none',
-                                        figure=fig1)
-
-        # New title
-        mlab.title(str(file_i), color=(0, 0, 0), size=0.3, height=0.01)
-        text = '<--- (press g for previous)' + 50 * ' ' + '(press h for next) --->'
-        mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
-        mlab.orientation_axes()
-
-        return
-
-    def keyboard_callback(vtk_obj, event):
-        global file_i, show_normals
-
-        if vtk_obj.GetKeyCode() in ['g', 'G']:
-            file_i = (file_i - 1) % len(clouds)
-            update_scene()
-
-        elif vtk_obj.GetKeyCode() in ['h', 'H']:
-            file_i = (file_i + 1) % len(clouds)
-            update_scene()
-
-        elif vtk_obj.GetKeyCode() in ['n', 'N']:
-            show_normals = not show_normals
-            update_scene()
-
-        return
-
-    # Draw a first plot
-    update_scene()
-    fig1.scene.interactor.add_observer('KeyPressEvent', keyboard_callback)
-    mlab.show()
-
-
-def show_neighbors(query, supports, neighbors):
-    from mayavi import mlab
-
-    ###########################
-    # Interactive visualization
-    ###########################
-
-    # Create figure for features
-    fig1 = mlab.figure('Models', bgcolor=(1, 1, 1), size=(1000, 800))
-    fig1.scene.parallel_projection = False
-
-    # Indices
-    global file_i
-    file_i = 0
-
-    def update_scene():
-
-        #  clear figure
-        mlab.clf(fig1)
-
-        # Rescale points for visu
-        p1 = (query * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
-        p2 = (supports * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
-
-        l1 = p1[:, 2]*0
-        l1[file_i] = 1
-
-        l2 = p2[:, 2]*0 + 2
-        l2[neighbors[file_i]] = 3
-
-        # Show point clouds colorized with activations
-        activations = mlab.points3d(p1[:, 0],
-                                    p1[:, 1],
-                                    p1[:, 2],
-                                    l1,
-                                    scale_factor=2.0,
-                                    scale_mode='none',
-                                    vmin=0.0,
-                                    vmax=3.0,
-                                    figure=fig1)
-
-        activations = mlab.points3d(p2[:, 0],
-                                    p2[:, 1],
-                                    p2[:, 2],
-                                    l2,
-                                    scale_factor=3.0,
-                                    scale_mode='none',
-                                    vmin=0.0,
-                                    vmax=3.0,
-                                    figure=fig1)
-
-        # New title
-        mlab.title(str(file_i), color=(0, 0, 0), size=0.3, height=0.01)
-        text = '<--- (press g for previous)' + 50 * ' ' + '(press h for next) --->'
-        mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
-        mlab.orientation_axes()
-
-        return
-
-    def keyboard_callback(vtk_obj, event):
-        global file_i
-
-        if vtk_obj.GetKeyCode() in ['g', 'G']:
-
-            file_i = (file_i - 1) % len(query)
-            update_scene()
-
-        elif vtk_obj.GetKeyCode() in ['h', 'H']:
-
-            file_i = (file_i + 1) % len(query)
-            update_scene()
-
-        return
-
-    # Draw a first plot
-    update_scene()
-    fig1.scene.interactor.add_observer('KeyPressEvent', keyboard_callback)
-    mlab.show()
+# def show_ModelNet_models(all_points):
+#     from mayavi import mlab
+#
+#     ###########################
+#     # Interactive visualization
+#     ###########################
+#
+#     # Create figure for features
+#     fig1 = mlab.figure('Models', bgcolor=(1, 1, 1), size=(1000, 800))
+#     fig1.scene.parallel_projection = False
+#
+#     # Indices
+#     global file_i
+#     file_i = 0
+#
+#     def update_scene():
+#
+#         #  clear figure
+#         mlab.clf(fig1)
+#
+#         # Plot new data feature
+#         points = all_points[file_i]
+#
+#         # Rescale points for visu
+#         points = (points * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
+#
+#         # Show point clouds colorized with activations
+#         activations = mlab.points3d(points[:, 0],
+#                                     points[:, 1],
+#                                     points[:, 2],
+#                                     points[:, 2],
+#                                     scale_factor=3.0,
+#                                     scale_mode='none',
+#                                     figure=fig1)
+#
+#         # New title
+#         mlab.title(str(file_i), color=(0, 0, 0), size=0.3, height=0.01)
+#         text = '<--- (press g for previous)' + 50 * ' ' + '(press h for next) --->'
+#         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
+#         mlab.orientation_axes()
+#
+#         return
+#
+#     def keyboard_callback(vtk_obj, event):
+#         global file_i
+#
+#         if vtk_obj.GetKeyCode() in ['g', 'G']:
+#
+#             file_i = (file_i - 1) % len(all_points)
+#             update_scene()
+#
+#         elif vtk_obj.GetKeyCode() in ['h', 'H']:
+#
+#             file_i = (file_i + 1) % len(all_points)
+#             update_scene()
+#
+#         return
+#
+#     # Draw a first plot
+#     update_scene()
+#     fig1.scene.interactor.add_observer('KeyPressEvent', keyboard_callback)
+#     mlab.show()
+#
+#
+# def show_ModelNet_examples(clouds, cloud_normals=None, cloud_labels=None):
+#     from mayavi import mlab
+#
+#     ###########################
+#     # Interactive visualization
+#     ###########################
+#
+#     # Create figure for features
+#     fig1 = mlab.figure('Models', bgcolor=(1, 1, 1), size=(1000, 800))
+#     fig1.scene.parallel_projection = False
+#
+#     if cloud_labels is None:
+#         cloud_labels = [points[:, 2] for points in clouds]
+#
+#     # Indices
+#     global file_i, show_normals
+#     file_i = 0
+#     show_normals = True
+#
+#     def update_scene():
+#
+#         #  clear figure
+#         mlab.clf(fig1)
+#
+#         # Plot new data feature
+#         points = clouds[file_i]
+#         labels = cloud_labels[file_i]
+#         if cloud_normals is not None:
+#             normals = cloud_normals[file_i]
+#         else:
+#             normals = None
+#
+#         # Rescale points for visu
+#         points = (points * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
+#
+#         # Show point clouds colorized with activations
+#         activations = mlab.points3d(points[:, 0],
+#                                     points[:, 1],
+#                                     points[:, 2],
+#                                     labels,
+#                                     scale_factor=3.0,
+#                                     scale_mode='none',
+#                                     figure=fig1)
+#         if normals is not None and show_normals:
+#             activations = mlab.quiver3d(points[:, 0],
+#                                         points[:, 1],
+#                                         points[:, 2],
+#                                         normals[:, 0],
+#                                         normals[:, 1],
+#                                         normals[:, 2],
+#                                         scale_factor=10.0,
+#                                         scale_mode='none',
+#                                         figure=fig1)
+#
+#         # New title
+#         mlab.title(str(file_i), color=(0, 0, 0), size=0.3, height=0.01)
+#         text = '<--- (press g for previous)' + 50 * ' ' + '(press h for next) --->'
+#         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
+#         mlab.orientation_axes()
+#
+#         return
+#
+#     def keyboard_callback(vtk_obj, event):
+#         global file_i, show_normals
+#
+#         if vtk_obj.GetKeyCode() in ['g', 'G']:
+#             file_i = (file_i - 1) % len(clouds)
+#             update_scene()
+#
+#         elif vtk_obj.GetKeyCode() in ['h', 'H']:
+#             file_i = (file_i + 1) % len(clouds)
+#             update_scene()
+#
+#         elif vtk_obj.GetKeyCode() in ['n', 'N']:
+#             show_normals = not show_normals
+#             update_scene()
+#
+#         return
+#
+#     # Draw a first plot
+#     update_scene()
+#     fig1.scene.interactor.add_observer('KeyPressEvent', keyboard_callback)
+#     mlab.show()
+#
+#
+# def show_neighbors(query, supports, neighbors):
+#     from mayavi import mlab
+#
+#     ###########################
+#     # Interactive visualization
+#     ###########################
+#
+#     # Create figure for features
+#     fig1 = mlab.figure('Models', bgcolor=(1, 1, 1), size=(1000, 800))
+#     fig1.scene.parallel_projection = False
+#
+#     # Indices
+#     global file_i
+#     file_i = 0
+#
+#     def update_scene():
+#
+#         #  clear figure
+#         mlab.clf(fig1)
+#
+#         # Rescale points for visu
+#         p1 = (query * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
+#         p2 = (supports * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
+#
+#         l1 = p1[:, 2]*0
+#         l1[file_i] = 1
+#
+#         l2 = p2[:, 2]*0 + 2
+#         l2[neighbors[file_i]] = 3
+#
+#         # Show point clouds colorized with activations
+#         activations = mlab.points3d(p1[:, 0],
+#                                     p1[:, 1],
+#                                     p1[:, 2],
+#                                     l1,
+#                                     scale_factor=2.0,
+#                                     scale_mode='none',
+#                                     vmin=0.0,
+#                                     vmax=3.0,
+#                                     figure=fig1)
+#
+#         activations = mlab.points3d(p2[:, 0],
+#                                     p2[:, 1],
+#                                     p2[:, 2],
+#                                     l2,
+#                                     scale_factor=3.0,
+#                                     scale_mode='none',
+#                                     vmin=0.0,
+#                                     vmax=3.0,
+#                                     figure=fig1)
+#
+#         # New title
+#         mlab.title(str(file_i), color=(0, 0, 0), size=0.3, height=0.01)
+#         text = '<--- (press g for previous)' + 50 * ' ' + '(press h for next) --->'
+#         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
+#         mlab.orientation_axes()
+#
+#         return
+#
+#     def keyboard_callback(vtk_obj, event):
+#         global file_i
+#
+#         if vtk_obj.GetKeyCode() in ['g', 'G']:
+#
+#             file_i = (file_i - 1) % len(query)
+#             update_scene()
+#
+#         elif vtk_obj.GetKeyCode() in ['h', 'H']:
+#
+#             file_i = (file_i + 1) % len(query)
+#             update_scene()
+#
+#         return
+#
+#     # Draw a first plot
+#     update_scene()
+#     fig1.scene.interactor.add_observer('KeyPressEvent', keyboard_callback)
+#     mlab.show()
 
 
 def show_input_batch(batch):
@@ -410,27 +410,3 @@ def show_input_batch(batch):
     update_scene()
     fig1.scene.interactor.add_observer('KeyPressEvent', keyboard_callback)
     mlab.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
