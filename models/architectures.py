@@ -20,7 +20,7 @@ def p2p_fitting_regularizer(net):
             # Get the distance to closest input point and normalize to be independent from layers
             # m.min_d2 and KP_min_d2 are [n_points, n_kpoints]
             # Every kernel point in every kernel location has one of neighbors as the closest
-            KP_min_d2 = m.min_d2 / (m.KP_extent ** 2)
+            KP_min_d2 = m.min_d2 / (m.curpar_KP_extent ** 2)
 
             # Fitting loss will be a sum along net.modules:
             # sum of [n_points, n_kpoints] of squared distances
@@ -36,7 +36,7 @@ def p2p_fitting_regularizer(net):
             ################
 
             # Normalized KP locations [n_points, n_kpoints, dim]
-            KP_locs = m.deformed_KP / m.KP_extent
+            KP_locs = m.deformed_KP / m.curpar_KP_extent
 
             # Point should not be close to each other
             for i in range(net.K):  # net.K is config.num_kernel_points
