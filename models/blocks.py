@@ -113,7 +113,7 @@ def max_pool(x, inds):
 
 class KPConv(nn.Module):
 
-    def __init__(self, kernel_size, p_dim, in_channels, out_channels, curpar_KP_extent, radius,
+    def __init__(self, kernel_size, p_dim, in_channels, out_channels, passed_value_of_par_KP_extent, radius,
                  fixed_kernel_points='center', KP_influence='linear', aggregation_mode='sum',
                  deformable=False, modulated=False):
         """
@@ -122,7 +122,7 @@ class KPConv(nn.Module):
         :param p_dim: dimension of the point space.
         :param in_channels: dimension of input features.
         :param out_channels: dimension of output features.
-        :param curpar_KP_extent: influence radius of each kernel point.
+        :param par_KP_extent: influence radius of each kernel point.
         :param radius: radius used for kernel point init. Even for deformable, use the config.conv_radius
         :param fixed_kernel_points: fix position of certain kernel points ('none', 'center' or 'verticals').
         :param KP_influence: influence function of the kernel points ('constant', 'linear', 'gaussian').
@@ -146,7 +146,7 @@ class KPConv(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.radius = radius
-        self.curpar_KP_extent = curpar_KP_extent
+        self.att_KP_extent = passed_value_of_par_KP_extent
         self.fixed_kernel_points = fixed_kernel_points
         self.KP_influence = KP_influence
         self.aggregation_mode = aggregation_mode
@@ -176,7 +176,7 @@ class KPConv(nn.Module):
                                       self.p_dim,
                                       self.in_channels,
                                       self.offset_dim,
-                                      curpar_KP_extent,
+                                      passed_value_of_par_KP_extent,
                                       radius,
                                       fixed_kernel_points=fixed_kernel_points,
                                       KP_influence=KP_influence,
@@ -245,7 +245,7 @@ class KPConv(nn.Module):
             unscaled_offsets = self.offset_features.view(-1, self.K, self.p_dim)
 
             # Rescale offset for this layer: now its a scaled matrix [self.K, self.p_dim]
-            offsets = unscaled_offsets * self.curpar_KP_extent
+            offsets = unscaled_offsets * self.att_KP_extent
             #print(offsets.shape, 'offsets is', offsets)
 
         else:
@@ -308,18 +308,18 @@ class KPConv(nn.Module):
             # Every kernel point in every kernel location has one of neighbors as the closest
             self.min_d2, _ = torch.min(sq_distances, dim=1)
 
-            # Boolean of the neighbors within distance curpar_KP_extent from any kernel point with kernel located in every point
-            # [n_points, n_neighbors] of boolean if this neighbor is within curpar_KP_extent from this point
-            in_range = torch.any(sq_distances < self.curpar_KP_extent ** 2, dim=2).type(torch.int32)
+            # Boolean of the neighbors within distance par_KP_extent from any kernel point with kernel located in every point
+            # [n_points, n_neighbors] of boolean if this neighbor is within par_KP_extent from this point
+            in_range = torch.any(sq_distances < self.att_KP_extent ** 2, dim=2).type(torch.int32)
             #print('inrange0 is', in_range[0])
 
-            # New int value of max neighbors (maximal among all layer-points number of neighs who are within curpar_KP_extent from some kernel point)
+            # New int value of max neighbors (maximal among all layer-points number of neighs who are within par_KP_extent from some kernel point)
             new_max_neighb = torch.max(torch.sum(in_range, dim=1))
             #print('new_max_neighb is', new_max_neighb)
             #print(in_range.shape, 'in_range is', in_range)
 
             # Top new_max_neighb values from each row of in_range
-            # which are ones (points within curpar_KP_extent) and some zeros (shadow neighbors)
+            # which are ones (points within par_KP_extent) and some zeros (shadow neighbors)
             # indices of those points are returned too
             # [n_points, new_max_neighb] - for every point: indices of neighbors who are reachable by kernel in this location
             neighb_row_bool, neighb_row_inds = torch.topk(in_range, new_max_neighb.item(), dim=1)
@@ -341,17 +341,17 @@ class KPConv(nn.Module):
             #print(neighb_row_inds.shape, 'neighb_row_inds after expand is', neighb_row_inds)
             #print(sq_distances.shape, 'sq_distances before gather is', sq_distances)
             # for every point A of n_point: get sq_distances only to those neighbors 
-            # which are within curpar_KP_extent from some kernel-point of kernel located in A
+            # which are within par_KP_extent from some kernel-point of kernel located in A
             # sq_distances turns from [n_points, n_neighbors, n_kpoints] to [n_points, new_max_neighb, n_kpoints]
             sq_distances = sq_distances.gather(1, neighb_row_inds, sparse_grad=False)
             #print(sq_distances.shape, 'sq_distances after gather is', sq_distances)
 
             # New shadow neighbors have to point to the last shadow point
             #print(new_neighb_inds.shape, 'new_neighb_inds before * is', new_neighb_inds)
-            # turn indices of neighbors which are not within curpar_KP_extent (represented with boolean 0 in in_range) to integer 0
+            # turn indices of neighbors which are not within par_KP_extent (represented with boolean 0 in in_range) to integer 0
             new_neighb_inds *= neighb_row_bool
             #print(new_neighb_inds.shape, 'new_neighb_inds before - is', new_neighb_inds)
-            # turn indices of neighbors which are not within curpar_KP_extent from integer 0 to integer -1 and then to integer n_points (make them shadow neighbors)
+            # turn indices of neighbors which are not within par_KP_extent from integer 0 to integer -1 and then to integer n_points (make them shadow neighbors)
             new_neighb_inds -= (neighb_row_bool.type(torch.int64) - 1) * int(s_pts.shape[0] - 1)
             #print(new_neighb_inds.shape, 'new_neighb_inds after - is', new_neighb_inds)
         else:
@@ -367,13 +367,13 @@ class KPConv(nn.Module):
             h_Yi_Xk = torch.transpose(h_Yi_Xk, 1, 2)
 
         elif self.KP_influence == 'linear':
-            # Influence decrease linearly with the distance, and get to zero when distance = curpar_KP_extent.
-            h_Yi_Xk = torch.clamp(1 - torch.sqrt(sq_distances) / self.curpar_KP_extent, min=0.0)
+            # Influence decrease linearly with the distance, and get to zero when distance = par_KP_extent.
+            h_Yi_Xk = torch.clamp(1 - torch.sqrt(sq_distances) / self.att_KP_extent, min=0.0)
             h_Yi_Xk = torch.transpose(h_Yi_Xk, 1, 2)
 
         elif self.KP_influence == 'gaussian':
             # Influence in gaussian of the distance.
-            sigma = self.curpar_KP_extent * 0.3
+            sigma = self.att_KP_extent * 0.3
             h_Yi_Xk = radius_gaussian(sq_distances, sigma)
             h_Yi_Xk = torch.transpose(h_Yi_Xk, 1, 2)
         else:
