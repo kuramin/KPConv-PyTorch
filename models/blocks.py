@@ -226,12 +226,12 @@ class KPConv(nn.Module):
         :param x: signal which will be passed through (features)
         """
 
-        #print('len(q_pts) is', len(q_pts))
-        #print('len(s_pts) is', len(s_pts))
-        #print('len(q_pts[0]) is', len(q_pts[0]))
-        #print('len(q_pts[1]) is', len(q_pts[1]))
-        #print('len(s_pts[0]) is', len(s_pts[0]))
-        #print('len(s_pts[1]) is', len(s_pts[1]))
+#         print('len(q_pts) is', len(q_pts))
+#         print('len(s_pts) is', len(s_pts))
+#         print('len(q_pts[0]) is', len(q_pts[0]))
+#         print('len(q_pts[1]) is', len(q_pts[1]))
+#         print('len(s_pts[0]) is', len(s_pts[0]))
+#         print('len(s_pts[1]) is', len(s_pts[1]))
         ###################
         # Offset generation
         ###################
@@ -239,13 +239,25 @@ class KPConv(nn.Module):
         if self.deformable:
 
             # Get offsets with a KPConv that only takes part of the features
-            self.offset_features = self.offset_conv(q_pts, s_pts, neighb_inds, x) + self.offset_bias
+#             print("Dive into first offset_conv")
+            ofconv = self.offset_conv(q_pts, s_pts, neighb_inds, x)
+            self.offset_features = ofconv + self.offset_bias
+#             print("Came out from first offset_conv")
+#             print('len(ofconv) calculated inside deformable is', len(ofconv), len(ofconv[0]))
+#             print('ofconv[0]', ofconv[0])
+#             print('ofconv[10]', ofconv[10])
+#             print('len(self.offset_bias) calculated inside deformable is', len(self.offset_bias), self.offset_bias)            
+            
+#             #print('len(self.offset_bias) calculated inside deformable is', len(self.offset_bias), len(self.offset_bias[0]))
+#             print('len(self.offset_features) (sum of ofconv and bias) calculated inside deformable is', len(self.offset_features), len(self.offset_features[0]))
+            
             # Get offset (in normalized scale) from features
             unscaled_offsets = self.offset_features.view(-1, self.K, self.p_dim)
 
             # Rescale offset for this layer: now its a scaled matrix [self.K, self.p_dim]
             offsets = unscaled_offsets * self.KP_extent
             #print(offsets.shape, 'offsets is', offsets)
+            #print('len(offsets) calculated inside deformable is', len(offsets), len(offsets[0]), offsets[0])
 
         else:
             offsets = None
@@ -255,7 +267,7 @@ class KPConv(nn.Module):
         ######################
         
         # Add a fake point with 1e6 in X,Y,Z into the last row for shadow neighbors
-        # Now s_pts is [n_points[lev] + 1, p_dim]
+        # Now s_pts is [n_s_points + 1, p_dim] = 
         s_pts = torch.cat((s_pts, torch.zeros_like(s_pts[:1, :]) + 1e6), 0)
 
         #print(neighb_inds.shape, 'neighb_inds is', neighb_inds)
@@ -272,23 +284,25 @@ class KPConv(nn.Module):
         # Center every neighborhood around its q-pts point
         # (unsqueeze for subtraction: q_pts from [n_q_points, p_dim] to [n_q_points, 1, p_dim])
         neighbors = neighbors - q_pts.unsqueeze(1)
-        #print('len(neighbors) is', len(neighbors))
+        #print('len(neighbors) is', len(neighbors), len(neighbors[0]))
         #print('neighbors[0] after is', neighbors[0])
         
         # Apply offsets to kernel points [n_points, n_kpoints, dim]
         if self.deformable:
             self.deformed_KP = offsets + self.kernel_points
+            #print('len(offsets) remembered inside deformable to calculate deformed kpoints locations is', len(offsets))
             #print('self.kernel_points is', self.kernel_points)
             deformed_K_points = self.deformed_KP.unsqueeze(1)
+            #print('len(deformed_K_points) calculated inside deformable is', len(deformed_K_points))
         else:
             deformed_K_points = self.kernel_points
+            #print('deformed_K_points calculated inside rigid is just self.kernel_points, its len is', len(deformed_K_points), deformed_K_points[0])
 
-        #print('len(deformed_K_points) is', len(deformed_K_points))
         #print('deformed_K_points[0] is', deformed_K_points[0])
         # Turn neighbors from [n_q_points, n_neighbors, dim] to [n_q_points, n_neighbors, 1, dim]
         neighbors.unsqueeze_(2)
 
-        # Get all difference matrices [n_points, n_neighbors, n_kpoints, dim]
+        # Get all difference matrices [n_q_points, n_neighbors, n_kpoints, dim]
         # Each of 95000 points has 28 neighbors,
         # each neighbor has coordinate difference to each of 15 kernel points
         # each difference has X, Y, Z coordinates
@@ -297,18 +311,20 @@ class KPConv(nn.Module):
         # Get the squared distances between each neighbor and each kernel point
         # for each location of kernel (95000 locations)
         # by summing squared differences along X, Y, Z
-        # sq_distances is [n_points, n_neighbors, n_kpoints]
+        # sq_distances is [n_q_points, n_neighbors, n_kpoints]
         sq_distances = torch.sum(differences ** 2, dim=3)
+        #print('len(sq_distances) is', len(sq_distances))
+        #print(sq_distances.shape, 'sq_distances after first calculation on kpoints and neighbors is') #, sq_distances)
 
         # Optimization by ignoring points outside a deformed KP range
         if self.deformable:
 
-            # Save distances for loss [n_points, n_kpoints]
+            # Save distances for loss [n_q_points, n_kpoints]
             # Every kernel point in every kernel location has one of neighbors as the closest
             self.min_d2, _ = torch.min(sq_distances, dim=1)
 
             # Boolean of the neighbors within distance KP_extent from any kernel point with kernel located in every point  
-            # [n_points, n_neighbors] of boolean if this neighbor is within KP_extent from this point
+            # [n_q_points, n_neighbors] of boolean if this neighbor is within KP_extent from this point
             in_range = torch.any(sq_distances < self.KP_extent ** 2, dim=2).type(torch.int32)
             #print('inrange0 is', in_range[0])
 
@@ -320,46 +336,46 @@ class KPConv(nn.Module):
             # Top new_max_neighb values from each row of in_range
             # which are ones (points within KP_extent) and some zeros (shadow neighbors)
             # indices of those points are returned too
-            # [n_points, new_max_neighb] - for every point: indices of neighbors who are reachable by kernel in this location
+            # [n_q_points, new_max_neighb] - for every point: indices of neighbors who are reachable by kernel in this location
             neighb_row_bool, neighb_row_inds = torch.topk(in_range, new_max_neighb.item(), dim=1)
             #print(neighb_row_bool.shape, 'neighb_row_bool is', neighb_row_bool)
             #print(neighb_row_inds.shape, 'neighb_row_inds is', neighb_row_inds)
             #print('neighb_row_inds[0]', neighb_row_inds[0])
             #print('neighb_row_inds > new_max_neighb', torch.any(neighb_row_inds > new_max_neighb))
 
-            # Gather from general matrix "neighb_inds" those members who got 1 in in_range  [n_points, new_max_neighb]
+            # Gather from general matrix "neighb_inds" those members who got 1 in in_range  [n_q_points, new_max_neighb]
             new_neighb_inds = neighb_inds.gather(1, neighb_row_inds, sparse_grad=False)
             #print('global neighb_inds[0] is', neighb_inds[0])
             #print('new_neighb_inds[0] is', new_neighb_inds[0])
             #print(new_neighb_inds.shape, 'new_neighb_inds is', new_neighb_inds)
 
             # Prepare neighb_row_inds to gather new distances to KP
-            neighb_row_inds.unsqueeze_(2) # makes it [n_points, new_max_neighb, 1]
-            #print(neighb_row_inds.shape, 'neighb_row_inds after unsqueeze is', neighb_row_inds) # copies it 14 more times so that its [n_points, new_max_neighb, 15]
-            neighb_row_inds = neighb_row_inds.expand(-1, -1, self.K) # copies it 14 more times so that its [n_points, new_max_neighb, n_kpoints]
+            neighb_row_inds.unsqueeze_(2) # makes it [n_q_points, new_max_neighb, 1]
+            #print(neighb_row_inds.shape, 'neighb_row_inds after unsqueeze is', neighb_row_inds) # copies it 14 more times so that its [n_q_points, new_max_neighb, 15]
+            neighb_row_inds = neighb_row_inds.expand(-1, -1, self.K) # copies it 14 more times so that its [n_q_points, new_max_neighb, n_kpoints]
             #print(neighb_row_inds.shape, 'neighb_row_inds after expand is', neighb_row_inds)
             #print(sq_distances.shape, 'sq_distances before gather is', sq_distances)
             # for every point A of n_point: get sq_distances only to those neighbors 
             # which are within KP_extent from some kernel-point of kernel located in A
-            # sq_distances turns from [n_points, n_neighbors, n_kpoints] to [n_points, new_max_neighb, n_kpoints]
+            # sq_distances turns from [n_q_points, n_neighbors, n_kpoints] to [n_q_points, new_max_neighb, n_kpoints]
             sq_distances = sq_distances.gather(1, neighb_row_inds, sparse_grad=False)
-            #print(sq_distances.shape, 'sq_distances after gather is', sq_distances)
+            #print(sq_distances.shape, 'sq_distances after gather inside defcalc is') #, sq_distances)
 
             # New shadow neighbors have to point to the last shadow point
             #print(new_neighb_inds.shape, 'new_neighb_inds before * is', new_neighb_inds)
             # turn indices of neighbors which are not within KP_extent (represented with boolean 0 in in_range) to integer 0 
             new_neighb_inds *= neighb_row_bool
-            #print(new_neighb_inds.shape, 'new_neighb_inds before - is', new_neighb_inds)
-            # turn indices of neighbors which are not within KP_extent from integer 0 to integer -1 and then to integer n_points (make them shadow neighbors)
+
+            # turn indices of neighbors which are not within KP_extent from integer 0 (result of previous line) to integer -1 and then to integer n_s_points (make them shadow neighbors)
             new_neighb_inds -= (neighb_row_bool.type(torch.int64) - 1) * int(s_pts.shape[0] - 1)
-            #print(new_neighb_inds.shape, 'new_neighb_inds after - is', new_neighb_inds)
+            #print(new_neighb_inds.shape, 'new_neighb_inds after - is') #, new_neighb_inds)
         else:
             # we dont need to cut off useless points because rigid conv_radius is much smaller than deformable conv_radius
             # so there are not points to cut off
             new_neighb_inds = neighb_inds 
             #print(new_neighb_inds.shape, 'new_neighb_inds from else is', new_neighb_inds)
 
-        # Get Kernel point influences h(y, Xk) [n_points, n_kpoints, n_neighbors] (dims 1 and 2 are swapped by transpose)
+        # Get Kernel point influences h(y, Xk) [n_q_points, n_kpoints, n_neighbors] (dims 1 and 2 are swapped by transpose)
         if self.KP_influence == 'constant':
             # Every point get an influence of 1.
             h_Yi_Xk = torch.ones_like(sq_distances)
@@ -396,19 +412,24 @@ class KPConv(nn.Module):
 
         # Get the features of each neighborhood [n_q_points, n_neighbors, f_dim_in]
         neighb_x = gather(x, new_neighb_inds)
-        #print(neighb_x.shape, 'neighb_x', neighb_x)
-        #print(h_Yi_Xk.shape, 'h_Yi_Xk is', h_Yi_Xk)
+        #print('neighb_x', neighb_x.shape) #, 'neighb_x[0][0]', neighb_x[0][0])
+#         for ind in range(len(neighb_x[0])):
+#             print(neighb_x[0][ind][0], neighb_x[0][ind][1])
+#         print('h_Yi_Xk is', h_Yi_Xk.shape)
         
-        # Apply distance weights [n_points, n_kpoints, f_dim_in]
-        features_projected_to_kernel_point = torch.matmul(h_Yi_Xk, neighb_x)
-        #print(features_projected_to_kernel_point.shape, 'features_projected_to_kernel_point', features_projected_to_kernel_point)
+        # Apply distance weights [n_q_points, n_kpoints, f_dim_in]
+        features_projected_to_kernel_point = torch.matmul(h_Yi_Xk, neighb_x)       
         features_projected_to_kernel_point = features_projected_to_kernel_point.permute((1, 0, 2))  # permute is a 3d version of Transpose
+#         print('features_projected_to_kernel_point', features_projected_to_kernel_point.shape)
+#         print('self.weights', len(self.weights), len(self.weights[0]), len(self.weights[0][0]), self.weights[0][0])
         
-        # Apply network weights. Kernel_outputs is [n_kpoints, n_points, f_dim_out]
+        # Apply network weights. Kernel_outputs is [n_kpoints, n_q_points, f_dim_out]
         kernel_outputs = torch.matmul(features_projected_to_kernel_point, self.weights)  # self.weights is trained Parameter
-        #print(kernel_outputs.shape, 'kernel_outputs', kernel_outputs)
-        
-        # Convolution sum (output features from picture 2; sum of kernel responses) [n_points, f_dim_out]
+        #print('kernel_outputs', kernel_outputs.shape)
+
+        #ou_sum = torch.sum(kernel_outputs, dim=0)
+        #print('trained torch.sum(kernel_outputs, dim=0) len is', len(ou_sum), len(ou_sum[0]), ou_sum[0])
+        # Convolution sum (output features from picture 2; sum of kernel responses) [n_q_points, f_dim_out]
         return torch.sum(kernel_outputs, dim=0)
 
     def __repr__(self):

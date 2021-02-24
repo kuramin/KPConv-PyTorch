@@ -386,6 +386,7 @@ class PointCloudDataset(Dataset):
                 deform_layer = True
             else:
                 r = r_normal
+
             # now lets build neighborhoods based on radius r.
             # neigh_indices are indices of neighbors for every point in stacked_points (not only barycenters)
             #print('r before neigh_indices', r)  kuramin_print
@@ -409,12 +410,13 @@ class PointCloudDataset(Dataset):
                 # And perform grid subsampling with this new value of dl
                 pooled_points, pooled_batches = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
 
-                # Radius of pooled neighbors
-                if 'deformable' in block:
-                    r = r_normal * self.config.deform_radius / self.config.conv_radius
-                    deform_layer = True
-                else:
-                    r = r_normal
+                # Radius of pooled neighbors was already calculated
+#                 if 'deformable' in block:
+#                     r = r_normal * self.config.deform_radius / self.config.conv_radius
+#                     deform_layer = True
+#                 else:
+#                     r = r_normal
+#                 print('r and deform layer secon', r, deform_layer)
 
                 #print('r before indices_of_neighs_of_pooled', r) kuramin_print
                 # Subsample indices
@@ -457,8 +459,9 @@ class PointCloudDataset(Dataset):
             # print('block_i', block_i, 'block', block, 'layer_blocks', layer_blocks)  # kuramins print
             layer_blocks = []
 
-            # Stop when meeting a global pooling or upsampling
-            if 'global' in block or 'upsample' in block:
+            # Stop when meeting upsampling. We need it because layer 4 has only 2 non-strided layers. 
+            # By finding upsample layer we do everything needed to finish layer 4
+            if 'upsample' in block:
                 # print('break!')  # kuramins print
                 break
 
