@@ -337,7 +337,6 @@ class PointCloudDataset(Dataset):
         else:
             return neigh_indices
 
-
     def segmentation_inputs(self,
                             stacked_points,
                             stacked_features,
@@ -388,12 +387,7 @@ class PointCloudDataset(Dataset):
                 r = r_normal
             # now lets build neighborhoods based on radius r.
             # neigh_indices are indices of neighbors for every point in stacked_points (not only barycenters)
-            #print('r before neigh_indices', r)  kuramin_print
             neigh_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
-
-            # else: #kuramin commented (indentation ends)
-            #     # This layer only perform pooling, no neighbors required
-            #     neigh_indices = np.zeros((0, 1), dtype=np.int32)
 
             # Pooling neighbors indices
             # *************************
@@ -472,6 +466,158 @@ class PointCloudDataset(Dataset):
         # print('End of segmentation_input')  # kuramins print
         return li
 
+    def draw_neighbors(self,
+                       stacked_points,
+                       stacked_features,
+                       labels,
+                       stack_lengths):
+        # print('Begin calculating segmentation input')  # kuramins print
+
+        # Starting radius of convolutions
+        r_normal = self.config.first_subsampling_dl * self.config.conv_radius
+
+        # Starting layer
+        layer_blocks = []
+
+        # Lists of inputs
+        input_points = []
+        input_neighbors_indices = []
+        input_indices_of_neighs_of_pooled = []
+        input_upsamples = []
+        input_stack_lengths = []
+        deform_layers = []
+
+        ######################
+        # Loop over the blocks
+        ######################
+
+        arch = self.config.architecture
+        # print(arch)  # kuramins print
+
+        for block_i, block in enumerate(arch):
+
+            # Get all blocks of the layer
+            if not ('strided' in block or 'upsample' in block):
+                layer_blocks += [block]
+                continue
+
+            # In our case all the following code of for-loop is performed only in case of strided or upsampling blocks
+            # Convolution neighbors indices
+            # *****************************
+
+            deform_layer = False
+            # Convolutions are done in this layer, compute the neighbors with the good radius
+
+            #if layer_blocks: #kuramin commented (indentation begins)
+            if np.any(['deformable' in blck for blck in layer_blocks]):
+                r = r_normal * self.config.deform_radius / self.config.conv_radius
+                deform_layer = True
+            else:
+                r = r_normal
+            # now lets build neighborhoods based on radius r.
+            # neigh_indices are indices of neighbors for every point in stacked_points (not only barycenters)
+            #print('r before neigh_indices', r)  kuramin_print
+            neigh_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
+
+            if 'strided' in block:
+                sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
+                sub_labels = np.zeros(stacked_points.shape[0])
+                color_code = [block_i * 23, 0, 0]
+                sub_colors[1] = color_code
+                array_of_edges = np.transpose(np.array([[], []]))
+                print('neigh_indices[1]', neigh_indices[1])
+                for neigh_ind in neigh_indices[1]:
+                    if neigh_ind < neigh_indices.shape[0]:
+                        sub_colors[neigh_ind] = color_code
+                        print('neigh_ind', neigh_ind)
+                        print('array_of_edges', array_of_edges)
+                        array_of_edges = np.vstack((array_of_edges, np.array([[1, neigh_ind]])))
+
+                write_ply('../datasets/AHN/input_0.500/sub_ply_file'+ str(block_i) + '.ply',
+                          [stacked_points, sub_colors, sub_labels],
+                          ['x', 'y', 'z', 'red', 'green', 'blue', 'scalar_Classification'], edges=array_of_edges)
+
+        #
+        #     # else: #kuramin commented (indentation ends)
+        #     #     # This layer only perform pooling, no neighbors required
+        #     #     neigh_indices = np.zeros((0, 1), dtype=np.int32)
+        #
+        #     # Pooling neighbors indices
+        #     # *************************
+        #
+        #     # If end of current layer is a block of resnetb_strided or resnetb_deformable_strided
+        #     if 'strided' in block:
+        #
+        #         # Set new subsampling length
+        #         dl = 2 * r_normal / self.config.conv_radius
+        #
+        #         #print('r before pooled_points', r)  kuramin_print
+        #         #print('dl before pooled_points', dl)  kuramin_print
+        #         # And perform grid subsampling with this new value of dl
+        #         pooled_points, pooled_batches = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
+        #
+        #         # Radius of pooled neighbors
+        #         if 'deformable' in block:
+        #             r = r_normal * self.config.deform_radius / self.config.conv_radius
+        #             deform_layer = True
+        #         else:
+        #             r = r_normal
+        #
+        #         #print('r before indices_of_neighs_of_pooled', r) kuramin_print
+        #         # Subsample indices
+        #         indices_of_neighs_of_pooled = batch_neighbors(pooled_points, stacked_points, pooled_batches, stack_lengths, r)
+        #
+        #         # Upsample indices (with the radius of the next layer to keep wanted density)
+        #         upsampled_indices = batch_neighbors(stacked_points, pooled_points, stack_lengths, pooled_batches, 2 * r)
+        #
+        #     else:
+        #         # Upsampling layer is met, which means that last layer did not have strided (pooling) block
+        #         # This layer will have input, but no points will be pooled. Thus, no pooling indices required
+        #         indices_of_neighs_of_pooled = np.zeros((0, 1), dtype=np.int32)
+        #         pooled_points = np.zeros((0, 3), dtype=np.float32)
+        #         pooled_batches = np.zeros((0,), dtype=np.int32)
+        #         upsampled_indices = np.zeros((0, 1), dtype=np.int32)
+        #
+        #     # Reduce size of neighbors matrices by eliminating furthest point
+        #     # Length of input_points provides number of layer. Based on number of layer and list "self.neighborhood_limits"
+        #     # which we read from a pickle-file, we can leave only specified amount of closest neighbors and cut rest
+        #     # This is done on neigh_indices by function big_neighborhood_filter based on value self.neighborhood_limits
+        #     neigh_indices = self.big_neighborhood_filter(neigh_indices, len(input_points))
+        #     indices_of_neighs_of_pooled = self.big_neighborhood_filter(indices_of_neighs_of_pooled, len(input_points))
+        #     if upsampled_indices.shape[0] > 0:
+        #         upsampled_indices = self.big_neighborhood_filter(upsampled_indices, len(input_points)+1)
+        #
+        #     # Updating input lists
+        #     input_points += [stacked_points]
+        #     input_neighbors_indices += [neigh_indices.astype(np.int64)]
+        #     input_indices_of_neighs_of_pooled += [indices_of_neighs_of_pooled.astype(np.int64)]
+        #     input_upsamples += [upsampled_indices.astype(np.int64)]
+        #     input_stack_lengths += [stack_lengths]
+        #     deform_layers += [deform_layer]
+        #
+        #     # New points for next layer
+        #     stacked_points = pooled_points
+        #     stack_lengths = pooled_batches
+
+            # Update radius and reset blocks
+            r_normal *= 2
+            # print('block_i', block_i, 'block', block, 'layer_blocks', layer_blocks)  # kuramins print
+            layer_blocks = []
+
+            # Stop when meeting a global pooling or upsampling
+            if 'upsample' in block:
+                # print('break!')  # kuramins print
+                break
+        #
+        # ###############
+        # # Return inputs
+        # ###############
+        #
+        # # list of network inputs (concatenated in this way because of different dimensionality of components)
+        # li = input_points + input_neighbors_indices + input_indices_of_neighs_of_pooled + input_upsamples + input_stack_lengths
+        # li += [stacked_features, labels]
+        # # print('End of segmentation_input')  # kuramins print
+        # return li
 
 
 

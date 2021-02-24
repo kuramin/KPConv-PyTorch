@@ -214,7 +214,7 @@ def header_properties(field_list, field_names):
     return lines
 
 
-def write_ply(filename, field_list, field_names, triangular_faces=None):
+def write_ply(filename, field_list, field_names, triangular_faces=None, edges=None):
     """
     Write ".ply" files
 
@@ -290,6 +290,11 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
             header.append('element face {:d}'.format(triangular_faces.shape[0]))
             header.append('property list uchar int vertex_indices')
 
+        if edges is not None:
+            header.append('element edge {:d}' .format(edges.shape[0]))
+            header.append('property int vertex1')
+            header.append('property int vertex2')
+
         # End of header
         header.append('end_header')
 
@@ -327,6 +332,10 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
             data['1'] = triangular_faces[:, 1]
             data['2'] = triangular_faces[:, 2]
             data.tofile(plyfile)
+
+        if edges is not None:
+            edges = edges.astype(np.int32)
+            edges.tofile(plyfile)
 
     return True
 
