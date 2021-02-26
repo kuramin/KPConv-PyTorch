@@ -247,6 +247,32 @@ def draw_block2(block_i,
               [new_stacked_points, sub_colors, sub_labels],
               ['x', 'y', 'z', 'red', 'green', 'blue', 'scalar_Classification'], edges=array_of_edges)
 
+# def draw_block2(block_i,
+#                 stacked_points,
+#                 pooled_points,
+#                 indices_of_neighs_of_pooled,
+#                 cloud_fullname):
+#     #new_stacked_points = np.vstack([pooled_points, stacked_points])
+#     #new_indices_of_neighs_of_pooled = indices_of_neighs_of_pooled + pooled_points.shape[0]
+#     color_of_starcenters = [255 - (block_i+3) * 18, 0, 0]
+#     color_of_points = [255 - block_i * 18, 0, 0]
+#     stacked_points_colors = np.zeros_like(stacked_points, dtype=np.uint8)
+#     stacked_points_labels = np.zeros(stacked_points.shape[0])
+#     pooled_points_colors = np.zeros_like(pooled_points, dtype=np.uint8)
+#     pooled_points_labels = np.zeros(pooled_points.shape[0])
+#     array_of_edges = np.transpose(np.array([[], []]))
+#
+#     for i, inds_of_neighborhood_of_one_pooled in enumerate(indices_of_neighs_of_pooled):
+#         pooled_points_colors[i] = color_of_starcenters
+#         for index_of_neigh_of_pooled in inds_of_neighborhood_of_one_pooled:
+#             if index_of_neigh_of_pooled < stacked_points.shape[0]:
+#                 stacked_points_colors[index_of_neigh_of_pooled] = color_of_points
+#                 array_of_edges = np.vstack((array_of_edges, np.array([[i, index_of_neigh_of_pooled]])))
+#
+#     write_ply(cloud_fullname,
+#               [new_stacked_points, sub_colors, sub_labels],
+#               ['x', 'y', 'z', 'red', 'green', 'blue', 'scalar_Classification'], edges=array_of_edges)
+
 
 class PointCloudDataset(Dataset):
     """Parent class for Point Cloud Datasets."""
@@ -607,7 +633,7 @@ class PointCloudDataset(Dataset):
                 #starcenter_indices = random.sample(range(stacked_points.shape[0]), int(stacked_points.shape[0] / 50))
                 #draw_block(block_i, stacked_points, starcenter_indices, neigh_indices, cloud_fullname)
                 draw_block2(block_i, stacked_points, pooled_points, indices_of_neighs_of_pooled, cloud_fullname_pooling)
-                draw_block2(block_i, stacked_points, pooled_points, upsampled_indices, cloud_fullname_upsampling)
+                draw_block2(block_i, pooled_points, stacked_points, upsampled_indices, cloud_fullname_upsampling)
                 # color_code = [255 - block_i * 18, 0, 0]
                 # sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
                 # sub_labels = np.zeros(stacked_points.shape[0])
