@@ -470,12 +470,15 @@ class PointCloudDataset(Dataset):
         return li
 
     def draw_neighbors(self,
+                       cloud_name,
                        stacked_points,
                        stacked_features,
                        labels,
                        stack_lengths):
         # print('Begin calculating segmentation input')  # kuramins print
 
+        #tree_path = join(self.path, 'input_{:.3f}'.format(self.config.first_subsampling_dl))
+        
         # Starting radius of convolutions
         r_normal = self.config.first_subsampling_dl * self.config.conv_radius
 
@@ -522,21 +525,21 @@ class PointCloudDataset(Dataset):
             #print('r before neigh_indices', r)  kuramin_print
             neigh_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
 
-            if 'strided' in block:
+            if block_i in [2, 5, 8, 11, 14]:
                 sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
                 sub_labels = np.zeros(stacked_points.shape[0])
-                color_code = [block_i * 23, 0, 0]
+                color_code = [255 - block_i * 18, 0, 0]
                 sub_colors[1] = color_code
                 array_of_edges = np.transpose(np.array([[], []]))
-                print('neigh_indices[1]', neigh_indices[1])
+                #print('neigh_indices[1]', neigh_indices[1])
                 for neigh_ind in neigh_indices[1]:
                     if neigh_ind < neigh_indices.shape[0]:
                         sub_colors[neigh_ind] = color_code
-                        print('neigh_ind', neigh_ind)
-                        print('array_of_edges', array_of_edges)
+                        #print('neigh_ind', neigh_ind)
+                        #print('array_of_edges', array_of_edges)
                         array_of_edges = np.vstack((array_of_edges, np.array([[1, neigh_ind]])))
 
-                write_ply('../datasets/AHN/input_0.500/sub_ply_file'+ str(block_i) + '.ply',
+                write_ply('../datasets/AHN/input_0.500/' + cloud_name + '_pooling_'+ str(block_i) + '.ply',
                           [stacked_points, sub_colors, sub_labels],
                           ['x', 'y', 'z', 'red', 'green', 'blue', 'scalar_Classification'], edges=array_of_edges)
 

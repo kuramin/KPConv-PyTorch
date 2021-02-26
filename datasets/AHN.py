@@ -122,14 +122,19 @@ class AHNDataset(PointCloudDataset):
 #         self.validation_split = 5
         
         #self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_small']
-        self.cloud_names = ['logClass_Duindorp_012', 'logClass_Katwijk_012', 'logClass_Lelystad_012', 'logClass_Vissingen_012', 'logClass_Maastricht_012', 'logClass_Hellevoetsluis_012_medium']
         #self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_medium']
         #self.cloud_names = ['logClass_Lelystad_012', 'Vaihingen3D_DEM3']
         #self.cloud_names = ['logClass_Lelystad_012', 'Vaihingen3D_Training_kuramin_edition_shifted']
         #self.all_splits = [0, 1]
         #self.validation_split = 1
-        self.all_splits = [0, 1, 2, 3, 4, 5]
-        self.validation_split = 5
+        
+        self.cloud_names = ['logClass_Hellevoetsluis_012_mini', 'logClass_Hellevoetsluis_012_micro']
+        self.all_splits = [0, 1]
+        self.validation_split = 1
+        
+#         self.cloud_names = ['logClass_Duindorp_012', 'logClass_Katwijk_012', 'logClass_Lelystad_012', 'logClass_Vissingen_012', 'logClass_Maastricht_012', 'logClass_Hellevoetsluis_012_medium']
+#         self.all_splits = [0, 1, 2, 3, 4, 5]
+#         self.validation_split = 5
 
         self.list_of_colors = [] #['red', 'green', 'blue']
         self.list_of_scalars = ['scalar_NumberOfReturns', 'scalar_ReturnNumber', 'scalar_Intensity']
@@ -579,7 +584,12 @@ class AHNDataset(PointCloudDataset):
                     write_ply(sub_ply_file,
                               [sub_points, sub_labels],
                               ['x', 'y', 'z'] + ['scalar_Classification'])
-
+                
+                self.draw_neighbors(cloud_name,
+                                    stacked_points=sub_points,
+                                    stacked_features=sub_features,
+                                    labels=sub_labels,
+                                    stack_lengths=[sub_points.shape[0]])
 
                 # Get chosen neighborhoods
                 search_tree = KDTree(sub_points, leaf_size=10)
