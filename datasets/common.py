@@ -236,12 +236,12 @@ def draw_block2(block_i,
     sub_labels = np.zeros(new_stacked_points.shape[0])
     array_of_edges = np.transpose(np.array([[], []]))
 
-    for inds_of_neighborhood_of_one_pooled in new_indices_of_neighs_of_pooled:
-        sub_colors[inds_of_neighborhood_of_one_pooled[0]] = color_of_starcenters
-        for index_of_neigh_of_pooled in inds_of_neighborhood_of_one_pooled[1:]:
+    for i, inds_of_neighborhood_of_one_pooled in enumerate(new_indices_of_neighs_of_pooled):
+        sub_colors[i] = color_of_starcenters
+        for index_of_neigh_of_pooled in inds_of_neighborhood_of_one_pooled:
             if index_of_neigh_of_pooled < new_stacked_points.shape[0]:
                 sub_colors[index_of_neigh_of_pooled] = color_of_points
-                array_of_edges = np.vstack((array_of_edges, np.array([[inds_of_neighborhood_of_one_pooled[0], index_of_neigh_of_pooled]])))
+                array_of_edges = np.vstack((array_of_edges, np.array([[i, index_of_neigh_of_pooled]])))
 
     write_ply(cloud_fullname,
               [new_stacked_points, sub_colors, sub_labels],
