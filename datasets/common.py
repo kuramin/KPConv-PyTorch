@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 from utils.config import Config
 from utils.mayavi_visu import *
 from kernels.kernel_points import create_3D_rotations
+import random
 
 # Subsampling extension
 import cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
@@ -205,16 +206,17 @@ def draw_block(block_i,
                neigh_indices,
                cloud_fullname):
 
-    color_code = [255 - block_i * 18, 0, 0]
+    color_of_starcenters = [255 - (block_i+3) * 18, 0, 0]
+    color_of_points = [255 - block_i * 18, 0, 0]
     sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
     sub_labels = np.zeros(stacked_points.shape[0])
     array_of_edges = np.transpose(np.array([[], []]))
 
     for index_of_starcenter in starcenter_indices:
-        sub_colors[index_of_starcenter] = color_code
+        sub_colors[index_of_starcenter] = color_of_starcenters
         for neigh_ind in neigh_indices[index_of_starcenter]:
             if neigh_ind < neigh_indices.shape[0]:
-                sub_colors[neigh_ind] = color_code
+                sub_colors[neigh_ind] = color_of_points
                 array_of_edges = np.vstack((array_of_edges, np.array([[index_of_starcenter, neigh_ind]])))
 
     write_ply(cloud_fullname,
@@ -577,7 +579,8 @@ class PointCloudDataset(Dataset):
 
             if block_i in [2, 5, 8, 11, 14]:
                 cloud_fullname = '../datasets/AHN/input_0.500/' + cloud_name + '_pooling_' + str(block_i) + '.ply'
-                draw_block(block_i, stacked_points, [0, 10, 20, 30, 40, 50, 60, 70, 80, 90], neigh_indices, cloud_fullname)
+                starcenter_indices = random.sample(range(stacked_points.shape[0]), int(stacked_points.shape[0] / 10))
+                draw_block(block_i, stacked_points, starcenter_indices, neigh_indices, cloud_fullname)
                 # color_code = [255 - block_i * 18, 0, 0]
                 # sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
                 # sub_labels = np.zeros(stacked_points.shape[0])
