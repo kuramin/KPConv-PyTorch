@@ -602,10 +602,12 @@ class PointCloudDataset(Dataset):
                 upsampled_indices = np.zeros((0, 1), dtype=np.int32)
 
             if block_i in [2, 5, 8, 11, 14]:
-                cloud_fullname = '../datasets/AHN/input_0.500/' + cloud_name + '_pooling_' + str(block_i) + '.ply'
-                starcenter_indices = random.sample(range(stacked_points.shape[0]), int(stacked_points.shape[0] / 50))
+                cloud_fullname_pooling = '../datasets/AHN/input_0.500/' + cloud_name + '_pooling_' + str(block_i) + '.ply'
+                cloud_fullname_upsampling = '../datasets/AHN/input_0.500/' + cloud_name + '_upsampling_' + str(block_i) + '.ply'
+                #starcenter_indices = random.sample(range(stacked_points.shape[0]), int(stacked_points.shape[0] / 50))
                 #draw_block(block_i, stacked_points, starcenter_indices, neigh_indices, cloud_fullname)
-                draw_block2(block_i, stacked_points, pooled_points, indices_of_neighs_of_pooled, cloud_fullname)
+                draw_block2(block_i, stacked_points, pooled_points, indices_of_neighs_of_pooled, cloud_fullname_pooling)
+                draw_block2(block_i, stacked_points, pooled_points, upsampled_indices, cloud_fullname_upsampling)
                 # color_code = [255 - block_i * 18, 0, 0]
                 # sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
                 # sub_labels = np.zeros(stacked_points.shape[0])
