@@ -199,6 +199,29 @@ def batch_neighbors(queries, supports, q_batches, s_batches, radius):
 #       \**********************/
 
 
+def draw_block(block_i,
+               stacked_points,
+               starcenter_indices,
+               neigh_indices,
+               cloud_fullname):
+
+    color_code = [255 - block_i * 18, 0, 0]
+    sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
+    sub_labels = np.zeros(stacked_points.shape[0])
+    array_of_edges = np.transpose(np.array([[], []]))
+
+    for index_of_starcenter in starcenter_indices:
+        sub_colors[index_of_starcenter] = color_code
+        for neigh_ind in neigh_indices[index_of_starcenter]:
+            if neigh_ind < neigh_indices.shape[0]:
+                sub_colors[neigh_ind] = color_code
+                array_of_edges = np.vstack((array_of_edges, np.array([[index_of_starcenter, neigh_ind]])))
+
+    write_ply(cloud_fullname,
+              [stacked_points, sub_colors, sub_labels],
+              ['x', 'y', 'z', 'red', 'green', 'blue', 'scalar_Classification'], edges=array_of_edges)
+
+
 class PointCloudDataset(Dataset):
     """Parent class for Point Cloud Datasets."""
 
@@ -518,23 +541,6 @@ class PointCloudDataset(Dataset):
             #print('r before neigh_indices', r)  kuramin_print
             neigh_indices = batch_neighbors(stacked_points, stacked_points, stack_lengths, stack_lengths, r)
 
-            startcenter_indices = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
-            if block_i in [2, 5, 8, 11, 14]:
-                color_code = [255 - block_i * 18, 0, 0]
-                sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
-                sub_labels = np.zeros(stacked_points.shape[0])
-                for index_of_starcenter in startcenter_indices:
-                    sub_colors[index_of_starcenter] = color_code
-                    array_of_edges = np.transpose(np.array([[], []]))
-                    for neigh_ind in neigh_indices[index_of_starcenter]:
-                        if neigh_ind < neigh_indices.shape[0]:
-                            sub_colors[neigh_ind] = color_code
-                            array_of_edges = np.vstack((array_of_edges, np.array([[index_of_starcenter, neigh_ind]])))
-
-                write_ply('../datasets/AHN/input_0.500/' + cloud_name + '_pooling_' + str(block_i) + '.ply',
-                          [stacked_points, sub_colors, sub_labels],
-                          ['x', 'y', 'z', 'red', 'green', 'blue', 'scalar_Classification'], edges=array_of_edges)
-
         #
         #     # else: #kuramin commented (indentation ends)
         #     #     # This layer only perform pooling, no neighbors required
@@ -568,6 +574,26 @@ class PointCloudDataset(Dataset):
                 pooled_points = np.zeros((0, 3), dtype=np.float32)
                 pooled_batches = np.zeros((0,), dtype=np.int32)
                 upsampled_indices = np.zeros((0, 1), dtype=np.int32)
+
+            if block_i in [2, 5, 8, 11, 14]:
+                cloud_fullname = '../datasets/AHN/input_0.500/' + cloud_name + '_pooling_' + str(block_i) + '.ply'
+                draw_block(block_i, stacked_points, pooled_points, neigh_indices, cloud_fullname)
+                # color_code = [255 - block_i * 18, 0, 0]
+                # sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
+                # sub_labels = np.zeros(stacked_points.shape[0])
+                # array_of_edges = np.transpose(np.array([[], []]))
+                # #starcenter_indices = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
+                # starcenter_indices = pooled_points
+                # for index_of_starcenter in starcenter_indices:
+                #     sub_colors[index_of_starcenter] = color_code
+                #     for neigh_ind in neigh_indices[index_of_starcenter]:
+                #         if neigh_ind < neigh_indices.shape[0]:
+                #             sub_colors[neigh_ind] = color_code
+                #             array_of_edges = np.vstack((array_of_edges, np.array([[index_of_starcenter, neigh_ind]])))
+                #
+                # write_ply('../datasets/AHN/input_0.500/' + cloud_name + '_pooling_' + str(block_i) + '.ply',
+                #           [stacked_points, sub_colors, sub_labels],
+                #           ['x', 'y', 'z', 'red', 'green', 'blue', 'scalar_Classification'], edges=array_of_edges)
 
             # Reduce size of neighbors matrices by eliminating furthest point
             # Length of input_points provides number of layer. Based on number of layer and list "self.neighborhood_limits"
@@ -609,8 +635,6 @@ class PointCloudDataset(Dataset):
         # li += [stacked_features, labels]
         # # print('End of segmentation_input')  # kuramins print
         # return li
-
-
 
 
 
