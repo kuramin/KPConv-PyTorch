@@ -159,34 +159,55 @@ class ModelVisualizer:
                 if 'cuda' in self.device.type:
                     torch.cuda.synchronize(self.device)
 
-                # Find layer
+                # Find layer which contains our member of deform_convs with index deform_idx
+                # idx 0, 1, 2 - layer 2
+                # idx 3, 4, 5 - layer 3
+                # idx 6, 7 - layer 4
                 l = None
                 for i, p in enumerate(batch.points):
+                    print('i is', i, 'p is ', p, 'p.shape is', p.shape, 'stacked_deformed_KP.shape', stacked_deformed_KP.shape)
                     if p.shape[0] == stacked_deformed_KP.shape[0]:
                         l = i
+                        print('got l == i:', l, i)
 
                 t += [time.time()]
 
                 # Get data
                 in_points = []
-                in_colors = []
+                in_colors = [None]
                 deformed_KP = []
                 points = []
                 lookuptrees = []
                 i0 = 0
+                # batch.lengths[0] is number of points in each of N balls from n_points of this level (level 0)
+                # list of N members, sums up to a number of points on this layer (layer 0)
+
+                # The loop will run batch_num times, in our case = 1
+                # Just grabs all points of our single ball from level 0 into in_points
                 for b_i, length in enumerate(batch.lengths[0]):
                     in_points.append(batch.points[0][i0:i0 + length].cpu().detach().numpy())
-                    if batch.features.shape[1] == 4:
-                        in_colors.append(batch.features[i0:i0 + length, 1:].cpu().detach().numpy())
-                    else:
-                        in_colors.append(None)
+                    print('appended to in_points. Now its shape', len(in_points), len(in_points[0]), in_points[0][0])
+                    # if batch.features.shape[1] == 4:
+                    #     in_colors.append(batch.features[i0:i0 + length, 1:].cpu().detach().numpy())
+                    #     print('appended to in_colors in if. Now its', in_colors)
+                    # else:
+                    #     in_colors.append(None)
+                    #     print('appended to in_colors in else. Now its', in_colors)
                     i0 += length
 
+
+                # The loop will run batch_num times, in our case = 1
+                # Just grabs all points of our single ball from level, which corresponds to deform_idx, into points
+                # stacked_deformed_KP which are deformed kernel points coordinates for every location of layer l point - into deformed_KP
+                # KDTrees - into lookuptrees
                 i0 = 0
                 for b_i, length in enumerate(batch.lengths[l]):
                     points.append(batch.points[l][i0:i0 + length].cpu().detach().numpy())
+                    print('appended to points. Now its shape', len(points), len(points[0]), points[0][0], 'length is', length, 'l is', l)
                     deformed_KP.append(stacked_deformed_KP[i0:i0 + length])
+                    print('appended to deformed_KP. Now its shape', len(deformed_KP), len(deformed_KP[0]), len(deformed_KP[0][0]))
                     lookuptrees.append(KDTree(points[-1]))
+                    print('appended to lookuptrees. Now its shape', len(lookuptrees), lookuptrees[0])
                     i0 += length
 
                 ###########################
@@ -244,14 +265,14 @@ class ModelVisualizer:
                     plots = {}
 
                     # Plot new data feature
-                    p = points[obj_i]
+                    p = points[obj_i]  # "points" is all points of our single ball from level, which corresponds to deform_idx
 
                     # Rescale points for visu
                     p = (p * 1.5 / config.in_radius)
 
 
                     # Show point cloud
-                    if show_in_p <= 1:
+                    if show_in_p <= 1:  # show cyan points, points of level, which corresponds to deform_idx
                         plots['points'] = mlab.points3d(p[:, 0],
                                                         p[:, 1],
                                                         p[:, 2],
@@ -261,42 +282,50 @@ class ModelVisualizer:
                                                         color=(0, 1, 1),
                                                         figure=fig1)
 
-                    if show_in_p >= 1:
+                    if show_in_p >= 1:  # show all points of our single ball from level 0
 
                         # Get points and colors
-                        in_p = in_points[obj_i]
+                        in_p = in_points[obj_i]  # all points of our single ball from level 0
                         in_p = (in_p * 1.5 / config.in_radius)
 
-                        # Color point cloud if possible
-                        in_c = in_colors[obj_i]
-                        if in_c is not None:
+                        plots['in_points'] = mlab.points3d(in_p[:, 0],
+                                                           in_p[:, 1],
+                                                           in_p[:, 2],
+                                                           resolution=8,
+                                                           scale_factor=p_scale*0.8,
+                                                           scale_mode='none',
+                                                           figure=fig1)
 
-                            # Primitives
-                            scalars = np.arange(len(in_p))  # Key point: set an integer for each point
-
-                            # Define color table (including alpha), which must be uint8 and [0,255]
-                            colors = np.hstack((in_c, np.ones_like(in_c[:, :1])))
-                            colors = (colors * 255).astype(np.uint8)
-
-                            plots['in_points'] = mlab.points3d(in_p[:, 0],
-                                                               in_p[:, 1],
-                                                               in_p[:, 2],
-                                                               scalars,
-                                                               resolution=8,
-                                                               scale_factor=p_scale*0.8,
-                                                               scale_mode='none',
-                                                               figure=fig1)
-                            plots['in_points'].module_manager.scalar_lut_manager.lut.table = colors
-
-                        else:
-
-                            plots['in_points'] = mlab.points3d(in_p[:, 0],
-                                                               in_p[:, 1],
-                                                               in_p[:, 2],
-                                                               resolution=8,
-                                                               scale_factor=p_scale*0.8,
-                                                               scale_mode='none',
-                                                               figure=fig1)
+                        # # Color point cloud if possible
+                        # in_c = in_colors[obj_i]
+                        # if in_c is not None:
+                        #
+                        #     # Primitives
+                        #     scalars = np.arange(len(in_p))  # Key point: set an integer for each point
+                        #
+                        #     # Define color table (including alpha), which must be uint8 and [0,255]
+                        #     colors = np.hstack((in_c, np.ones_like(in_c[:, :1])))
+                        #     colors = (colors * 255).astype(np.uint8)
+                        #
+                        #     plots['in_points'] = mlab.points3d(in_p[:, 0],
+                        #                                        in_p[:, 1],
+                        #                                        in_p[:, 2],
+                        #                                        scalars,
+                        #                                        resolution=8,
+                        #                                        scale_factor=p_scale*0.8,
+                        #                                        scale_mode='none',
+                        #                                        figure=fig1)
+                        #     plots['in_points'].module_manager.scalar_lut_manager.lut.table = colors
+                        #
+                        # else:
+                        #
+                        #     plots['in_points'] = mlab.points3d(in_p[:, 0],
+                        #                                        in_p[:, 1],
+                        #                                        in_p[:, 2],
+                        #                                        resolution=8,
+                        #                                        scale_factor=p_scale*0.8,
+                        #                                        scale_mode='none',
+                        #                                        figure=fig1)
 
 
                     # Get KP locations
@@ -308,9 +337,17 @@ class ModelVisualizer:
                     else:
                         KP = points[obj_i][point_i] + original_KP
                         scals = np.zeros_like(KP[:, 0])
-
+                    print('original_KP before scaling', min(original_KP[:, 0]), max(original_KP[:, 0]), min(original_KP[:, 1]), max(original_KP[:, 1]), min(original_KP[:, 2]), max(original_KP[:, 2]), original_KP)
+                    print(np.mean(original_KP))
+                    original_KP2 = (original_KP * 1.5 / config.in_radius)
+                    print('original_KP2 after scaling', min(original_KP2[:, 0]), max(original_KP2[:, 0]), min(original_KP2[:, 1]), max(original_KP2[:, 1]), min(original_KP2[:, 2]), max(original_KP2[:, 2]), original_KP2)
+                    print(np.mean(original_KP2))
+                    print('KP before scaling', min(KP[:, 0]), max(KP[:, 0]), min(KP[:, 1]), max(KP[:, 1]), min(KP[:, 2]), max(KP[:, 2]), KP)
+                    print(np.mean(KP))
                     KP = (KP * 1.5 / config.in_radius)
-
+                    print('KP after scaling', min(KP[:, 0]), max(KP[:, 0]), min(KP[:, 1]), max(KP[:, 1]), min(KP[:, 2]), max(KP[:, 2]), KP)
+                    print(np.mean(KP))
+                    # plots kernel points: red rigid and yellow deformable
                     plots['KP'] = mlab.points3d(KP[:, 0],
                                                 KP[:, 1],
                                                 KP[:, 2],
@@ -325,6 +362,15 @@ class ModelVisualizer:
 
 
                     if True:
+                        coordsys_points = np.array([[1, 1, 1], [1, 1, -1], [1, -1, -1], [1, -1, 1], [-1, 1, 1], [-1, 1, -1], [-1, -1, -1], [-1, -1, 1]])
+                        coordsys_points = (coordsys_points * 1.5 / config.in_radius)
+                        plots['coord_sys'] = mlab.points3d(coordsys_points[:, 0],
+                                                           coordsys_points[:, 1],
+                                                           coordsys_points[:, 2],
+                                                           scale_factor=1.1*p_scale,
+                                                           scale_mode='none',
+                                                           color=(0, 0, 1),
+                                                           figure=fig1)
                         plots['center'] = mlab.points3d(p[point_i, 0],
                                                         p[point_i, 1],
                                                         p[point_i, 2],
@@ -422,9 +468,12 @@ class ModelVisualizer:
                         KP_normal = points[obj_i][point_i] + original_KP
 
                         # Save
+                        # write_ply(join('KP_clouds', file_name),
+                        #           [in_points[obj_i], in_colors[obj_i]],
+                        #           ['x', 'y', 'z', 'red', 'green', 'blue'])
                         write_ply(join('KP_clouds', file_name),
-                                  [in_points[obj_i], in_colors[obj_i]],
-                                  ['x', 'y', 'z', 'red', 'green', 'blue'])
+                                  [in_points[obj_i]],
+                                  ['x', 'y', 'z'])
                         write_ply(join('KP_clouds', 'KP_{:03d}_deform.ply'.format(file_i)),
                                   [KP_deform],
                                   ['x', 'y', 'z'])

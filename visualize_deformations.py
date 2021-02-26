@@ -142,7 +142,7 @@ if __name__ == '__main__':
     # Change parameters for the test here. For example, you can stop augmenting the input data.
 
     config.augment_noise = 0.0001
-    config.batch_num = 1
+    config.batch_num = 3
     config.in_radius = 15.0
     config.input_threads = 0
 
@@ -193,8 +193,8 @@ if __name__ == '__main__':
     #     raise ValueError('Unsupported dataset_task for deformation visu: ' + config.dataset_task)
 
     net = KPFCNN(config, test_dataset.label_values, test_dataset.ignored_labels)
-    for m in net.modules():
-        print('Module m is', m, 'm.deformable is', 'm.deformable')
+    # for m in net.modules():
+    #     print('Module m is', m, 'm.deformable is', 'm.deformable')
 
     # Define a visualizer class
     visualizer = ModelVisualizer(net, config, chkp_path=chosen_chkp, on_gpu=False)
