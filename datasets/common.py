@@ -404,14 +404,6 @@ class PointCloudDataset(Dataset):
                 # And perform grid subsampling with this new value of dl
                 pooled_points, pooled_batches = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
 
-                # Radius of pooled neighbors was already calculated
-#                 if 'deformable' in block:
-#                     r = r_normal * self.config.deform_radius / self.config.conv_radius
-#                     deform_layer = True
-#                 else:
-#                     r = r_normal
-#                 print('r and deform layer secon', r, deform_layer)
-
                 #print('r before indices_of_neighs_of_pooled', r) kuramin_print
                 # Subsample indices
                 indices_of_neighs_of_pooled = batch_neighbors(pooled_points, stacked_points, pooled_batches, stack_lengths, r)
@@ -501,6 +493,7 @@ class PointCloudDataset(Dataset):
         # print(arch)  # kuramins print
 
         for block_i, block in enumerate(arch):
+            print('in block', block_i, 'stacked_points.shape=', stacked_points.shape, 'stack_lengths=', stack_lengths)
 
             # Get all blocks of the layer
             if not ('strided' in block or 'upsample' in block):
@@ -550,60 +543,53 @@ class PointCloudDataset(Dataset):
         #
         #     # Pooling neighbors indices
         #     # *************************
-        #
-        #     # If end of current layer is a block of resnetb_strided or resnetb_deformable_strided
-        #     if 'strided' in block:
-        #
-        #         # Set new subsampling length
-        #         dl = 2 * r_normal / self.config.conv_radius
-        #
-        #         #print('r before pooled_points', r)  kuramin_print
-        #         #print('dl before pooled_points', dl)  kuramin_print
-        #         # And perform grid subsampling with this new value of dl
-        #         pooled_points, pooled_batches = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
-        #
-        #         # Radius of pooled neighbors
-        #         if 'deformable' in block:
-        #             r = r_normal * self.config.deform_radius / self.config.conv_radius
-        #             deform_layer = True
-        #         else:
-        #             r = r_normal
-        #
-        #         #print('r before indices_of_neighs_of_pooled', r) kuramin_print
-        #         # Subsample indices
-        #         indices_of_neighs_of_pooled = batch_neighbors(pooled_points, stacked_points, pooled_batches, stack_lengths, r)
-        #
-        #         # Upsample indices (with the radius of the next layer to keep wanted density)
-        #         upsampled_indices = batch_neighbors(stacked_points, pooled_points, stack_lengths, pooled_batches, 2 * r)
-        #
-        #     else:
-        #         # Upsampling layer is met, which means that last layer did not have strided (pooling) block
-        #         # This layer will have input, but no points will be pooled. Thus, no pooling indices required
-        #         indices_of_neighs_of_pooled = np.zeros((0, 1), dtype=np.int32)
-        #         pooled_points = np.zeros((0, 3), dtype=np.float32)
-        #         pooled_batches = np.zeros((0,), dtype=np.int32)
-        #         upsampled_indices = np.zeros((0, 1), dtype=np.int32)
-        #
-        #     # Reduce size of neighbors matrices by eliminating furthest point
-        #     # Length of input_points provides number of layer. Based on number of layer and list "self.neighborhood_limits"
-        #     # which we read from a pickle-file, we can leave only specified amount of closest neighbors and cut rest
-        #     # This is done on neigh_indices by function big_neighborhood_filter based on value self.neighborhood_limits
-        #     neigh_indices = self.big_neighborhood_filter(neigh_indices, len(input_points))
-        #     indices_of_neighs_of_pooled = self.big_neighborhood_filter(indices_of_neighs_of_pooled, len(input_points))
-        #     if upsampled_indices.shape[0] > 0:
-        #         upsampled_indices = self.big_neighborhood_filter(upsampled_indices, len(input_points)+1)
-        #
-        #     # Updating input lists
-        #     input_points += [stacked_points]
-        #     input_neighbors_indices += [neigh_indices.astype(np.int64)]
-        #     input_indices_of_neighs_of_pooled += [indices_of_neighs_of_pooled.astype(np.int64)]
-        #     input_upsamples += [upsampled_indices.astype(np.int64)]
-        #     input_stack_lengths += [stack_lengths]
-        #     deform_layers += [deform_layer]
-        #
-        #     # New points for next layer
-        #     stacked_points = pooled_points
-        #     stack_lengths = pooled_batches
+
+            # If end of current layer is a block of resnetb_strided or resnetb_deformable_strided
+            if 'strided' in block:
+
+                # Set new subsampling length
+                dl = 2 * r_normal / self.config.conv_radius
+
+                #print('r before pooled_points', r)  kuramin_print
+                #print('dl before pooled_points', dl)  kuramin_print
+                # And perform grid subsampling with this new value of dl
+                pooled_points, pooled_batches = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
+
+                #print('r before indices_of_neighs_of_pooled', r) kuramin_print
+                # Subsample indices
+                indices_of_neighs_of_pooled = batch_neighbors(pooled_points, stacked_points, pooled_batches, stack_lengths, r)
+
+                # Upsample indices (with the radius of the next layer to keep wanted density)
+                upsampled_indices = batch_neighbors(stacked_points, pooled_points, stack_lengths, pooled_batches, 2 * r)
+
+            else:
+                # Upsampling layer is met, which means that last layer did not have strided (pooling) block
+                # This layer will have input, but no points will be pooled. Thus, no pooling indices required
+                indices_of_neighs_of_pooled = np.zeros((0, 1), dtype=np.int32)
+                pooled_points = np.zeros((0, 3), dtype=np.float32)
+                pooled_batches = np.zeros((0,), dtype=np.int32)
+                upsampled_indices = np.zeros((0, 1), dtype=np.int32)
+
+            # Reduce size of neighbors matrices by eliminating furthest point
+            # Length of input_points provides number of layer. Based on number of layer and list "self.neighborhood_limits"
+            # which we read from a pickle-file, we can leave only specified amount of closest neighbors and cut rest
+            # This is done on neigh_indices by function big_neighborhood_filter based on value self.neighborhood_limits
+            neigh_indices = self.big_neighborhood_filter(neigh_indices, len(input_points))
+            indices_of_neighs_of_pooled = self.big_neighborhood_filter(indices_of_neighs_of_pooled, len(input_points))
+            if upsampled_indices.shape[0] > 0:
+                upsampled_indices = self.big_neighborhood_filter(upsampled_indices, len(input_points)+1)
+
+            # Updating input lists
+            input_points += [stacked_points]
+            input_neighbors_indices += [neigh_indices.astype(np.int64)]
+            input_indices_of_neighs_of_pooled += [indices_of_neighs_of_pooled.astype(np.int64)]
+            input_upsamples += [upsampled_indices.astype(np.int64)]
+            input_stack_lengths += [stack_lengths]
+            deform_layers += [deform_layer]
+
+            # New points for next layer
+            stacked_points = pooled_points
+            stack_lengths = pooled_batches
 
             # Update radius and reset blocks
             r_normal *= 2
