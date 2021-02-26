@@ -228,7 +228,7 @@ def draw_block2(block_i,
                 pooled_points,
                 indices_of_neighs_of_pooled,
                 cloud_fullname):
-    new_stacked_points = np.vstack(pooled_points, stacked_points)
+    new_stacked_points = np.vstack([pooled_points, stacked_points])
     new_indices_of_neighs_of_pooled = indices_of_neighs_of_pooled + pooled_points.shape[0]
     color_of_starcenters = [255 - (block_i+3) * 18, 0, 0]
     color_of_points = [255 - block_i * 18, 0, 0]
