@@ -200,27 +200,51 @@ def batch_neighbors(queries, supports, q_batches, s_batches, radius):
 #       \**********************/
 
 
-def draw_block(block_i,
-               stacked_points,
-               starcenter_indices,
-               neigh_indices,
-               cloud_fullname):
+# def draw_block(block_i,
+#                stacked_points,
+#                starcenter_indices,
+#                neigh_indices,
+#                cloud_fullname):
+#
+#     color_of_starcenters = [255 - (block_i+3) * 18, 0, 0]
+#     color_of_points = [255 - block_i * 18, 0, 0]
+#     sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
+#     sub_labels = np.zeros(stacked_points.shape[0])
+#     array_of_edges = np.transpose(np.array([[], []]))
+#
+#     for index_of_starcenter in starcenter_indices:
+#         sub_colors[index_of_starcenter] = color_of_starcenters
+#         for neigh_ind in neigh_indices[index_of_starcenter]:
+#             if neigh_ind < neigh_indices.shape[0]:
+#                 sub_colors[neigh_ind] = color_of_points
+#                 array_of_edges = np.vstack((array_of_edges, np.array([[index_of_starcenter, neigh_ind]])))
+#
+#     write_ply(cloud_fullname,
+#               [stacked_points, sub_colors, sub_labels],
+#               ['x', 'y', 'z', 'red', 'green', 'blue', 'scalar_Classification'], edges=array_of_edges)
 
+def draw_block2(block_i,
+                stacked_points,
+                pooled_points,
+                indices_of_neighs_of_pooled,
+                cloud_fullname):
+    new_stacked_points = np.vstack(pooled_points, stacked_points)
+    new_indices_of_neighs_of_pooled = indices_of_neighs_of_pooled + pooled_points.shape[0]
     color_of_starcenters = [255 - (block_i+3) * 18, 0, 0]
     color_of_points = [255 - block_i * 18, 0, 0]
-    sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
-    sub_labels = np.zeros(stacked_points.shape[0])
+    sub_colors = np.zeros_like(new_stacked_points, dtype=np.uint8)
+    sub_labels = np.zeros(new_stacked_points.shape[0])
     array_of_edges = np.transpose(np.array([[], []]))
 
-    for index_of_starcenter in starcenter_indices:
-        sub_colors[index_of_starcenter] = color_of_starcenters
-        for neigh_ind in neigh_indices[index_of_starcenter]:
-            if neigh_ind < neigh_indices.shape[0]:
-                sub_colors[neigh_ind] = color_of_points
-                array_of_edges = np.vstack((array_of_edges, np.array([[index_of_starcenter, neigh_ind]])))
+    for inds_of_neighborhood_of_one_pooled in new_indices_of_neighs_of_pooled:
+        sub_colors[inds_of_neighborhood_of_one_pooled[0]] = color_of_starcenters
+        for index_of_neigh_of_pooled in inds_of_neighborhood_of_one_pooled[1:]:
+            if index_of_neigh_of_pooled < new_stacked_points.shape[0]:
+                sub_colors[index_of_neigh_of_pooled] = color_of_points
+                array_of_edges = np.vstack((array_of_edges, np.array([[inds_of_neighborhood_of_one_pooled[0], index_of_neigh_of_pooled]])))
 
     write_ply(cloud_fullname,
-              [stacked_points, sub_colors, sub_labels],
+              [new_stacked_points, sub_colors, sub_labels],
               ['x', 'y', 'z', 'red', 'green', 'blue', 'scalar_Classification'], edges=array_of_edges)
 
 
@@ -579,8 +603,9 @@ class PointCloudDataset(Dataset):
 
             if block_i in [2, 5, 8, 11, 14]:
                 cloud_fullname = '../datasets/AHN/input_0.500/' + cloud_name + '_pooling_' + str(block_i) + '.ply'
-                starcenter_indices = random.sample(range(stacked_points.shape[0]), int(stacked_points.shape[0] / 10))
-                draw_block(block_i, stacked_points, starcenter_indices, neigh_indices, cloud_fullname)
+                starcenter_indices = random.sample(range(stacked_points.shape[0]), int(stacked_points.shape[0] / 50))
+                #draw_block(block_i, stacked_points, starcenter_indices, neigh_indices, cloud_fullname)
+                draw_block2(block_i, stacked_points, pooled_points, indices_of_neighs_of_pooled, cloud_fullname)
                 # color_code = [255 - block_i * 18, 0, 0]
                 # sub_colors = np.zeros_like(stacked_points, dtype=np.uint8)
                 # sub_labels = np.zeros(stacked_points.shape[0])
