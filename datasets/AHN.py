@@ -409,7 +409,7 @@ class AHNDataset(PointCloudDataset):
             t += [time.time()]
 
             if batch_i == 0:
-                self.draw_neighbors('../datasets/AHN/input_0.500/ball_pooling.ply',
+                self.draw_neighbors('ball_pooling',
                                     stacked_points=input_points,
                                     stacked_features=input_features,
                                     labels=input_labels,
