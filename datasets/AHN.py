@@ -116,10 +116,7 @@ class AHNDataset(PointCloudDataset):
         #self.cloud_names = ['Venlo_1', 'Venlo_2']
         #self.all_splits = [0, 1]
         #self.validation_split = 1
-        
-#         self.cloud_names = ['logClass_Lelystad', 'logClass_Duindorp', 'logClass_Katwijk', 'logClass_Maastricht', 'logClass_Vissingen', 'logClass_Hellevoetsluis']
-#         self.all_splits = [0, 1, 2, 3, 4, 5]
-#         self.validation_split = 5
+
         
         #self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_small']
         #self.cloud_names = ['logClass_Lelystad_012', 'logClass_Hellevoetsluis_012_medium']
@@ -128,13 +125,13 @@ class AHNDataset(PointCloudDataset):
         #self.all_splits = [0, 1]
         #self.validation_split = 1
         
-        self.cloud_names = ['logClass_Hellevoetsluis_012_mini', 'logClass_Hellevoetsluis_012_micro']
-        self.all_splits = [0, 1]
-        self.validation_split = 1
+        # self.cloud_names = ['logClass_Hellevoetsluis_012_mini', 'logClass_Hellevoetsluis_012_micro']
+        # self.all_splits = [0, 1]
+        # self.validation_split = 1
         
-#         self.cloud_names = ['logClass_Duindorp_012', 'logClass_Katwijk_012', 'logClass_Lelystad_012', 'logClass_Vissingen_012', 'logClass_Maastricht_012', 'logClass_Hellevoetsluis_012_medium']
-#         self.all_splits = [0, 1, 2, 3, 4, 5]
-#         self.validation_split = 5
+        self.cloud_names = ['logClass_Duindorp_012', 'logClass_Katwijk_012', 'logClass_Lelystad_012', 'logClass_Vissingen_012', 'logClass_Maastricht_012', 'logClass_Hellevoetsluis_012_medium']
+        self.all_splits = [0, 1, 2, 3, 4, 5]
+        self.validation_split = 5
 
         self.list_of_colors = [] #['red', 'green', 'blue']
         self.list_of_scalars = ['scalar_NumberOfReturns', 'scalar_ReturnNumber', 'scalar_Intensity']
@@ -408,12 +405,13 @@ class AHNDataset(PointCloudDataset):
 
             t += [time.time()]
 
-            if batch_i == 0:
-                self.draw_neighbors('ball_pooling',
-                                    stacked_points=input_points,
-                                    stacked_features=input_features,
-                                    labels=input_labels,
-                                    stack_lengths=[input_points.shape[0]])
+            # kuramin added drawing a ball of batch
+            # if batch_i == 0:
+            #     self.draw_neighbors('ball_pooling',
+            #                         stacked_points=input_points,
+            #                         stacked_features=input_features,
+            #                         labels=input_labels,
+            #                         stack_lengths=[input_points.shape[0]])
 
 
             # Stack batch
@@ -592,12 +590,13 @@ class AHNDataset(PointCloudDataset):
                     write_ply(sub_ply_file,
                               [sub_points, sub_labels],
                               ['x', 'y', 'z'] + ['scalar_Classification'])
-                
-                self.draw_neighbors(cloud_name,
-                                    stacked_points=sub_points,
-                                    stacked_features=sub_features,
-                                    labels=sub_labels,
-                                    stack_lengths=[sub_points.shape[0]])
+
+                # kuramin added drawing layers of points
+                # self.draw_neighbors(cloud_name,
+                #                     stacked_points=sub_points,
+                #                     stacked_features=sub_features,
+                #                     labels=sub_labels,
+                #                     stack_lengths=[sub_points.shape[0]])
 
                 # Get chosen neighborhoods
                 search_tree = KDTree(sub_points, leaf_size=10)
