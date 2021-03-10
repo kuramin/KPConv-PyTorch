@@ -2,6 +2,7 @@ import numpy as np
 from os.path import join
 from utils.ply import read_ply, write_ply
 import colorsys
+import time
 
 
 def hsv2rgb(h, s, v):
@@ -29,6 +30,7 @@ if __name__ == '__main__':
     #print(kernel_points)
     ball_center = kernel_points[0]
 
+    t1 = time.time()
     diap_end = 2 * (radius + kp_extent)
     diap_step = 0.02  # 0.01
     cube_points = []
@@ -39,6 +41,7 @@ if __name__ == '__main__':
                 y_p = y - diap_end / 2
                 z_p = z - diap_end / 2
                 cube_points.append([x_p, y_p, z_p])
+    print('Cube calculation done in {:.1f}s\n'.format(time.time() - t1))
 
     # with open('dense_cube.ply', "w") as file:
     #     stri = 'ply\nformat ascii 1.0\nelement vertex ' + str(int(((diap_end-diap_start) / diap_step + 1)**3)) + '\nproperty float32 x\nproperty float32 y\nproperty float32 z\nend_header\n'
@@ -52,10 +55,12 @@ if __name__ == '__main__':
     #                 file.write('{:2.6f} {:2.6f} {:2.6f}\n'.format(x_p, y_p, z_p))
     #                 cube_points.append([x_p, y_p, z_p])
 
+    t1 = time.time()
     cube_points = np.array(cube_points)
     write_ply('dense_cube.ply',
               [cube_points],
               ['x', 'y', 'z'])
+    print('Cube saving done in {:.1f}s\n'.format(time.time() - t1))
 
     # print(cube_points.shape)
     # with open('dense_ball.ply', "w") as file:
@@ -65,6 +70,7 @@ if __name__ == '__main__':
     #         if (point[0]-ball_center[0])**2 + (point[1]-ball_center[1])**2 + (point[2]-ball_center[2])**2 < radius**2:
     #             file.write(str(point[0]) + ' ' + str(point[1]) + ' ' + str(point[2]) + '\n')
 
+    t1 = time.time()
     ball_points = []
     ball_colors = []
     for point in cube_points:
@@ -72,12 +78,15 @@ if __name__ == '__main__':
             ball_points.append([point[0], point[1], point[2]])
             grey_component = ((point[0]-ball_center[0])**2 + (point[1]-ball_center[1])**2 + (point[2]-ball_center[2])**2) / radius**2
             ball_colors.append([255 * grey_component, 255 * grey_component, 255 * grey_component])
+    print('Ball calculation done in {:.1f}s\n'.format(time.time() - t1))
 
+    t1 = time.time()
     ball_points = np.array(ball_points)
     ball_colors = np.array(ball_colors, dtype=np.uint8)
     write_ply('dense_ball.ply',
               [ball_points, ball_colors],
               ['x', 'y', 'z'] + ['red', 'green', 'blue'])
+    print('Ball saving done in {:.1f}s\n'.format(time.time() - t1))
 
     # with open('dense_ball.ply', "w") as file:
     #     stri = 'ply\nformat ascii 1.0\nelement vertex ' + str(ball_points.shape[0]) + '\nproperty float32 x\nproperty float32 y\nproperty float32 z\nend_header\n'
@@ -85,6 +94,7 @@ if __name__ == '__main__':
     #     for point in ball_points:
     #         file.write('{:2.6f} {:2.6f} {:2.6f}\n'.format(point[0], point[1], point[2]))
 
+    t1 = time.time()
     rigid_balls_points = []
     rigid_ball_colors = []
     for point in cube_points:
@@ -101,6 +111,7 @@ if __name__ == '__main__':
 
     rigid_balls_points = np.array(rigid_balls_points)
     rigid_ball_colors = np.array(rigid_ball_colors, dtype=np.uint8)
+    print('Rigid ball calculation done in {:.1f}s\n'.format(time.time() - t1))
 
     # with open('rigid_balls.ply', "w") as file:
     #     stri = 'ply\nformat ascii 1.0\nelement vertex ' + str(rigid_balls_points.shape[0]) + '\nproperty float32 x\nproperty float32 y\nproperty float32 z\nend_header\n'
@@ -108,6 +119,8 @@ if __name__ == '__main__':
     #     for point in rigid_balls_points:
     #         file.write('{:2.6f} {:2.6f} {:2.6f}\n'.format(point[0], point[1], point[2]))
 
+    t1 = time.time()
     write_ply('rigid_balls.ply',
               [rigid_balls_points, rigid_ball_colors],
               ['x', 'y', 'z'] + ['red', 'green', 'blue'])
+    print('Rigid ball saving done in {:.1f}s\n'.format(time.time() - t1))
