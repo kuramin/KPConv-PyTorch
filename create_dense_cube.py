@@ -29,8 +29,8 @@ if __name__ == '__main__':
     #print(kernel_points)
     ball_center = kernel_points[0]
 
-    diap_end = 2 * radius
-    diap_step = 0.01  # 0.01
+    diap_end = 2 * (radius + kp_extent)
+    diap_step = 0.02  # 0.01
     cube_points = []
     for x in np.arange(0, diap_end + diap_step, diap_step):
         for y in np.arange(0, diap_end + diap_step, diap_step):
@@ -87,7 +87,7 @@ if __name__ == '__main__':
 
     rigid_balls_points = []
     rigid_ball_colors = []
-    for point in ball_points:
+    for point in cube_points:
         for ind_kp, kernel_point in enumerate(kernel_points):
             hue = ind_kp / len(kernel_points)
             if (point[0]-kernel_point[0])**2 + (point[1]-kernel_point[1])**2 + (point[2]-kernel_point[2])**2 < kp_extent**2:
